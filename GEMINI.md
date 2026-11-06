@@ -23,11 +23,13 @@ Language (ADR-025): English files are canonical once P0-WP0 is accepted. **Do no
 - Work on branch `wp/<WP-ID>` (for example `wp/P0-WP1`). Commit with messages `"<WP-ID>: <summary>"`. Push the branch. **Never merge into `main`**: the owner merges after review.
 - Run the shared checks that apply (plan §5). The minimum on every WP:
   ```bash
-  python tools/validate_package.py
-  python ppm-v2/tools/run_negative_cases.py
+  uv run python tools/validate_package.py
+  uv run python ppm-v2/tools/run_negative_cases.py
+  uv run python tools/check_translation.py
   sha256sum -c SHA256SUMS.txt        # regenerate it if you changed files (exclude LICENSE, .gitignore, itself)
+  uv run pytest -q
+  npm --prefix web/hud run build
   ```
-  After P0-WP1, also `uv run pytest -q` and `npm --prefix web/hud run build`.
 - **Never report a planned check as passed.** Record exact commands and real output; use `not_run` with a reason.
 - Preserve unrelated changes. Do not rewrite history on shared branches.
 
