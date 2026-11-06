@@ -544,7 +544,7 @@ def main():
         if report_path.exists():
             old_lines = report_path.read_text(encoding='utf-8').splitlines()
             new_lines = report.splitlines()
-            if len(old_lines) >= 4 and len(new_lines) >= 4 and old_lines[3:] == new_lines[3:]:
+            if len(old_lines) >= 6 and len(new_lines) >= 6 and old_lines[5:] == new_lines[5:]:
                 pass
             else:
                 report_path.write_text(report, encoding='utf-8')

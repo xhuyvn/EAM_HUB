@@ -19,7 +19,7 @@
 ## 2. Source Commit and Environment
 - **Base Commit**: `3cce1cb6b9de754be1c14407e75b3e4ba4c84400` (on `main`)
 - **Branch**: `wp/P0-WP1`
-- **Commit**: `a4551d3`
+- **Commit**: `f1a9557`
 - **Environment**:
   - Python: 3.12.13 (via `uv 0.11.21`)
   - Node.js: 26.7.0 LTS / npm 11.18.0
