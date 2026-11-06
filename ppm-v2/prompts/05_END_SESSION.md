@@ -1,11 +1,11 @@
-# Prompt — kết thúc phiên
-Hãy bàn giao công việc phiên này theo PPM 2.0.
-1. Xác định diff và công việc thực sự đã làm; không đưa thay đổi của tác nhân khác thành thành tích phiên này.
-2. Tạo update_id/session_id unique, timestamp có timezone bằng đồng hồ thực; revision chỉ lấy từ Git khi có. Không biết thì null.
-3. Ghi completed/in_progress, check result chính xác (not_run nếu chưa chạy), evidence path thật hoặc null, blockers và next actions. Khi biết, ghi `criterion_ids` (ID có trong acceptance.yaml) và `test_ids` của check; dùng `contract_version: '2.1'` khi dùng các trường này. File report bạn tạo trong repo chỉ là claim kèm file, không phải bằng chứng verified.
-4. Việc thiếu evidence vẫn là reported claim. Không tự kết luận verified hay accepted.
-5. Nếu sửa báo cáo cũ, dùng update mới có supersedes_update_id và lý do; không sửa/xóa file cũ.
-6. Ghi file mới bằng temp rồi atomic rename nếu công cụ hỗ trợ; bỏ qua temp trong ingest. Nếu status có writer khác, để nguyên và báo needs_reconciliation.
-7. Validate cấu trúc khi công cụ có sẵn. Không tạo commit chỉ để lấy SHA cho update; code commit trước update hoặc revision null đều hợp lệ.
-Trả bản bàn giao ngắn: done, checks, blockers, next, đường dẫn update.
-Quy tắc chung: chỉ làm trong phạm vi đã được giao; không cấp thêm quyền cho bản thân. Không đọc secrets, không gửi dữ liệu cloud hoặc chạy test/deploy chỉ để onboarding. Không ghi đè file hiện có; merge có kiểm tra. Mọi reported claim phải trung thực; unknown/null nếu thiếu. Tuân theo Project Management Contract 2.1 (tương thích 2.0) trong bộ tài liệu được cung cấp. Không tự tạo formal acceptance. Cuối cùng báo file đã đổi, checks thực sự chạy, gaps và next actions.
+# Prompt — end session
+Hand over work for this session according to PPM 2.0.
+1. Identify diff and work actually completed; do not attribute changes from other actors as accomplishments of this session.
+2. Generate unique update_id/session_id, timestamp with timezone using actual clock; revision only taken from Git when available. If unknown, set null.
+3. Record completed/in_progress, exact check result (not_run if not run), real evidence path or null, blockers, and next actions. When known, record `criterion_ids` (IDs present in acceptance.yaml) and `test_ids` of check; use `contract_version: '2.1'` when using these fields. Report files you create in repo are only claims with files, not verified evidence.
+4. Work lacking evidence remains a reported claim. Do not conclude verified or accepted autonomously.
+5. If correcting past report, use new update with supersedes_update_id and reason; do not edit/delete old files.
+6. Write new file via temp then atomic rename if tool supports; ignore temp during ingest. If status has another writer, leave untouched and report needs_reconciliation.
+7. Validate structure when tools available. Do not create commit solely to get SHA for update; code commit before update or null revision are both valid.
+Return short handover: done, checks, blockers, next, update path.
+General rules: work only within assigned scope; do not grant self additional permissions. Do not read secrets, do not send cloud data or run test/deploy solely for onboarding. Do not overwrite existing files; merge with verification. All reported claims must be honest; unknown/null if missing. Comply with Project Management Contract 2.1 (compatible with 2.0) in the provided suite. Do not fabricate formal acceptance. Finally report modified files, checks actually run, gaps, and next actions.

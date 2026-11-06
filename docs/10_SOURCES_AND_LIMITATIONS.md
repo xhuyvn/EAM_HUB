@@ -1,17 +1,17 @@
-# Nguồn, quyết định và giới hạn kiểm chứng
-Ngày kiểm tra web 05/11/2026. Nguồn công khai được dùng cho capability/nguyên lý; SDK và auth cụ thể cần compatibility spike khi implementation.
+# Sources, decisions and verification limits
+Web verification date 05/11/2026. Public sources establish capabilities and principles; specific SDK and auth details require compatibility spikes during implementation.
 
-| ID | Nguồn chính thức | Áp dụng |
+| ID | Authoritative source | Application |
 |---|---|---|
-| S1 | https://openai.com/index/harness-engineering/ | Repo knowledge, environment và feedback loops |
-| S2 | https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents | Incremental sessions, initializer và progress artifacts |
-| S3 | https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents | Eval tasks/trials/graders và lifecycle |
-| S4 | https://platform.claude.com/docs/en/managed-agents/session-observability | Session events, usage và observability |
+| S1 | https://openai.com/index/harness-engineering/ | Repo knowledge, environments and feedback loops |
+| S2 | https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents | Incremental sessions, initializers and progress artifacts |
+| S3 | https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents | Eval tasks/trials/graders and lifecycle |
+| S4 | https://platform.claude.com/docs/en/managed-agents/session-observability | Session events, usage and observability |
 | S5 | https://platform.claude.com/docs/en/managed-agents/permission-policies | Custom-tool enforcement boundary |
-| S6 | https://docs.langchain.com/oss/python/langgraph/persistence | Checkpointer và long-term stores |
+| S6 | https://docs.langchain.com/oss/python/langgraph/persistence | Checkpointers and long-term stores |
 | S7 | https://www.iso.org/standard/42001 | Organization AI management system |
 | S8 | https://airc.nist.gov/airmf-resources/airmf/5-sec-core/ | Govern/Map/Measure/Manage |
 
-Các tài liệu nguồn riêng của người dùng được đọc từ ba ZIP trong SOURCE_MANIFEST.json. Blueprint PPM v2 hiện hành được đưa kèm với integration notice. Secretary/Enterprise Harness sources được tổng hợp theo bảng reconciliation, không dùng roadmap cũ làm phase delivery mới.
+Proprietary user source materials were loaded from three ZIP archives in SOURCE_MANIFEST.json. The current PPM v2 blueprint is bundled with an integration notice. Secretary and Enterprise Harness sources were synthesized per the reconciliation table, avoiding legacy roadmaps for phase delivery.
 
-Package validation chỉ kiểm tra tài liệu, examples/schema, một số invariant và ZIP checksum. Chưa đo chất lượng model, độ trễ HUD, compatibility live SDK, bảo mật runtime hoặc khả năng phục hồi triển khai. Các target được ghi là đề xuất. Các quyết định scope do bản thiết kế chốt gồm modular monolith, LangGraph/PostgreSQL, PPM-first pilot, read-only/managed certification và optimization phase 2.
+Package validation checks documentation, examples/schemas, selected invariants and ZIP checksums. Model quality, HUD latency, live SDK compatibility, runtime security and deployment resilience remain unmeasured. Targets represent proposals. Scope decisions finalized by the design comprise modular monolith, LangGraph/PostgreSQL, PPM-first pilot, read-only/managed certification and Phase 2 optimization.

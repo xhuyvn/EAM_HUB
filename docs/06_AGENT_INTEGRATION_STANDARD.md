@@ -1,36 +1,36 @@
 # Enterprise Agent Integration Contract 1.0
-## Các mức tích hợp
-| Level | Năng lực | Điều kiện |
+## Integration levels
+| Level | Capabilities | Prerequisites |
 |---|---|---|
-| L0 Observe | Inventory, status/events/results có thể đọc | Data permissions + identity mapping |
-| L1 Managed | Submit/status/results, cancel theo capability | Idempotency/recovery certification |
-| L2 Governed actions | Tool writes qua gateway, exact approvals | Enforcement path và sandbox/network boundary được test |
+| L0 Observe | Inventory, status/events/results readable | Data permissions + identity mapping |
+| L1 Managed | Submit/status/results, cancel per capability | Idempotency/recovery certification |
+| L2 Governed actions | Tool writes via gateway, exact approvals | Enforcement path and sandbox/network boundary tested |
 | L3 Optimizable | Versioned harness + eval candidate pipeline | Phase 2 release controls |
 
-Adapter chỉ quảng bá capability đã có evidence. Existing agent có tool access trực tiếp riêng phải khai báo execution_boundary=external_trusted hoặc sandboxed; platform chỉ bảo đảm các hành động thực sự đi qua gateway. Agent có secret rộng phải được thu hẹp quyền hoặc giới hạn L0 trước managed-write onboarding.
+Adapters advertise capabilities supported strictly by evidence. Existing agents possessing direct tool access must declare execution_boundary=external_trusted or sandboxed; the platform guarantees only actions physically routing through the gateway. Agents possessing broad credentials must undergo permission narrowing or L0 confinement prior to managed-write onboarding.
 
 ## Package
-agent.json chứa identity, owner refs, task types, schema refs, runtime kind, desired capabilities, desired tools, eval profile và harness version. Prompt và task schema nằm cùng package có digest. trusted binding lưu endpoint_ref, secret_ref, host/root scope, approved capability set, timeout/cost profile và grant IDs ngoài repo.
+agent.json specifies identity, owner refs, task types, schema refs, runtime kind, desired capabilities, desired tools, eval profile and harness version. Prompts and task schemas reside in the same package with digests. Trusted bindings store endpoint_ref, secret_ref, host/root scope, approved capability set, timeout/cost profile and grant IDs outside the repo.
 
-Owner_ref trong package là metadata đề xuất. Registry đối chiếu owner với IdP và approver trước active release. Version immutable, artifact hash kiểm tra trước dispatch. Disable/uninstall có dependency report, revoke credentials/grants và reconcile active runs trước retire.
+Owner_ref in packages represents proposed metadata. Registry verifies owner against IdP and approver prior to active release. Versions are immutable; artifact hashes are verified before dispatch. Disable/uninstall executes dependency reporting, credential/grant revocation and reconciliation of active runs prior to retirement.
 
 ## Adapter interface
-capabilities(binding) trả verified flags và evidence reference.
-submit(task, execution_context, idempotency_key) trả execution_ref hoặc ambiguous outcome. idempotency_key là operation key ổn định của run (docs/02), không phải key mới mỗi lần thử.
-lookup(idempotency_key) trả found(execution_ref)/not_found/unsupported; `not_found` chỉ có giá trị khi provider cam kết lookup authoritative. Adapter không có lookup thì không được tự retry submit.
-status(execution_ref) trả normalized state + provider raw code + observed_at.
-events(execution_ref, cursor) trả events nếu supported, polling adapter có snapshot reconciliation.
-collect_result(execution_ref) trả typed result + artifact refs.
-cancel/resume/approve_tool chỉ expose khi capability=true và current run state cho phép.
+capabilities(binding) returns verified flags and evidence reference.
+submit(task, execution_context, idempotency_key) returns execution_ref or ambiguous outcome. idempotency_key represents the stable operation key of the run (docs/02), not a fresh key per attempt.
+lookup(idempotency_key) returns found(execution_ref)/not_found/unsupported; `not_found` holds weight only when the provider commits to authoritative lookup. Adapters lacking lookup must not independently retry submits.
+status(execution_ref) returns normalized state + provider raw code + observed_at.
+events(execution_ref, cursor) returns events if supported; polling adapters execute snapshot reconciliation.
+collect_result(execution_ref) returns typed result + artifact refs.
+cancel/resume/approve_tool exposed strictly when capability=true and current run state permits.
 
-Unsupported capability trả typed error `CAPABILITY_UNSUPPORTED`. CLI exit 0 chỉ là transport/process success, result schema và domain verifier quyết định mức hoàn thành. stdout/stderr không chứa credentials; stderr redacted thành restricted diagnostic artifact.
+Unsupported capabilities return typed error `CAPABILITY_UNSUPPORTED`. CLI exit 0 represents transport/process success only; result schemas and domain verifiers dictate completion levels. stdout/stderr omit credentials; stderr is redacted into restricted diagnostic artifacts.
 
 ## Adapter types
-Native Python domain có typed function/tool boundary. HTTP service dùng service identity, endpoint allowlist, timeouts, webhook signature + replay protection. CLI process dùng executable path đã pin, argv, explicit cwd, env allowlist và process tree ownership. Vendor SDK dùng supported public API và version pin. Session mở sẵn cần explicit registration/handover và exclusive controller. GUI automation cần user-session bridge, focus/input arbitration và capability review riêng.
+Native Python domains utilize typed function/tool boundaries. HTTP services utilize service identity, endpoint allowlists, timeouts, webhook signatures + replay protection. CLI processes utilize pinned executable paths, argv, explicit cwd, env allowlists and process tree ownership. Vendor SDKs utilize supported public APIs and pinned versions. Open sessions require explicit registration/handover and exclusive controllers. GUI automation requires user-session bridging, focus/input arbitration and dedicated capability reviews.
 
-Codex/Claude/OpenCode/Antigravity names trong manifest là adapter target. P0 phải xác minh version/auth/OS/tool approval/cancel/resume thật bằng fixture. Package không mặc định vendor nào có full attach/resume hoặc cost accounting.
+Codex/Claude/OpenCode/Antigravity names in manifests represent adapter targets. P0 must verify version/auth/OS/tool approval/cancel/resume with fixtures. The package does not assume any vendor possesses full attach/resume or cost accounting.
 
-Vendor runtime tự thực thi tool phía server cần phân loại riêng. Ví dụ đã kiểm chứng (Claude Platform docs, Managed Agents permission policies, truy cập 06/11/2026): permission policies điều khiển tool chạy phía server (agent toolset, MCP toolset); custom tools do ứng dụng thực thi và không chịu permission policies. Hệ quả: custom tools có thể đi qua Action Service (đạt L2); built-in toolset (bash/file/web) chạy trong sandbox của vendor nằm ngoài platform enforcement và là đường egress cloud. Binding chỉ được `governed` khi built-in toolset bị tắt hoặc mọi tool server-side đặt `always_ask` và confirmation được bridge sang platform approval có digest; nếu không, `execution_boundary=external_trusted` và tối đa L1. Adapter certification phải có test chứng minh cấu hình này (C25).
+Vendor runtimes executing tools server-side require explicit classification. Verified example (Claude Platform docs, Managed Agents permission policies, accessed 06/11/2026): permission policies govern server-side tools (agent toolset, MCP toolset); custom tools execute in the application and bypass vendor permission policies. Consequence: custom tools can route through Action Service (achieving L2); built-in toolsets (bash/file/web) execute in vendor sandboxes outside platform enforcement and represent cloud egress paths. Bindings qualify as `governed` strictly when built-in toolsets are disabled or all server-side tools are set to `always_ask` with confirmations bridged to platform approvals with digests; otherwise, `execution_boundary=external_trusted` and capped at L1. Adapter certification requires tests proving this configuration (C25).
 
 ## Conformance
-Schema + IDs + output refs; unauthorized submit/action; scope narrowing delegation; duplicate submission; crash before/after external acceptance; out-of-order stream; cancellation late acknowledgement; missing heartbeat; schema drift; redaction; cost unknown; provider failover egress policy; task result vs acceptance separation. `evals/CONFORMANCE_CASES.md` có expected outcomes.
+Schema + IDs + output refs; unauthorized submit/action; scope narrowing delegation; duplicate submission; crash before/after external acceptance; out-of-order stream; cancellation late acknowledgement; missing heartbeat; schema drift; redaction; cost unknown; provider failover egress policy; task result vs acceptance separation. `evals/CONFORMANCE_CASES.md` details expected outcomes.

@@ -1,15 +1,15 @@
-# Đoạn hướng dẫn đưa vào AGENTS.md hoặc CLAUDE.md
-Đây là nội dung để owner/coding agent được ủy quyền merge vào hướng dẫn hiện có. Không phải file Skill và không yêu cầu cài plugin.
+# Instructions snippet for AGENTS.md or CLAUDE.md
+This is content for owner/authorized coding agent to merge into existing guidance. Not a Skill file and requires no plugin installation.
 
 ## Project management reporting — PPM 2.0
-- Đọc .ppm/project.yaml, status.yaml, acceptance.yaml và các update liên quan trước khi thực hiện work package.
-- Dùng mục tiêu/tiêu chí để giữ scope; thiếu hoặc mâu thuẫn thì nêu gap, không tự đổi baseline.
-- Sau mỗi phiên có công việc đáng kể, tạo .ppm/updates/<UUID>.yaml theo schema. Không sửa update cũ; correction qua supersedes_update_id.
-- Ghi completed/in_progress, checks đã chạy/chưa chạy, blockers và next_actions. Không bịa kết quả, SHA, thời gian hoặc evidence. Gắn `criterion_ids`/`test_ids` khi biết (contract 2.1). Report do agent ghi vào repo chỉ là claim; PPM xác minh bằng verifier hoặc CI tin cậy.
-- Mỗi agent ghi file riêng; chỉ designated writer cập nhật status.yaml khi không có conflict.
-- Không tự đánh dấu accepted/deployed/benefit realized từ checklist hoặc test pass.
-- Giữ metadata portable, không secrets/absolute host paths. Quyền và cloud policy do registry trung tâm quyết định.
-- Không commit/push/deploy hoặc sửa scope chỉ để cập nhật PPM nếu không nằm trong nhiệm vụ.
-- Báo rõ nếu phiên kết thúc đột ngột hoặc không thể ghi update; phiên sau ghi recovery update với thông tin quan sát được.
+- Read .ppm/project.yaml, status.yaml, acceptance.yaml and relevant updates before executing a work package.
+- Use goals/criteria to preserve scope; if missing or contradictory state gap, do not modify baseline unilaterally.
+- After each session with significant work, create .ppm/updates/<UUID>.yaml per schema. Do not modify old updates; correction via supersedes_update_id.
+- Record completed/in_progress, checks run/not run, blockers, and next_actions. Do not fabricate results, SHA, timestamp, or evidence. Attach `criterion_ids`/`test_ids` when known (contract 2.1). Reports written to repo by agents are claims only; PPM verifies using verifier or trusted CI.
+- Each agent writes its own file; only designated writer updates status.yaml when there is no conflict.
+- Do not mark accepted/deployed/benefit realized from checklists or test passes autonomously.
+- Keep metadata portable, no secrets/absolute host paths. Permissions and cloud policy are determined by central registry.
+- Do not commit/push/deploy or modify scope solely to update PPM if not part of task.
+- Report clearly if session terminates abruptly or cannot write update; subsequent session writes recovery update with observed information.
 
-Quy tắc chung: chỉ làm trong phạm vi đã được giao; không cấp thêm quyền cho bản thân. Không đọc secrets, không gửi dữ liệu cloud hoặc chạy test/deploy chỉ để onboarding. Không ghi đè file hiện có; merge có kiểm tra. Mọi reported claim phải trung thực; unknown/null nếu thiếu. Tuân theo Project Management Contract 2.1 (tương thích 2.0) trong bộ tài liệu được cung cấp. Không tự tạo formal acceptance. Cuối cùng báo file đã đổi, checks thực sự chạy, gaps và next actions.
+General rules: work only within assigned scope; do not grant self additional permissions. Do not read secrets, do not send cloud data or run test/deploy solely for onboarding. Do not overwrite existing files; merge with verification. All reported claims must be honest; unknown/null if missing. Comply with Project Management Contract 2.1 (compatible with 2.0) in the provided suite. Do not fabricate formal acceptance. Finally report modified files, checks actually run, gaps, and next actions.
