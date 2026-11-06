@@ -1,0 +1,3 @@
+# 05 INTEGRATE PPM V2
+
+Integrate PPM v2 as a managed domain following docs/04 and ppm-v2/standards. Retain project IDs and portable contract 2.0. Import host location configuration through trusted platform administration. Implement snapshot intake, update dedup/conflict, criteria assessment, program impact and portfolio constraints through domain services. Emit platform run events and separate PPM assessment events. Test at least five representative project types and never infer accepted status from run success. Keep scans read-only, and request separate verification jobs for executable checks.

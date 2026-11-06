@@ -1,0 +1,3 @@
+# 02 ONBOARD NEW AGENT
+
+Create an integration package for AGENT_NAME=<name>, DOMAIN=<domain>, TASK_TYPES=<types>. Read guides/NEW_AGENT and docs/06. Adapt templates/new-agent and the task IO contracts. Determine scope, owners, tools and completion policy from supplied requirements, mark missing facts. Implement the appropriate adapter entrypoint, emit typed events and return result refs. Keep desired capabilities in the manifest and effective grants in admin binding. Add domain eval fixtures and execute available conformance tests. Deliver the package, capability evidence, deployment proposal and operator runbook. Activation follows authenticated release review.

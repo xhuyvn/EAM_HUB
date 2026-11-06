@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "agent",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1
+    },
+    "business_owner_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "technical_owner_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime_kind": {
+      "enum": [
+        "native",
+        "http",
+        "cli",
+        "vendor_sdk"
+      ]
+    },
+    "task_types": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "input_schema_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "output_schema_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "desired_capabilities": {
+      "type": "object",
+      "properties": {
+        "submit": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "boolean"
+        },
+        "events": {
+          "type": "boolean"
+        },
+        "collect_result": {
+          "type": "boolean"
+        },
+        "cancel": {
+          "type": "boolean"
+        },
+        "resume": {
+          "type": "boolean"
+        },
+        "approve_tool": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "submit",
+        "status",
+        "events",
+        "collect_result",
+        "cancel",
+        "resume",
+        "approve_tool"
+      ],
+      "additionalProperties": false
+    },
+    "desired_tools": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "harness_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "eval_profile_ref": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "contract_version",
+    "agent_id",
+    "name",
+    "version",
+    "domain",
+    "business_owner_ref",
+    "technical_owner_ref",
+    "runtime_kind",
+    "task_types",
+    "input_schema_ref",
+    "output_schema_ref",
+    "desired_capabilities",
+    "desired_tools",
+    "harness_version",
+    "eval_profile_ref"
+  ],
+  "additionalProperties": false
+}

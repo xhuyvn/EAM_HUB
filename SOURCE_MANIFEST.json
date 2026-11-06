@@ -1,0 +1,26 @@
+{
+  "as_of": "2026-11-05",
+  "sources": [
+    {
+      "filename": "AI_PPM_Agent_Blueprint_v2.0.zip",
+      "sha256": "a7bebbd9274bc314dfc7e433a8ebd944a3a97f4d4f4fb8b49b3f3332ac81e173",
+      "usage": "reviewed and consolidated; PPM domain materials adapted with platform integration notice"
+    },
+    {
+      "filename": "ai-secretary-blueprint-v1.0.zip",
+      "sha256": "9601e310bf5bb62f0fab7c678bfd4c394d3fdd4ec2d599930c97eb8cbe1cff60",
+      "usage": "reviewed and synthesized into platform architecture, domains and reconciliation"
+    },
+    {
+      "filename": "enterprise-ai-agent-harness-blueprint-v1.0.zip",
+      "sha256": "cf9c5b1e0996ef386b06e3f20da9f1f9f25fe8f09c889d1156487c0cb8483c7c",
+      "usage": "reviewed and synthesized into platform architecture, domains and reconciliation"
+    }
+  ],
+  "versioning": {
+    "platform_blueprint": "1.0",
+    "platform_contracts": "1.0",
+    "ppm_contract": "2.0",
+    "harness_baseline": "1.0 proposal"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "contract_version": "1.0",
+  "agent_id": "agent-ppm",
+  "name": "PPM Analyst",
+  "version": "1.0.0",
+  "domain": "ppm",
+  "business_owner_ref": "owner-ppm-example",
+  "technical_owner_ref": "owner-platform-example",
+  "runtime_kind": "native",
+  "task_types": [
+    "ppm.project.assess"
+  ],
+  "input_schema_ref": "contracts/ppm-input.schema.json",
+  "output_schema_ref": "contracts/ppm-output.schema.json",
+  "desired_capabilities": {
+    "submit": true,
+    "status": true,
+    "events": true,
+    "collect_result": true,
+    "cancel": true,
+    "resume": false,
+    "approve_tool": false
+  },
+  "desired_tools": [
+    "ppm.read_snapshot",
+    "evidence.read",
+    "ppm.propose_assessment"
+  ],
+  "harness_version": "baseline-1.0",
+  "eval_profile_ref": "ppm-critical-v1"
+}

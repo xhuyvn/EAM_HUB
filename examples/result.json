@@ -1,0 +1,24 @@
+{
+  "contract_version": "1.0",
+  "task_id": "task-001",
+  "run_id": "run-001",
+  "execution_ref": "exec-example-001",
+  "outcome": "succeeded",
+  "summary": "Assessment prepared with missing integration evidence",
+  "output_refs": [
+    "artifact:ppm-output-example"
+  ],
+  "evidence_refs": [
+    "ev-example"
+  ],
+  "missing_evidence": [
+    "Integration test for AC-002"
+  ],
+  "verification_required": true,
+  "usage": {
+    "cost_status": "unknown",
+    "cost_usd": null,
+    "provider_usage_ref": null,
+    "as_of": "2026-11-05T09:10:00Z"
+  }
+}

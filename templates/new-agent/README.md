@@ -1,0 +1,2 @@
+# New agent package
+Copy agent.json, replace example metadata and implement task IO. Contract schemas in package root are referenced from integration-kit root for examples; production agent bundles resolve refs under an allowlisted schema registry. Desired permissions become effective only through reviewed deployment binding. Provide prompt, adapter capability report, eval cases, immutable bundle digest and operator owner.

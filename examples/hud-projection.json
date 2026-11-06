@@ -1,0 +1,17 @@
+{
+  "projection_revision": 3,
+  "snapshot_cursor": "opaque-example-cursor",
+  "as_of": "2026-11-05T09:10:00Z",
+  "rows": [
+    {
+      "task_id": "task-001",
+      "run_id": "run-001",
+      "run_state": "succeeded",
+      "connectivity": "healthy",
+      "project_verification": "partially_verified",
+      "project_acceptance": "pending",
+      "cost_status": "unknown",
+      "cost_usd": null
+    }
+  ]
+}

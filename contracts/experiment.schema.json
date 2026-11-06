@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "experiment",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "experiment_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_release_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidate_release_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "dataset_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "holdout_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evaluator_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_profile_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trials_per_case": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "budget_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1
+    },
+    "promotion_policy_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewer_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state": {
+      "enum": [
+        "proposed",
+        "evaluating",
+        "review_required",
+        "approved",
+        "canary",
+        "promoted",
+        "reverted",
+        "rejected"
+      ]
+    }
+  },
+  "required": [
+    "contract_version",
+    "experiment_id",
+    "base_release_digest",
+    "candidate_release_digest",
+    "dataset_ref",
+    "holdout_ref",
+    "evaluator_version",
+    "model_profile_ref",
+    "trials_per_case",
+    "budget_ref",
+    "objective",
+    "promotion_policy_ref",
+    "reviewer_ref",
+    "state"
+  ],
+  "additionalProperties": false
+}

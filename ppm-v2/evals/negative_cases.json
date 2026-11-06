@@ -1,0 +1,50 @@
+[
+  {
+    "name": "absolute artifact path",
+    "kind": "project",
+    "mutation": {
+      "artifact_mapping.architecture": "C:/secrets/x"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "parent traversal",
+    "kind": "project",
+    "mutation": {
+      "artifact_mapping.blueprint": "../secret"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "unknown contract",
+    "kind": "project",
+    "mutation": {
+      "contract_version": "3.0"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "repo grants cloud",
+    "kind": "project",
+    "mutation": {
+      "cloud_processing": "enabled"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "invalid progress",
+    "kind": "status",
+    "mutation": {
+      "reported_progress_percent": 101
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "timezone absent",
+    "kind": "update",
+    "mutation": {
+      "recorded_at": "2026-11-01T16:00:00"
+    },
+    "expected_valid": false
+  }
+]

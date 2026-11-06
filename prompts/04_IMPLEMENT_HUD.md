@@ -1,0 +1,3 @@
+# 04 IMPLEMENT HUD
+
+Implement the Agent Operations HUD following docs/03 and visuals/HUD_MOCKUP. Use the snapshot+cursor protocol, typed SSE deltas and command acknowledgement semantics. Separate run state, connectivity and domain acceptance. Display unknown cost/denominator honestly. Attention queue and inspector must enforce scoped artifact access. Test reconnection, expired cursor resync, access revocation, duplicate events, unsupported actions and keyboard navigation. Start with examples fixtures, label all demo data, then connect the real API. Deliver UI evidence, tested load profile and remaining gaps.

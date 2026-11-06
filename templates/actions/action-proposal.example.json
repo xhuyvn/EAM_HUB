@@ -1,0 +1,14 @@
+{
+  "contract_version": "1.0",
+  "proposal_id": "approval-001",
+  "task_id": "task-002",
+  "run_id": "run-002",
+  "tool_id": "engineering.create_pr",
+  "arguments_ref": "artifact:pr-payload-example",
+  "action_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "resource_ref": "repo:example",
+  "expected_resource_revision": "sha-example",
+  "policy_version": "policy-1.0",
+  "expires_at": "2026-11-05T10:00:00Z",
+  "required_role": "project_reviewer"
+}

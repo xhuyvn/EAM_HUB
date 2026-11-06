@@ -1,0 +1,29 @@
+{
+  "contract_version": "1.0",
+  "binding_id": "binding-research-observe",
+  "agent_id": "agent-existing-research",
+  "release_version": "1.0.0",
+  "release_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "mode": "observe",
+  "endpoint_ref": "service:EXAMPLE-approved-research",
+  "secret_ref": "secret:EXAMPLE-research-token",
+  "resource_scope_refs": [
+    "project:proj-example"
+  ],
+  "certified_capabilities": {
+    "submit": false,
+    "status": true,
+    "events": false,
+    "collect_result": true,
+    "cancel": false,
+    "resume": false,
+    "approve_tool": false
+  },
+  "capability_evidence_ref": "artifact:EXAMPLE-capability-report",
+  "model_profile_ref": "local-scoped-default",
+  "grant_refs": [
+    "grant:EXAMPLE-read-project"
+  ],
+  "execution_boundary": "external_trusted",
+  "policy_version": "policy-1.0"
+}

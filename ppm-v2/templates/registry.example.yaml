@@ -1,0 +1,49 @@
+{
+  "contract_version": "2.0",
+  "kind": "registry",
+  "namespace": "personal",
+  "projects": [
+    {
+      "project_id": "proj-example",
+      "metadata_location_id": "loc-main",
+      "locations": [
+        {
+          "location_id": "loc-main",
+          "path": "D:/projects/example",
+          "metadata_root": ".",
+          "scan_scope": [
+            "."
+          ],
+          "read_only": true
+        }
+      ],
+      "scan_policy": {
+        "on_start": true,
+        "watch": true,
+        "debounce_seconds": 5,
+        "interval_seconds": 900,
+        "full_reconciliation_seconds": 86400,
+        "max_file_bytes": 2097152,
+        "exclude_directories": [
+          ".git",
+          "node_modules",
+          ".venv",
+          "dist",
+          "build",
+          ".ppm/runtime"
+        ],
+        "deny_file_names": [
+          ".env",
+          ".env.*",
+          "*.pem",
+          "*.key"
+        ]
+      },
+      "access_policy": {
+        "cloud_processing": "disabled",
+        "execute_commands": false,
+        "write_repository": false
+      }
+    }
+  ]
+}

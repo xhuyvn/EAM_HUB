@@ -1,0 +1,13 @@
+{
+  "contract_version": "1.0",
+  "agent_id": "agent-ppm",
+  "task_type": "ppm.project.assess",
+  "objective": "Assess current delivery evidence",
+  "input_refs": [
+    "artifact:ppm-input-example"
+  ],
+  "resource_refs": [
+    "project:proj-example"
+  ],
+  "idempotency_key": "request-example-0001"
+}

@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1040" viewBox="0 0 1600 1040"><title>Enterprise Agent Platform HUD — illustrative design</title><rect width="100%" height="100%" fill="#080e18"/>
+<rect x="0" y="0" width="1600" height="84" rx="0" fill="#101a2b"/>
+<text x="28" y="49" font-family="DejaVu Sans, sans-serif" font-size="27" font-weight="700" fill="#73ead2">EAP</text>
+<text x="105" y="50" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700" fill="#dce6f3">Agent Operations</text>
+<rect x="1138" y="27" width="177" height="29" rx="7" fill="#132b32"/>
+<text x="1148" y="45" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#f0c785">ILLUSTRATIVE DATA</text>
+<text x="1340" y="48" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="400" fill="#dce6f3">Company / Pilot</text>
+<rect x="16" y="103" width="190" height="915" rx="12" fill="#101a2b"/>
+<rect x="28" y="124" width="166" height="42" rx="10" fill="#1c3a46"/>
+<text x="40" y="148" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="700" fill="#83eed6">Overview</text>
+<text x="40" y="205" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#a8b8cf">Tasks &amp; runs</text>
+<text x="40" y="262" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#a8b8cf">Agents</text>
+<text x="40" y="319" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#a8b8cf">Projects / PPM</text>
+<text x="40" y="376" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#a8b8cf">Approvals</text>
+<text x="40" y="433" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#a8b8cf">Evidence</text>
+<text x="40" y="490" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#a8b8cf">Harness Lab</text>
+<text x="40" y="547" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="400" fill="#a8b8cf">Settings</text>
+<text x="35" y="891" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#7d91ad">CONNECTORS</text>
+<text x="35" y="925" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="400" fill="#dce6f3">Local host</text>
+<rect x="35" y="941" width="140" height="29" rx="7" fill="#132b32"/>
+<text x="45" y="959" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#f0c785">STALE  4m</text>
+<rect x="226" y="104" width="322" height="123" rx="10" fill="#111e30" stroke="#22344d"/>
+<text x="243" y="132" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#9eafc6">RUNNING</text>
+<text x="243" y="176" font-family="DejaVu Sans, sans-serif" font-size="30" font-weight="700" fill="#70d9ff">08</text>
+<text x="243" y="206" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#a3b5cb">Across 3 domains</text>
+<rect x="563" y="104" width="322" height="123" rx="10" fill="#111e30" stroke="#22344d"/>
+<text x="580" y="132" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#9eafc6">NEEDS ATTENTION</text>
+<text x="580" y="176" font-family="DejaVu Sans, sans-serif" font-size="30" font-weight="700" fill="#f0c785">02</text>
+<text x="580" y="206" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#a3b5cb">1 approval · 1 stale</text>
+<rect x="900" y="104" width="322" height="123" rx="10" fill="#111e30" stroke="#22344d"/>
+<text x="917" y="132" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#9eafc6">COMPLETED TODAY</text>
+<text x="917" y="176" font-family="DejaVu Sans, sans-serif" font-size="30" font-weight="700" fill="#73ead2">24</text>
+<text x="917" y="206" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#a3b5cb">Execution results</text>
+<rect x="1237" y="104" width="322" height="123" rx="10" fill="#111e30" stroke="#22344d"/>
+<text x="1254" y="132" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#9eafc6">RECORDED COST</text>
+<text x="1254" y="176" font-family="DejaVu Sans, sans-serif" font-size="30" font-weight="700" fill="#b2a3ff">$4.82</text>
+<text x="1254" y="206" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#a3b5cb">Estimate · 2 runs unknown</text>
+<rect x="226" y="246" width="1333" height="82" rx="10" fill="#2c271e" stroke="#68512b"/>
+<text x="244" y="271" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#f4c779">ACTION REQUIRED</text>
+<text x="244" y="301" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="700" fill="#dce6f3">Engineering requests permission to create a pull request</text>
+<text x="244" y="321" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#c6b7a0">AI Secretary · proposal approval-001 · inspect diff and test evidence</text>
+<rect x="1327" y="268" width="207" height="38" rx="7" fill="#f1c783"/>
+<text x="1349" y="293" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="700" fill="#1c1a18">Review proposal</text>
+<rect x="226" y="348" width="872" height="343" rx="10" fill="#101c2c" stroke="#22344d"/>
+<text x="246" y="389" font-family="DejaVu Sans, sans-serif" font-size="21" font-weight="700" fill="#dce6f3">Task execution</text>
+<text x="782" y="388" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#8fa7c2">All agents   /   Active</text>
+<text x="247" y="424" font-family="DejaVu Sans, sans-serif" font-size="11" font-weight="700" fill="#7e95b2">TASK / AGENT</text>
+<text x="624" y="424" font-family="DejaVu Sans, sans-serif" font-size="11" font-weight="700" fill="#7e95b2">STATE</text>
+<text x="800" y="424" font-family="DejaVu Sans, sans-serif" font-size="11" font-weight="700" fill="#7e95b2">PROGRESS / SIGNAL</text>
+<line x1="244" y1="443" x2="1080" y2="443" stroke="#233348"/>
+<rect x="236" y="454" width="850" height="51" rx="6" fill="#172e3b"/>
+<text x="248" y="476" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="700" fill="#dce6f3">Inventory scan</text>
+<text x="248" y="496" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#8da5c0">PPM · local connector</text>
+<text x="624" y="479" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#70d9ff">RUNNING</text>
+<text x="800" y="474" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#dce6f3">7 / 12 repositories</text>
+<text x="800" y="496" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#829ab4">Observed 4s ago</text>
+<text x="248" y="532" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="700" fill="#dce6f3">Calendar sync fix</text>
+<text x="248" y="552" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#8da5c0">Engineering · Codex adapter</text>
+<text x="624" y="535" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#f0c785">WAITING</text>
+<text x="800" y="530" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#dce6f3">Approval required</text>
+<text x="800" y="552" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#829ab4">Observed 31s ago</text>
+<text x="248" y="588" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="700" fill="#dce6f3">Policy evidence review</text>
+<text x="248" y="608" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#8da5c0">Knowledge · local model</text>
+<text x="624" y="591" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#70d9ff">RUNNING</text>
+<text x="800" y="586" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#dce6f3">Checking citations</text>
+<text x="800" y="608" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#829ab4">Observed 2s ago</text>
+<text x="248" y="644" font-family="DejaVu Sans, sans-serif" font-size="16" font-weight="700" fill="#dce6f3">Market briefing</text>
+<text x="248" y="664" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#8da5c0">Research · remote worker</text>
+<text x="624" y="647" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#f0c785">RUNNING</text>
+<text x="800" y="642" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#dce6f3">Signal stale</text>
+<text x="800" y="664" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#829ab4">Last observed 4m ago</text>
+<rect x="1117" y="348" width="442" height="657" rx="10" fill="#111e30" stroke="#26415b"/>
+<text x="1139" y="391" font-family="DejaVu Sans, sans-serif" font-size="21" font-weight="700" fill="#dce6f3">Run inspector</text>
+<text x="1139" y="423" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="400" fill="#93adc9">Inventory scan / run-001</text>
+<rect x="1139" y="442" width="109" height="29" rx="7" fill="#132b32"/>
+<text x="1149" y="460" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#70d9ff">RUNNING</text>
+<rect x="1260" y="442" width="135" height="29" rx="7" fill="#132b32"/>
+<text x="1270" y="460" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#73ead2">CONNECTED</text>
+<text x="1139" y="505" font-family="DejaVu Sans, sans-serif" font-size="11" font-weight="700" fill="#8199b7">EXECUTION TIMELINE</text>
+<line x1="1152" y1="539" x2="1152" y2="683" stroke="#3a6574"/>
+<rect x="1147" y="534" width="10" height="10" rx="5" fill="#70ddc6"/>
+<text x="1174" y="541" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="400" fill="#dce6f3">Registered locations resolved</text>
+<text x="1174" y="563" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#8da5c0">Scope verified by platform</text>
+<rect x="1147" y="598" width="10" height="10" rx="5" fill="#70ddc6"/>
+<text x="1174" y="605" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="400" fill="#dce6f3">Snapshots collected</text>
+<text x="1174" y="627" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#8da5c0">7 of 12 repositories</text>
+<rect x="1147" y="662" width="10" height="10" rx="5" fill="#70ddc6"/>
+<text x="1174" y="669" font-family="DejaVu Sans, sans-serif" font-size="15" font-weight="400" fill="#dce6f3">Assessments queued</text>
+<text x="1174" y="691" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#8da5c0">Awaiting remaining snapshots</text>
+<line x1="1139" y1="725" x2="1535" y2="725" stroke="#233348"/>
+<text x="1139" y="757" font-family="DejaVu Sans, sans-serif" font-size="11" font-weight="700" fill="#8199b7">PROJECT ASSESSMENT</text>
+<text x="1139" y="790" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#dce6f3">Verified scope</text>
+<text x="1371" y="790" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#70ddc6">6 / 10 criteria</text>
+<text x="1139" y="825" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#dce6f3">Acceptance</text>
+<text x="1371" y="825" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#f0c785">Pending review</text>
+<text x="1139" y="860" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#dce6f3">Missing evidence</text>
+<text x="1139" y="885" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#b4c3d6">Integration test for current revision</text>
+<rect x="1139" y="930" width="179" height="43" rx="7" fill="#1e384d" stroke="#385b79"/>
+<text x="1165" y="955" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#dce6f3">Open evidence</text>
+<rect x="1335" y="930" width="200" height="43" rx="7" fill="#302329" stroke="#72404a"/>
+<text x="1364" y="955" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#f2a6ac">Request cancel</text>
+<rect x="226" y="711" width="872" height="294" rx="10" fill="#101c2c" stroke="#22344d"/>
+<text x="246" y="752" font-family="DejaVu Sans, sans-serif" font-size="21" font-weight="700" fill="#dce6f3">Platform health</text>
+<text x="246" y="796" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#95acc7">Queue</text>
+<text x="246" y="837" font-family="DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#73ead2">3 waiting</text>
+<text x="246" y="866" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#8ca4c0">Oldest task 18s</text>
+<text x="526" y="796" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#95acc7">Local inference</text>
+<text x="526" y="837" font-family="DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#70d9ff">1 / 1 slots</text>
+<text x="526" y="866" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#8ca4c0">2 jobs queued</text>
+<text x="806" y="796" font-family="DejaVu Sans, sans-serif" font-size="14" font-weight="400" fill="#95acc7">Connector</text>
+<text x="806" y="837" font-family="DejaVu Sans, sans-serif" font-size="23" font-weight="700" fill="#f0c785">1 stale</text>
+<text x="806" y="866" font-family="DejaVu Sans, sans-serif" font-size="13" font-weight="400" fill="#8ca4c0">Reconciliation pending</text>
+<line x1="246" y1="895" x2="1077" y2="895" stroke="#233348"/>
+<text x="246" y="928" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="700" fill="#ad9cff">PHASE 2 · HARNESS LAB</text>
+<text x="246" y="962" font-family="DejaVu Sans, sans-serif" font-size="17" font-weight="400" fill="#dce6f3">Baseline → candidate → eval → review → canary</text>
+<text x="246" y="987" font-family="DejaVu Sans, sans-serif" font-size="12" font-weight="400" fill="#8fa7c2">Promotion requires the release gate and scoped reviewer approval.</text>
+</svg>

@@ -1,0 +1,7 @@
+{
+  "project_id": "proj-example",
+  "snapshot_refs": [
+    "snap-example"
+  ],
+  "baseline_revision": 1
+}

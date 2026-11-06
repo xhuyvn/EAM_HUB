@@ -1,0 +1,16 @@
+{
+  "contract_version": "1.0",
+  "experiment_id": "exp-example-001",
+  "base_release_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "candidate_release_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+  "dataset_ref": "dataset:ppm-dev-v1",
+  "holdout_ref": "dataset:restricted-holdout-v1",
+  "evaluator_version": "1.0.0",
+  "model_profile_ref": "local-scoped-default",
+  "trials_per_case": 5,
+  "budget_ref": "experiment-budget-example",
+  "objective": "Reduce context cost at equivalent task quality",
+  "promotion_policy_ref": "harness-quality-gate-v1",
+  "reviewer_ref": "owner-platform-example",
+  "state": "proposed"
+}

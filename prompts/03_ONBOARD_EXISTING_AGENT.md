@@ -1,0 +1,3 @@
+# 03 ONBOARD EXISTING AGENT
+
+Onboard the existing agent at SOURCE_OR_ENDPOINT=<location>. Read guides/EXISTING_AGENT and docs/06. Begin read-only discovery of versions, entrypoints, auth methods, schedulers, storage, direct tool side effects and observed capabilities. Build a wrapper using public interfaces. Start observe-only for missing capabilities. Map legacy IDs and retain result provenance. Produce a tested cutover plan, scheduler ownership mapping and rollback. Execute only authorized fixture tasks. Report coverage and unsupported controls honestly. Create deployment proposals with credential references; actual grants are resolved by platform administration.

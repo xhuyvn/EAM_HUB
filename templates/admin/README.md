@@ -1,0 +1,2 @@
+# Trusted deployment configuration
+These examples are reviewed by the platform administrator. Hashes, grants and artifact IDs are illustrative. Resolve actual release digest, real owner/IdP identity, secret/profile endpoints and capability evidence at admission. Store bindings server-side. Repo agent manifests cannot authorize themselves. Upgrade must preserve or narrow permissions unless separately reviewed.

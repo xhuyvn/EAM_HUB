@@ -1,0 +1,12 @@
+{
+  "project_id": "proj-example",
+  "verification": "partially_verified",
+  "acceptance": "pending",
+  "evidence_refs": [
+    "ev-example"
+  ],
+  "missing_evidence": [
+    "Integration test for AC-002"
+  ],
+  "as_of": "2026-11-05T09:10:00Z"
+}

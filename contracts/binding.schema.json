@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "binding",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0"
+    },
+    "binding_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "release_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "release_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "mode": {
+      "enum": [
+        "observe",
+        "managed",
+        "governed"
+      ]
+    },
+    "endpoint_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "secret_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "resource_scope_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "certified_capabilities": {
+      "type": "object",
+      "properties": {
+        "submit": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "boolean"
+        },
+        "events": {
+          "type": "boolean"
+        },
+        "collect_result": {
+          "type": "boolean"
+        },
+        "cancel": {
+          "type": "boolean"
+        },
+        "resume": {
+          "type": "boolean"
+        },
+        "approve_tool": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "submit",
+        "status",
+        "events",
+        "collect_result",
+        "cancel",
+        "resume",
+        "approve_tool"
+      ],
+      "additionalProperties": false
+    },
+    "capability_evidence_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_profile_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "grant_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "execution_boundary": {
+      "enum": [
+        "platform_gateway",
+        "sandboxed",
+        "external_trusted"
+      ]
+    },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "contract_version",
+    "binding_id",
+    "agent_id",
+    "release_version",
+    "release_sha256",
+    "mode",
+    "endpoint_ref",
+    "secret_ref",
+    "resource_scope_refs",
+    "certified_capabilities",
+    "capability_evidence_ref",
+    "model_profile_ref",
+    "grant_refs",
+    "execution_boundary",
+    "policy_version"
+  ],
+  "additionalProperties": false
+}

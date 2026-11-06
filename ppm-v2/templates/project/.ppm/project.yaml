@@ -1,0 +1,23 @@
+{
+  "contract_version": "2.0",
+  "kind": "project",
+  "project_id": "proj-example",
+  "name": "Example Project",
+  "owner_ref": "owner-to-confirm",
+  "objectives": [
+    {
+      "objective_id": "OBJ-001",
+      "statement": "Replace with project objective",
+      "metric": null
+    }
+  ],
+  "artifact_mapping": {
+    "architecture": null,
+    "blueprint": null,
+    "implementation_plan": null
+  },
+  "notes_paths": [
+    ".ppm/notes/"
+  ],
+  "relationship_proposals": []
+}

@@ -1,0 +1,734 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PPM Contract 2.0",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "const": "2.0"
+        },
+        "kind": {
+          "const": "project"
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "objectives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "objective_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "statement": {
+                "type": "string",
+                "minLength": 1
+              },
+              "metric": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "objective_id",
+              "statement",
+              "metric"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "artifact_mapping": {
+          "type": "object",
+          "properties": {
+            "architecture": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "location_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+                    }
+                  },
+                  "required": [
+                    "location_ref",
+                    "path"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "blueprint": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "location_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+                    }
+                  },
+                  "required": [
+                    "location_ref",
+                    "path"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "implementation_plan": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "location_ref": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+                    }
+                  },
+                  "required": [
+                    "location_ref",
+                    "path"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "architecture",
+            "blueprint",
+            "implementation_plan"
+          ],
+          "additionalProperties": false
+        },
+        "notes_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          }
+        },
+        "relationship_proposals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "target_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "relation": {
+                "enum": [
+                  "member_of_program",
+                  "member_of_portfolio",
+                  "depends_on"
+                ]
+              },
+              "state": {
+                "const": "proposed"
+              }
+            },
+            "required": [
+              "target_id",
+              "relation",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "contract_version",
+        "kind",
+        "project_id",
+        "name",
+        "owner_ref",
+        "objectives",
+        "artifact_mapping",
+        "notes_paths",
+        "relationship_proposals"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "const": "2.0"
+        },
+        "kind": {
+          "const": "status"
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reporting_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lifecycle_reported": {
+          "enum": [
+            "proposed",
+            "planned",
+            "active",
+            "paused",
+            "delivered",
+            "closed",
+            "cancelled"
+          ]
+        },
+        "operation_reported": {
+          "enum": [
+            "unknown",
+            "not_applicable",
+            "not_deployed",
+            "running",
+            "degraded",
+            "retired"
+          ]
+        },
+        "current_milestone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reported_progress_percent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "next_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "contract_version",
+        "kind",
+        "project_id",
+        "reporting_revision",
+        "updated_at",
+        "lifecycle_reported",
+        "operation_reported",
+        "current_milestone",
+        "reported_progress_percent",
+        "blockers",
+        "next_actions"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "const": "2.0"
+        },
+        "kind": {
+          "const": "update"
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "update_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "work_package_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "base_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "result_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "working_tree_state": {
+          "enum": [
+            "clean",
+            "dirty",
+            "not_git",
+            "unknown"
+          ]
+        },
+        "supersedes_update_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "completed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "item_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "item_ref",
+              "description"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "in_progress": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "item_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "item_ref",
+              "description"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "result": {
+                "enum": [
+                  "passed",
+                  "failed",
+                  "not_run",
+                  "inconclusive"
+                ]
+              },
+              "evidence_path": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "tested_revision": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "environment": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "result",
+              "evidence_path",
+              "tested_revision",
+              "environment"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "next_actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "decisions_required": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "contract_version",
+        "kind",
+        "project_id",
+        "update_id",
+        "session_id",
+        "recorded_at",
+        "actor",
+        "summary",
+        "work_package_id",
+        "base_revision",
+        "result_revision",
+        "working_tree_state",
+        "supersedes_update_id",
+        "completed",
+        "in_progress",
+        "checks",
+        "blockers",
+        "next_actions",
+        "decisions_required"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "const": "2.0"
+        },
+        "kind": {
+          "const": "acceptance"
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "const": "draft"
+        },
+        "criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "criterion_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "deliverable_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              },
+              "weight": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "verification_method": {
+                "enum": [
+                  "test_report",
+                  "manual_review",
+                  "runtime_probe",
+                  "artifact_inspection"
+                ]
+              }
+            },
+            "required": [
+              "criterion_id",
+              "deliverable_ref",
+              "description",
+              "weight",
+              "required",
+              "verification_method"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "contract_version",
+        "kind",
+        "project_id",
+        "state",
+        "criteria"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "const": "2.0"
+        },
+        "kind": {
+          "const": "registry"
+        },
+        "namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "project_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "metadata_location_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "locations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "location_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "metadata_root": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+                    },
+                    "scan_scope": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+                      }
+                    },
+                    "read_only": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "location_id",
+                    "path",
+                    "metadata_root",
+                    "scan_scope",
+                    "read_only"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "scan_policy": {
+                "type": "object",
+                "properties": {
+                  "on_start": {
+                    "type": "boolean"
+                  },
+                  "watch": {
+                    "type": "boolean"
+                  },
+                  "debounce_seconds": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "interval_seconds": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "full_reconciliation_seconds": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "max_file_bytes": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "exclude_directories": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "deny_file_names": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "on_start",
+                  "watch",
+                  "debounce_seconds",
+                  "interval_seconds",
+                  "full_reconciliation_seconds",
+                  "max_file_bytes",
+                  "exclude_directories",
+                  "deny_file_names"
+                ],
+                "additionalProperties": false
+              },
+              "access_policy": {
+                "type": "object",
+                "properties": {
+                  "cloud_processing": {
+                    "enum": [
+                      "disabled",
+                      "approved_only"
+                    ]
+                  },
+                  "execute_commands": {
+                    "const": false
+                  },
+                  "write_repository": {
+                    "const": false
+                  }
+                },
+                "required": [
+                  "cloud_processing",
+                  "execute_commands",
+                  "write_repository"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "project_id",
+              "metadata_location_id",
+              "locations",
+              "scan_policy",
+              "access_policy"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "contract_version",
+        "kind",
+        "namespace",
+        "projects"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

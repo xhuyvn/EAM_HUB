@@ -1,0 +1,32 @@
+{
+  "contract_version": "1.0",
+  "task_id": "task-001",
+  "run_id": "run-001",
+  "parent_task_id": null,
+  "agent_id": "agent-ppm",
+  "agent_version": "1.0.0",
+  "binding_id": "binding-ppm-pilot",
+  "task_type": "ppm.project.assess",
+  "objective": "Assess current delivery evidence",
+  "input_refs": [
+    "artifact:ppm-input-example"
+  ],
+  "output_schema_ref": "contracts/ppm-output.schema.json",
+  "attempt": 1,
+  "execution_context": {
+    "tenant_id": "company-example",
+    "principal_id": "user-example",
+    "grant_refs": [
+      "grant:EXAMPLE-read-project"
+    ],
+    "resource_refs": [
+      "project:proj-example"
+    ],
+    "policy_version": "policy-1.0",
+    "authorization_ref": "authz:EXAMPLE-resolved-by-server"
+  },
+  "budget_reservation_ref": "reservation-example",
+  "deadline": "2026-11-05T10:00:00Z",
+  "idempotency_key": "dispatch-run-001",
+  "completion_policy_ref": "ppm-assessment-output-valid-v1"
+}

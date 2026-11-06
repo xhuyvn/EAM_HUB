@@ -1,0 +1,15 @@
+{
+  "contract_version": "2.0",
+  "kind": "status",
+  "project_id": "proj-example",
+  "reporting_revision": 1,
+  "updated_at": "2026-11-01T16:00:00+07:00",
+  "lifecycle_reported": "proposed",
+  "operation_reported": "not_applicable",
+  "current_milestone": null,
+  "reported_progress_percent": null,
+  "blockers": [],
+  "next_actions": [
+    "Confirm objective and artifact mapping"
+  ]
+}

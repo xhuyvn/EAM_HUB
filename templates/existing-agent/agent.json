@@ -1,0 +1,31 @@
+{
+  "contract_version": "1.0",
+  "agent_id": "agent-existing-research",
+  "name": "Existing Research Agent",
+  "version": "1.0.0",
+  "domain": "research",
+  "business_owner_ref": "owner-ppm-example",
+  "technical_owner_ref": "owner-platform-example",
+  "runtime_kind": "http",
+  "task_types": [
+    "research.brief"
+  ],
+  "input_schema_ref": "contracts/research-input.schema.json",
+  "output_schema_ref": "contracts/research-output.schema.json",
+  "desired_capabilities": {
+    "submit": false,
+    "status": true,
+    "events": false,
+    "collect_result": true,
+    "cancel": false,
+    "resume": false,
+    "approve_tool": false
+  },
+  "desired_tools": [
+    "ppm.read_snapshot",
+    "evidence.read",
+    "ppm.propose_assessment"
+  ],
+  "harness_version": "baseline-1.0",
+  "eval_profile_ref": "ppm-critical-v1"
+}

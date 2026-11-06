@@ -1,0 +1,29 @@
+{
+  "contract_version": "1.0",
+  "binding_id": "binding-ppm-pilot",
+  "agent_id": "agent-ppm",
+  "release_version": "1.0.0",
+  "release_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "mode": "managed",
+  "endpoint_ref": "runtime:ppm-worker",
+  "secret_ref": null,
+  "resource_scope_refs": [
+    "project:proj-example"
+  ],
+  "certified_capabilities": {
+    "submit": true,
+    "status": true,
+    "events": true,
+    "collect_result": true,
+    "cancel": true,
+    "resume": false,
+    "approve_tool": false
+  },
+  "capability_evidence_ref": "artifact:EXAMPLE-capability-report",
+  "model_profile_ref": "local-scoped-default",
+  "grant_refs": [
+    "grant:EXAMPLE-read-project"
+  ],
+  "execution_boundary": "platform_gateway",
+  "policy_version": "policy-1.0"
+}

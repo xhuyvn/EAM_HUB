@@ -1,0 +1,36 @@
+{
+  "contract_version": "2.0",
+  "kind": "update",
+  "project_id": "proj-example",
+  "update_id": "upd-example-001",
+  "session_id": "session-example-001",
+  "recorded_at": "2026-11-01T16:00:00+07:00",
+  "actor": "example-actor",
+  "summary": "Illustrative onboarding record; replace before adoption",
+  "work_package_id": null,
+  "base_revision": null,
+  "result_revision": null,
+  "working_tree_state": "unknown",
+  "supersedes_update_id": null,
+  "completed": [],
+  "in_progress": [
+    {
+      "item_ref": null,
+      "description": "Prepare project metadata"
+    }
+  ],
+  "checks": [
+    {
+      "name": "Project tests",
+      "result": "not_run",
+      "evidence_path": null,
+      "tested_revision": null,
+      "environment": null
+    }
+  ],
+  "blockers": [],
+  "next_actions": [
+    "Review metadata with owner"
+  ],
+  "decisions_required": []
+}
