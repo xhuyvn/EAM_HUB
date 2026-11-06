@@ -1,5 +1,5 @@
 {
-  "contract_version": "2.0",
+  "contract_version": "2.1",
   "kind": "acceptance",
   "project_id": "proj-example",
   "state": "draft",
@@ -10,7 +10,13 @@
       "description": "Replace with an observable acceptance condition",
       "weight": 1,
       "required": true,
-      "verification_method": "test_report"
+      "verification_method": "test_report",
+      "verification_refs": [
+        {
+          "kind": "test_id",
+          "ref": "tests/test_example.py::test_ac001_replace_me"
+        }
+      ]
     }
   ]
 }

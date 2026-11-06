@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "contract_version": {
-      "const": "1.0"
+      "const": "1.1"
     },
     "proposal_id": {
       "type": "string",
@@ -50,6 +50,26 @@
     "required_role": {
       "type": "string",
       "minLength": 1
+    },
+    "binding_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "arguments_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "operation_key": {
+      "type": "string",
+      "minLength": 8,
+      "description": "Business-intent key issued by the Action Service when the action is first proposed for a task: sha256(tenant_id|task_id|intent_key). It is stable across run attempts (new run_id) of the same task. Reusing an operation_key with a different tool_id, arguments_sha256 or resource_ref is rejected with 409 OPERATION_KEY_CONFLICT; reuse with identical content returns the journaled outcome."
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 16
+    },
+    "digest_algorithm": {
+      "const": "sha256-jcs-v1"
     }
   },
   "required": [
@@ -64,7 +84,13 @@
     "expected_resource_revision",
     "policy_version",
     "expires_at",
-    "required_role"
+    "required_role",
+    "binding_id",
+    "arguments_sha256",
+    "operation_key",
+    "nonce",
+    "digest_algorithm"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "description": "Exact action proposal 1.1. action_digest = sha256(RFC 8785 JCS of {binding_id, run_id, task_id, tool_id, arguments_sha256, resource_ref, expected_resource_revision, policy_version, operation_key, nonce, expires_at}). Any field change invalidates approvals."
 }

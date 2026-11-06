@@ -611,3 +611,17 @@ Quét khi đăng ký, khi owner yêu cầu, theo interval và khi watcher nhận
 10. Validator pass chỉ chứng minh đúng cấu trúc; semantic acceptance vẫn qua domain rules và owner.
 
 Các điều chỉnh v2 là thiết kế mới; chưa chạy collector trên repository thật. Nguồn nghiên cứu tại mục 17 được kế thừa, không tuyên bố đã tái kiểm tra SDK/API ngày 01/11/2026.
+
+## 19. Đồng bộ với Enterprise Agent Platform 1.1 (06/11/2026)
+Review `ppm-v2/docs/ARCHITECTURE_REVIEW.md` ghi lý do từng điểm. Khi chạy trong platform, các mục sau thay thế nội dung tương ứng ở §4, §7, §9, §10, §14:
+| Mục blueprint PPM | Thay bằng | Nguồn |
+|---|---|---|
+| §9 "LangGraph chọn orchestration chính" | Run Service của platform sở hữu run/attempt; LangGraph (nếu dùng) chỉ trong một attempt | platform ADR-011 |
+| §7.5 executor, §10 Executor interface | Platform adapter + Action Service; `operation_key`/`action_slot` do platform cấp | platform docs/02, ADR-017 |
+| §4 Workspace Registry, `registry.example.yaml` | `location-registration` 1.1 (source vs scope); registry YAML là định dạng import | contract §14.7, platform ADR-022 |
+| §5 Evidence contract `trust_class` | Bốn lớp `verifier_observed / ci_attested / reported_artifact / none`; report trong repo không verify | contract §14.3 |
+| §6 Acceptance gate (waiver) | Waiver trong DB, `status=waived` + `waiver_ref` trong assessment | contract §14.6, platform `ppm-output` 1.1 |
+| §7.2 incremental sync bước 7 | Assessment Orchestrator + `basis_seq` (reassessment khi baseline/TTL/model đổi) | platform ADR-021 rev. 2 |
+| §14 M0–M6 | PPM-M0 (reducer core, độc lập platform), PPM-M1 → platform P2a, PPM-M2 → P2b, PPM-M3/M4 → P4-WP1, PPM-M5 → P4-WP2, PPM-M6 → P5 | `ppm-v2/docs/IMPLEMENTATION_PLAN.md` |
+| §18 "MVP đầy đủ ba cấp đến M4" | Local MVP của platform chỉ gồm cấp project (D1); program/portfolio thuộc shared pilot P4 | platform plan §1 |
+Chế độ standalone (chưa có platform) vẫn dùng contract, prompts và review thủ công (prompt 06); khi đó không có verifier nên mọi kết luận chỉ ở mức reported/claim.

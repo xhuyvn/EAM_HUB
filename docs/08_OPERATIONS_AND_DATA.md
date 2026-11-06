@@ -1,6 +1,6 @@
 # Vận hành và dữ liệu
 ## Storage model
-PostgreSQL schemas platform, ppm, knowledge, governance, editorial có ownership qua service API. Các bảng lõi gồm agents, releases, bindings, tasks, runs, commands, action_proposals, approvals, grants, leases, events, outbox, artifacts, usage_ledger, reservations và eval_results. Foreign keys/scopes include tenant_id. PPM thêm projects/programs/portfolios/baselines/criteria/dependencies/assessments/location mappings.
+PostgreSQL schemas platform, ppm, knowledge, governance, editorial có ownership qua service API. Các bảng lõi gồm agents, releases, bindings, tasks, runs, run_attempt_history, dispatch_intents, commands, action_proposals, approvals, action_executions (unique operation_key), grants, leases (fencing_token), events, outbox, artifacts, usage_ledger, reservations và eval_results. Foreign keys/scopes include tenant_id. PPM thêm projects/programs/portfolios/baselines/criteria/dependencies/assessments/location mappings.
 
 Evidence blobs content-addressed, metadata có ACL, classification, source_revision, hash, producer và created_at. Delete/retention phải xem legal hold và derived artifacts/indexes. Trace retention pilot 30 ngày redacted metadata, audit 180 ngày và evidence theo project policy là giá trị đề xuất cần owner xác nhận.
 
@@ -9,7 +9,7 @@ POST /v1/agents/proposals; POST /v1/agents/{id}/releases; POST /v1/bindings.
 POST /v1/tasks; GET /v1/tasks/{id}; GET /v1/tasks/{id}/runs.
 POST /v1/runs/{id}/commands; POST /v1/approvals/{id}/decisions.
 GET /v1/hud/snapshot; GET /v1/hud/events; GET /v1/artifacts/{id}.
-POST /v1/ppm/locations; POST /v1/ppm/scans; GET /v1/ppm/projects/{id}/assessment.
+POST /v1/ppm/locations; POST /v1/ppm/locations/{id}/approval; POST /v1/ppm/scans; GET /v1/ppm/projects/{id}/assessment; GET /v1/ppm/assessments/{id} (per-criterion reasons + evidence refs); POST /v1/ppm/projects/{id}/acceptance (reviewer, assessment_id + baseline_revision + expected_revision).
 POST /v1/harness/experiments và promotion APIs ở phase 2.
 Mutations nhận expected_revision/If-Match và idempotency_key. Auth failures 401/403, state conflict 409, validation/unsupported capability 422, unavailable runtime 503. Async submit 202 trả task/run refs. Canonical schemas nội bộ trong contracts, public request schema riêng không chứa trusted execution fields.
 

@@ -11,7 +11,17 @@ class AgentAdapter(Protocol):
         task_envelope: Mapping[str, Any],
         idempotency_key: str,
     ) -> Mapping[str, Any]:
-        """Return an execution_ref or an explicit ambiguous-submission result."""
+        """Return an execution_ref or an explicit ambiguous-submission result.
+
+        idempotency_key is the stable operation key sha256(binding_id|run_id|'submit').
+        Re-dispatch of the same run after a worker restart passes the same key.
+        """
+        ...
+
+    async def lookup(self, idempotency_key: str) -> Mapping[str, Any]:
+        """Return {'state': 'found', 'execution_ref': ...}, {'state': 'not_found'} or
+        {'state': 'unsupported'}. 'not_found' must be authoritative; otherwise return
+        'unsupported' so the run stays unknown instead of being resubmitted."""
         ...
 
     async def status(self, execution_ref: str) -> Mapping[str, Any]:

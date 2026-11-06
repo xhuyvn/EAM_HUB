@@ -1,6 +1,6 @@
 # Hướng dẫn tiếp nhận agent có sẵn
 ## Discovery
-Inventory source/runtime version, API/CLI entrypoint, auth, storage, schedulers, model providers, tools, credentials, data classification, external sessions, output artifacts và owner. Đánh giá side effects nào đang bypass gateway và tác vụ có idempotency/reconcile không.
+Inventory source/runtime version, API/CLI entrypoint, auth, storage, schedulers, model providers, tools, credentials, data classification, external sessions, output artifacts và owner. Đánh giá side effects nào đang bypass gateway và tác vụ có idempotency/reconcile không. Ghi rõ adapter có `lookup` theo idempotency key không; nếu không, mọi ack timeout sẽ để run ở `unknown` và cần operator. Liệt kê tool chạy phía server của vendor (built-in shell/file/web) vì chúng nằm ngoài Action Service.
 
 ## Chọn wrapper
 - Agent HTTP có status/result endpoints dùng external-service adapter.

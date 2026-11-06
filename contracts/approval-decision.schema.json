@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "approval-decision",
+  "description": "Server-side approval record. approver_ref is derived from the authenticated session, never from the request body. A decision is single-use: consumption moves to consumed in the same transaction that journals the action execution intent.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.1"
+    },
+    "approval_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "proposal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "action_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "nonce": {
+      "type": "string",
+      "minLength": 16
+    },
+    "decision": {
+      "enum": [
+        "approved",
+        "denied"
+      ]
+    },
+    "approver_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approver_role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "valid_until": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "consumption": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "enum": [
+            "unconsumed",
+            "consumed",
+            "expired",
+            "revoked"
+          ]
+        },
+        "consumed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "consumed_by_operation_key": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      },
+      "required": [
+        "state",
+        "consumed_at",
+        "consumed_by_operation_key"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "contract_version",
+    "approval_id",
+    "proposal_id",
+    "action_digest",
+    "nonce",
+    "decision",
+    "approver_ref",
+    "approver_role",
+    "decided_at",
+    "valid_until",
+    "consumption"
+  ],
+  "additionalProperties": false
+}

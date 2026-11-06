@@ -1,10 +1,42 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ppm-assessment-proposal",
+  "description": "Assessment proposal 1.1 produced by the PPM analysis run and checked by the deterministic PPM reducer. It never carries formal acceptance; acceptance is a reviewer domain action stored in the PPM DB. Criteria list only deliverables owned by project_id; shared components appear in dependency_refs and are counted once, by their owner project. Reported claims (notes, .ppm updates) are kept in reported_status/reported_claim_refs and never count as evidence. A criterion is verified only by collector/verifier evidence produced at assessed_revision whose covered_test_ids include the baseline test mapping of that criterion. Waived criteria (approved waiver_ref) are excluded from total_weight and verified_weight and count as satisfied for acceptance readiness; they are shown separately.",
   "type": "object",
   "properties": {
+    "contract_version": {
+      "const": "1.1"
+    },
+    "assessment_id": {
+      "type": "string",
+      "minLength": 1
+    },
     "project_id": {
       "type": "string",
       "minLength": 1
+    },
+    "baseline_revision": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "snapshot_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "validity": {
+      "enum": [
+        "current",
+        "stale",
+        "unknown",
+        "conflicted"
+      ]
     },
     "verification": {
       "enum": [
@@ -16,14 +48,247 @@
         "stale"
       ]
     },
-    "acceptance": {
+    "acceptance_readiness": {
       "enum": [
-        "not_requested",
-        "pending",
-        "accepted",
-        "rejected",
-        "superseded"
+        "not_ready",
+        "ready_for_review"
       ]
+    },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "criterion_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "deliverable_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner_project_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "weight": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "verified",
+              "unverified",
+              "contradicted",
+              "stale",
+              "unknown",
+              "waived"
+            ]
+          },
+          "reason_code": {
+            "enum": [
+              "evidence_current_pass",
+              "evidence_missing",
+              "evidence_stale_revision",
+              "evidence_refuted",
+              "claim_only",
+              "mixed_snapshot",
+              "out_of_scope_environment",
+              "source_unavailable",
+              "coverage_not_mapped",
+              "evidence_wrong_producer",
+              "reported_artifact_only",
+              "waiver_approved"
+            ]
+          },
+          "supporting_evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "refuting_evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "missing_evidence": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "explanation": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "reported_status": {
+            "enum": [
+              "none",
+              "claimed_done",
+              "claimed_in_progress",
+              "claimed_blocked"
+            ]
+          },
+          "reported_claim_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "evidence_revision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "covered_test_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "previous_status": {
+            "enum": [
+              "verified",
+              "unverified",
+              "contradicted",
+              "stale",
+              "unknown",
+              "waived",
+              null
+            ]
+          },
+          "evidence_trust": {
+            "enum": [
+              "verifier_observed",
+              "ci_attested",
+              "reported_artifact",
+              "none"
+            ],
+            "description": "Trust class of the evidence behind the verdict. reported_artifact = a report file found in the repository (written by the producer); it never verifies a criterion."
+          },
+          "waiver_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Approved waiver (approver, reason, scope, expiry) in the PPM DB; required when status=waived."
+          }
+        },
+        "required": [
+          "criterion_id",
+          "deliverable_id",
+          "owner_project_id",
+          "weight",
+          "required",
+          "status",
+          "reason_code",
+          "supporting_evidence_refs",
+          "refuting_evidence_refs",
+          "missing_evidence",
+          "explanation",
+          "reported_status",
+          "reported_claim_refs",
+          "evidence_revision",
+          "covered_test_ids",
+          "previous_status",
+          "evidence_trust",
+          "waiver_ref"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "dependency_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "deliverable_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner_project_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "observed_status": {
+            "enum": [
+              "verified",
+              "unverified",
+              "contradicted",
+              "stale",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "deliverable_id",
+          "owner_project_id",
+          "observed_status"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "progress": {
+      "type": "object",
+      "properties": {
+        "basis": {
+          "enum": [
+            "baseline_weighted",
+            "none"
+          ]
+        },
+        "verified_weight": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "total_weight": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "criteria_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "criteria_with_current_evidence": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "basis",
+        "verified_weight",
+        "total_weight",
+        "criteria_total",
+        "criteria_with_current_evidence"
+      ],
+      "additionalProperties": false
+    },
+    "reported_progress_percent": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
     },
     "evidence_refs": {
       "type": "array",
@@ -43,15 +308,81 @@
       "type": "string",
       "format": "date-time",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "source_as_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "assessed_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "description": "Commit SHA or non-Git tree hash of the snapshot being assessed."
+    },
+    "previous_assessment_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "snapshot_seq": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic per (source_id, project) sequence assigned when the snapshot is committed. Several assessments may share one snapshot_seq (reassessment without file changes); ordering between them uses basis_seq."
+    },
+    "analysis_status": {
+      "enum": [
+        "complete",
+        "model_failed",
+        "skipped"
+      ],
+      "description": "Status of the optional model step that extracts claims from free text. Deterministic evidence rules run regardless; model_failed means free-text claims were not processed and is shown in the HUD."
+    },
+    "basis_seq": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic per project, assigned when the assessment task is CREATED by any trigger (new snapshot, baseline revision, evidence TTL expiry, model recovery, manual). The current-assessment pointer moves only to a higher basis_seq (compare-and-set); a result that finishes later with a lower basis_seq is history. snapshot_seq orders snapshots; basis_seq orders assessment inputs."
+    },
+    "trigger": {
+      "enum": [
+        "snapshot",
+        "baseline_changed",
+        "evidence_ttl_expired",
+        "model_recovered",
+        "manual"
+      ]
     }
   },
   "required": [
+    "contract_version",
+    "assessment_id",
     "project_id",
+    "baseline_revision",
+    "snapshot_refs",
+    "previous_assessment_id",
+    "assessed_revision",
+    "snapshot_seq",
+    "analysis_status",
+    "basis_seq",
+    "trigger",
+    "validity",
     "verification",
-    "acceptance",
+    "acceptance_readiness",
+    "criteria",
+    "dependency_refs",
+    "progress",
+    "reported_progress_percent",
     "evidence_refs",
     "missing_evidence",
-    "as_of"
+    "as_of",
+    "source_as_of"
   ],
   "additionalProperties": false
 }

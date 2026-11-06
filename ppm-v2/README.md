@@ -1,4 +1,4 @@
-> Platform integration notice — 05/11/2026. Host permissions, task/run lifecycle, scheduling and executor dispatch follow the platform MASTER_BLUEPRINT and docs/04_PPM_INTEGRATION. PPM contract 2.0 retains domain reporting semantics. Use platform P0–P5 for delivery and map legacy PPM M0–M6 as described in docs/04.
+> Platform integration notice — 05/11/2026. Host permissions, task/run lifecycle, scheduling and executor dispatch follow the platform MASTER_BLUEPRINT and docs/04_PPM_INTEGRATION. PPM contract 2.1 (reads 2.0) retains domain reporting semantics. Use platform P0–P5 for delivery and map legacy PPM M0–M6 as described in docs/04.
 
 # AI PPM Blueprint v2.0
 Ngày: 01/11/2026. Bộ thiết kế + chuẩn + prompt; chưa phải ứng dụng chạy hoàn chỉnh.
@@ -26,6 +26,12 @@ Chạy từ thư mục bộ tài liệu:
 ```bash
 python tools/validate_contract.py templates/project/.ppm --schema schemas/contract.schema.json
 python tools/validate_contract.py templates/registry.example.yaml --schema schemas/contract.schema.json
+python tools/run_negative_cases.py   # expected: PASS 5 templates, 20 cases
 ```
 
 Validator không chạy test của dự án, không gửi network request và không chứng nhận tiến độ. Mẫu chứa ID dự án minh họa; thay đồng bộ trước khi sử dụng. Snapshot source nghiên cứu là 31/10/2026; v2 tập trung đặc tả contract và adoption.
+
+## Review 06/11/2026
+- Contract 2.1 (tương thích 2.0): `verification_refs`, `criterion_ids`, `test_ids`, `uses_component` — xem `standards/PROJECT_MANAGEMENT_CONTRACT.md` §14.
+- Report test do repo tự ghi chỉ là claim; chỉ verifier/CI-attested mới verify (§14.3).
+- Review: `docs/ARCHITECTURE_REVIEW.md`. Kế hoạch: `docs/IMPLEMENTATION_PLAN.md`. Ma trận tình huống: `evals/SCENARIO_MATRIX.md`. Milestone kế tiếp: `prompts/START_NEXT_MILESTONE.md` (PPM-M0).

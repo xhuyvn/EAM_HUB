@@ -1,14 +1,19 @@
 {
-  "contract_version": "1.0",
+  "contract_version": "1.1",
   "proposal_id": "approval-001",
   "task_id": "task-002",
   "run_id": "run-002",
   "tool_id": "engineering.create_pr",
   "arguments_ref": "artifact:pr-payload-example",
-  "action_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "action_digest": "76580e7cecb951cc2e84d499b6006492bd394b4b44c068372464aedf2d30a436",
   "resource_ref": "repo:example",
   "expected_resource_revision": "sha-example",
   "policy_version": "policy-1.0",
   "expires_at": "2026-11-05T10:00:00Z",
-  "required_role": "project_reviewer"
+  "required_role": "project_reviewer",
+  "binding_id": "binding-engineering-pilot",
+  "arguments_sha256": "6102d7f674ef7d53850cec4bcb6f13346fe9b4e67596a059e0f3b07454751cbc",
+  "operation_key": "op-run-002-create-pr-1",
+  "nonce": "nonce-example-0000000001",
+  "digest_algorithm": "sha256-jcs-v1"
 }

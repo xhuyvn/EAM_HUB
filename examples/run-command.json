@@ -1,0 +1,13 @@
+{
+  "contract_version": "1.1",
+  "command_id": "cmd-002",
+  "run_id": "run-002",
+  "kind": "cancel",
+  "expected_revision": 4,
+  "idempotency_key": "cmd-cancel-run-002-0001",
+  "requested_by_ref": "principal:user-example",
+  "requested_at": "2026-11-05T09:11:00Z",
+  "state": "accepted",
+  "rejection_code": null,
+  "outcome_note": "Recorded while remote outcome unknown; applied after reconciliation."
+}

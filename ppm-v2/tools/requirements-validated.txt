@@ -3,5 +3,6 @@ PyYAML==6.0.3
 attrs==26.1.0
 jsonschema-specifications==2025.9.1
 referencing==0.37.0
-rpds-py==2026.9.1
+# rpds-py==2026.9.1 could not be installed on Python 3.10.12 (06/11/2026); 0.30.0 was used.
+rpds-py==0.30.0
 typing-extensions==4.16.0

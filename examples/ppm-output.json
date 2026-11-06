@@ -1,12 +1,119 @@
 {
+  "contract_version": "1.1",
+  "assessment_id": "asmt-example-002",
   "project_id": "proj-example",
-  "verification": "partially_verified",
-  "acceptance": "pending",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-example-r2"
+  ],
+  "validity": "current",
+  "verification": "contradicted",
+  "acceptance_readiness": "not_ready",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "deliverable_id": "DEL-001",
+      "owner_project_id": "proj-example",
+      "weight": 2,
+      "required": true,
+      "status": "contradicted",
+      "reason_code": "evidence_refuted",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [
+        "ev-r2-verifier-run"
+      ],
+      "missing_evidence": [],
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "note:sha256-ac001-done",
+        "upd-0002"
+      ],
+      "evidence_revision": "rev-r2",
+      "covered_test_ids": [
+        "test_ac001_export"
+      ],
+      "previous_status": "verified",
+      "explanation": "Note and update say done. Verifier PASS of test_ac001_export at rev-r1 does not apply to rev-r2; verifier re-run of the same mapped test at rev-r2 FAILED, refuting AC-001 under baseline 1.",
+      "evidence_trust": "verifier_observed",
+      "waiver_ref": null
+    },
+    {
+      "criterion_id": "AC-002",
+      "deliverable_id": "DEL-001",
+      "owner_project_id": "proj-example",
+      "weight": 1,
+      "required": true,
+      "status": "verified",
+      "reason_code": "evidence_current_pass",
+      "supporting_evidence_refs": [
+        "ev-r2-verifier-run"
+      ],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [],
+      "reported_status": "none",
+      "reported_claim_refs": [],
+      "evidence_revision": "rev-r2",
+      "covered_test_ids": [
+        "test_ac002_login"
+      ],
+      "previous_status": "unverified",
+      "explanation": "Verifier re-run at rev-r2 shows mapped test test_ac002_login passed.",
+      "evidence_trust": "verifier_observed",
+      "waiver_ref": null
+    },
+    {
+      "criterion_id": "AC-003",
+      "deliverable_id": "DEL-002",
+      "owner_project_id": "proj-example",
+      "weight": 1,
+      "required": true,
+      "status": "unverified",
+      "reason_code": "reported_artifact_only",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [
+        "Integration test report for AC-003 at rev-r2"
+      ],
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "upd-0002",
+        "artifact:repo/reports/ac003-junit.xml"
+      ],
+      "evidence_revision": null,
+      "covered_test_ids": [],
+      "previous_status": "unverified",
+      "explanation": "Update claims passed and the repo contains reports/ac003-junit.xml, but that file was written by the producer; no verifier or CI-attested result for the mapped test exists at rev-r2.",
+      "evidence_trust": "reported_artifact",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [
+    {
+      "deliverable_id": "DEL-GW-001",
+      "owner_project_id": "proj-shared-gateway",
+      "observed_status": "verified"
+    }
+  ],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 1,
+    "total_weight": 4,
+    "criteria_total": 3,
+    "criteria_with_current_evidence": 2
+  },
+  "reported_progress_percent": null,
   "evidence_refs": [
-    "ev-example"
+    "ev-r2-verifier-run"
   ],
   "missing_evidence": [
-    "Integration test for AC-002"
+    "Integration test report for AC-003 at rev-r2"
   ],
-  "as_of": "2026-11-05T09:10:00Z"
+  "as_of": "2026-11-05T09:10:00Z",
+  "source_as_of": "2026-11-05T09:00:00Z",
+  "assessed_revision": "rev-r2",
+  "previous_assessment_id": "asmt-example-001",
+  "snapshot_seq": 2,
+  "analysis_status": "complete",
+  "basis_seq": 3,
+  "trigger": "snapshot"
 }

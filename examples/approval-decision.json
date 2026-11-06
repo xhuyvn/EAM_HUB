@@ -1,0 +1,17 @@
+{
+  "contract_version": "1.1",
+  "approval_id": "approval-001",
+  "proposal_id": "approval-001",
+  "action_digest": "76580e7cecb951cc2e84d499b6006492bd394b4b44c068372464aedf2d30a436",
+  "nonce": "nonce-example-0000000001",
+  "decision": "approved",
+  "approver_ref": "principal:reviewer-example",
+  "approver_role": "project_reviewer",
+  "decided_at": "2026-11-05T09:20:00Z",
+  "valid_until": "2026-11-05T09:50:00Z",
+  "consumption": {
+    "state": "unconsumed",
+    "consumed_at": null,
+    "consumed_by_operation_key": null
+  }
+}

@@ -46,5 +46,108 @@
       "recorded_at": "2026-11-01T16:00:00"
     },
     "expected_valid": false
+  },
+  {
+    "name": "recorded_at not a date",
+    "kind": "update",
+    "mutation": {
+      "recorded_at": "not-a-date"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "status updated_at without timezone",
+    "kind": "status",
+    "mutation": {
+      "updated_at": "2026-11-01T16:00:00"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "duplicate YAML keys",
+    "kind": "raw",
+    "raw_yaml": "contract_version: '2.0'\nkind: status\nkind: update\n",
+    "expected_valid": false
+  },
+  {
+    "name": "acceptance file claims approved state",
+    "kind": "acceptance",
+    "mutation": {
+      "state": "approved"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "registry enables command execution",
+    "kind": "registry",
+    "mutation": {
+      "projects.0.access_policy.execute_commands": true
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "2.0 document using 2.1 field",
+    "kind": "acceptance",
+    "mutation": {
+      "contract_version": "2.0"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "recorded_at far in the future",
+    "kind": "update",
+    "mutation": {
+      "recorded_at": "2099-01-01T00:00:00+07:00"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "verification ref with unknown kind",
+    "kind": "acceptance",
+    "mutation": {
+      "criteria.0.verification_refs": [
+        {
+          "kind": "llm_opinion",
+          "ref": "x"
+        }
+      ]
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "duplicate criterion_id",
+    "kind": "dir",
+    "scenario": "duplicate_criterion_id",
+    "expected_valid": false
+  },
+  {
+    "name": "supersession cycle",
+    "kind": "dir",
+    "scenario": "supersession_cycle",
+    "expected_valid": false
+  },
+  {
+    "name": "supersedes unknown update",
+    "kind": "dir",
+    "scenario": "supersedes_unknown_update",
+    "expected_valid": false
+  },
+  {
+    "name": "update references unknown criterion",
+    "kind": "dir",
+    "scenario": "update_references_unknown_criterion",
+    "expected_valid": false
+  },
+  {
+    "name": "two project_ids in one metadata root",
+    "kind": "dir",
+    "scenario": "two_project_ids_in_one_root",
+    "expected_valid": false
+  },
+  {
+    "name": "valid correction chain accepted",
+    "kind": "dir",
+    "scenario": "valid_correction_chain",
+    "expected_valid": true
   }
 ]

@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "contract_version": {
-      "const": "1.0"
+      "const": "1.1"
     },
     "event_id": {
       "type": "string",
@@ -15,11 +15,17 @@
       "minLength": 1
     },
     "task_id": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "minLength": 1
     },
     "run_id": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "minLength": 1
     },
     "producer_id": {
@@ -39,14 +45,26 @@
       "enum": [
         "run.started",
         "run.progress",
+        "run.state_changed",
         "run.waiting_approval",
         "run.finished",
         "worker.heartbeat",
-        "artifact.created"
+        "artifact.created",
+        "approval.decided",
+        "usage.reported",
+        "ppm.assessment.updated",
+        "connector.status"
       ]
     },
     "payload": {
       "type": "object"
+    },
+    "attempt": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
     }
   },
   "required": [
@@ -55,6 +73,7 @@
     "tenant_id",
     "task_id",
     "run_id",
+    "attempt",
     "producer_id",
     "producer_seq",
     "occurred_at",
@@ -109,7 +128,8 @@
             "properties": {
               "stage": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "maxLength": 200
               },
               "completed_units": {
                 "type": [
@@ -129,7 +149,8 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "maxLength": 40
               }
             },
             "required": [
@@ -281,6 +302,322 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "run.state_changed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "from_state": {
+                "enum": [
+                  "queued",
+                  "dispatching",
+                  "running",
+                  "waiting_approval",
+                  "cancelling",
+                  "succeeded",
+                  "failed",
+                  "cancelled",
+                  "timed_out",
+                  "unknown"
+                ]
+              },
+              "to_state": {
+                "enum": [
+                  "queued",
+                  "dispatching",
+                  "running",
+                  "waiting_approval",
+                  "cancelling",
+                  "succeeded",
+                  "failed",
+                  "cancelled",
+                  "timed_out",
+                  "unknown"
+                ]
+              },
+              "reason_code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "evidence_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1
+              }
+            },
+            "required": [
+              "from_state",
+              "to_state",
+              "reason_code",
+              "evidence_ref"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "approval.decided"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "approval_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "action_digest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "decision": {
+                "enum": [
+                  "approved",
+                  "denied",
+                  "expired",
+                  "revoked"
+                ]
+              },
+              "decided_by_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "approval_id",
+              "action_digest",
+              "decision",
+              "decided_by_ref"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "usage.reported"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "provider_usage_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "usage_scope": {
+                "enum": [
+                  "call",
+                  "run_cumulative"
+                ]
+              },
+              "cost_status": {
+                "enum": [
+                  "actual",
+                  "estimated",
+                  "unknown"
+                ]
+              },
+              "cost_usd": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "input_tokens": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "output_tokens": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            },
+            "required": [
+              "provider_usage_id",
+              "usage_scope",
+              "cost_status",
+              "cost_usd",
+              "input_tokens",
+              "output_tokens"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "ppm.assessment.updated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "project_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "assessment_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "baseline_revision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "verification": {
+                "enum": [
+                  "unknown",
+                  "claimed",
+                  "partially_verified",
+                  "verified",
+                  "contradicted",
+                  "stale"
+                ]
+              },
+              "validity": {
+                "enum": [
+                  "current",
+                  "stale",
+                  "unknown",
+                  "conflicted"
+                ]
+              },
+              "acceptance": {
+                "enum": [
+                  "not_requested",
+                  "pending",
+                  "accepted",
+                  "rejected",
+                  "superseded"
+                ]
+              }
+            },
+            "required": [
+              "project_id",
+              "assessment_id",
+              "baseline_revision",
+              "verification",
+              "validity",
+              "acceptance"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "connector.status"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "properties": {
+              "connector_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "connectivity": {
+                "enum": [
+                  "healthy",
+                  "stale",
+                  "offline"
+                ]
+              },
+              "last_observed_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+              }
+            },
+            "required": [
+              "connector_id",
+              "connectivity",
+              "last_observed_at"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "enum": [
+              "run.started",
+              "run.progress",
+              "run.state_changed",
+              "run.waiting_approval",
+              "run.finished",
+              "worker.heartbeat",
+              "artifact.created",
+              "usage.reported"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "run_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
     }
-  ]
+  ],
+  "description": "Producer event 1.1. tenant_id is verified against the authenticated producer binding at ingestion and is never trusted from the payload. run.*, worker.heartbeat and artifact.created require task_id, run_id and attempt."
 }

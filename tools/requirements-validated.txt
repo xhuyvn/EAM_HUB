@@ -1,1 +1,4 @@
 jsonschema==4.26.0
+PyYAML==6.0.3
+# Verified 06/11/2026 on Python 3.10.12 with transitive deps attrs 26.1.0, referencing 0.37.0,
+# jsonschema-specifications 2025.9.1, rpds-py 0.30.0, typing_extensions 4.16.0.

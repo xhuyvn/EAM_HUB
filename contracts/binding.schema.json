@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "contract_version": {
-      "const": "1.0"
+      "const": "1.1"
     },
     "binding_id": {
       "type": "string",
@@ -107,6 +107,30 @@
     "policy_version": {
       "type": "string",
       "minLength": 1
+    },
+    "fallback_model_profile_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "embedding_profile_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "egress_policy_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "telemetry_export": {
+      "enum": [
+        "local_only",
+        "approved_endpoint"
+      ]
     }
   },
   "required": [
@@ -124,7 +148,12 @@
     "model_profile_ref",
     "grant_refs",
     "execution_boundary",
-    "policy_version"
+    "policy_version",
+    "fallback_model_profile_refs",
+    "embedding_profile_ref",
+    "egress_policy_ref",
+    "telemetry_export"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "description": "Trusted deployment binding 1.1. The Model Gateway denies any model, fallback or embedding profile not listed here and not permitted by egress_policy_ref."
 }

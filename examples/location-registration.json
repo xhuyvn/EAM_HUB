@@ -1,0 +1,48 @@
+{
+  "contract_version": "1.1",
+  "location_id": "loc-main",
+  "project_id": "proj-example",
+  "host_id": "host-windows-pilot",
+  "connector_id": "connector-host-1",
+  "root_path": "D:/projects/example",
+  "metadata_root": ".",
+  "scan_scope": [
+    "."
+  ],
+  "artifact_aliases": {
+    "architecture": [
+      "architecture.md",
+      "docs/ARCHITECTURE.md"
+    ],
+    "blueprint": [
+      "MASTER_BLUEPRINT.md"
+    ],
+    "implementation_plan": [
+      "implement_plan.md",
+      "docs/IMPLEMENTATION_PLAN.md"
+    ]
+  },
+  "notes_globs": [
+    ".ppm/notes/*.md"
+  ],
+  "follow_symlinks": false,
+  "allow_hardlinked_files": false,
+  "max_file_bytes": 2097152,
+  "deny_globs": [
+    ".env",
+    ".env.*",
+    "*.pem",
+    "*.key"
+  ],
+  "classification": "internal",
+  "egress_policy_ref": "egress:local-only",
+  "identity": {
+    "canonical_root_fingerprint": null,
+    "repo_identity": null
+  },
+  "state": "proposed",
+  "revision": 1,
+  "registered_by_ref": "principal:owner-example",
+  "approved_by_ref": null,
+  "source_id": "src-example-001"
+}

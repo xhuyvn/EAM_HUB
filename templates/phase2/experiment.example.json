@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0",
+  "contract_version": "1.1",
   "experiment_id": "exp-example-001",
   "base_release_digest": "1111111111111111111111111111111111111111111111111111111111111111",
   "candidate_release_digest": "3333333333333333333333333333333333333333333333333333333333333333",
@@ -12,5 +12,41 @@
   "objective": "Reduce context cost at equivalent task quality",
   "promotion_policy_ref": "harness-quality-gate-v1",
   "reviewer_ref": "owner-platform-example",
-  "state": "proposed"
+  "state": "proposed",
+  "proposer_ref": "agent:harness-optimizer",
+  "change_kind": "context",
+  "pairing": "paired_same_case_same_environment",
+  "holdout_access": "evaluator_only",
+  "primary_metric": {
+    "name": "criterion_verdict_accuracy",
+    "direction": "higher_is_better",
+    "non_inferiority_margin": 0.02
+  },
+  "guardrail_metrics": [
+    {
+      "name": "false_verified_rate",
+      "max_regression": 0,
+      "scope": "per_stratum"
+    },
+    {
+      "name": "critical_policy_violations",
+      "max_regression": 0,
+      "scope": "overall"
+    },
+    {
+      "name": "unsupported_claim_acceptance",
+      "max_regression": 0,
+      "scope": "per_stratum"
+    }
+  ],
+  "rollout": {
+    "stage": "none",
+    "max_traffic_percent": 0,
+    "rollback_trigger_refs": [
+      "trigger:false-acceptance",
+      "trigger:unauthorized-action",
+      "trigger:failure-rate-vs-baseline",
+      "trigger:budget-runaway"
+    ]
+  }
 }

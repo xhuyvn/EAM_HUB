@@ -1,17 +1,74 @@
 {
+  "contract_version": "1.1",
   "projection_revision": 3,
   "snapshot_cursor": "opaque-example-cursor",
-  "as_of": "2026-11-05T09:10:00Z",
+  "as_of": "2026-11-05T09:13:00Z",
+  "viewer_scope_ref": "scope:user-example/all-projects",
   "rows": [
     {
       "task_id": "task-001",
+      "task_state": "completed",
       "run_id": "run-001",
+      "attempt": 1,
       "run_state": "succeeded",
+      "remote_outcome": "known",
       "connectivity": "healthy",
-      "project_verification": "partially_verified",
-      "project_acceptance": "pending",
-      "cost_status": "unknown",
-      "cost_usd": null
+      "last_observed_at": "2026-11-05T09:03:00Z",
+      "observation_source": "ppm-worker-1",
+      "progress": {
+        "kind": "units",
+        "completed_units": 12,
+        "total_units": 12,
+        "unit": "criteria",
+        "stage": "Completed"
+      },
+      "project": {
+        "project_id": "proj-example",
+        "assessment_id": "asmt-example-002",
+        "verification": "contradicted",
+        "validity": "current",
+        "acceptance": "not_requested",
+        "assessment_as_of": "2026-11-05T09:10:00Z",
+        "verified_weight": 1,
+        "total_weight": 4
+      },
+      "cost": {
+        "status": "unknown",
+        "amount_usd": null,
+        "as_of": "2026-11-05T09:03:00Z",
+        "scope": "run"
+      },
+      "pending_command": null
+    },
+    {
+      "task_id": "task-002",
+      "task_state": "active",
+      "run_id": "run-002",
+      "attempt": 1,
+      "run_state": "unknown",
+      "remote_outcome": "unknown",
+      "connectivity": "stale",
+      "last_observed_at": "2026-11-05T09:10:30Z",
+      "observation_source": "run-service",
+      "progress": {
+        "kind": "stage_only",
+        "completed_units": null,
+        "total_units": null,
+        "unit": null,
+        "stage": "Awaiting reconciliation"
+      },
+      "project": null,
+      "cost": {
+        "status": "partial",
+        "amount_usd": 0.42,
+        "as_of": "2026-11-05T09:10:30Z",
+        "scope": "task_tree"
+      },
+      "pending_command": {
+        "command_id": "cmd-002",
+        "kind": "cancel",
+        "state": "accepted"
+      }
     }
   ]
 }

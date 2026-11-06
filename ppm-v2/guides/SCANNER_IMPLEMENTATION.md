@@ -36,3 +36,17 @@ Cache/runtime ngoài repository. Không để collector viết update khi chính
 
 ## 8. Gates
 Duplicate event không tạo domain event trùng; partial write giữ checkpoint; delete giữ history; sleeping host catch-up; repo YAML không bật cloud; status conflict không mất journal; dirty tree không thành verified; owner baseline change invalidates affected assessment; mọi external side effect đi Action Service như blueprint.
+
+## 9. Chế độ platform (06/11/2026)
+Khi chạy trong Enterprise Agent Platform, scanner là P2a-WP2 (collector) + P2a-WP5 (scheduler) + P2a-WP6 (orchestrator) + P2a-WP9 (verifier); registry YAML được import thành `location-registration` 1.1 theo contract §14.7. Bảng mapping import:
+| registry.example.yaml | location-registration 1.1 |
+|---|---|
+| `projects[].project_id` | `project_id` |
+| `locations[].location_id` | `location_id` |
+| `locations[].path` | `root_path` (connector canonical hóa) |
+| `metadata_root`, `scan_scope` | giữ nguyên |
+| `scan_policy.max_file_bytes`, `deny_file_names` | `max_file_bytes`, `deny_globs` |
+| `scan_policy.*` interval/debounce/watch | `ppm_scan_schedules` (P2a-WP5) |
+| `access_policy.cloud_processing` | không map tự động; owner chọn `egress_policy_ref` |
+| (không có) | `source_id`, `host_id`, `connector_id`, `artifact_aliases`, `classification`, `identity`, `approved_by_ref` do owner bổ sung khi approve |
+Bằng chứng test chỉ verify khi do verifier chạy lại tại đúng revision hoặc CI có attestation (contract §14.3).

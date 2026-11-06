@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "contract_version": {
-      "const": "1.0"
+      "const": "1.1"
     },
     "experiment_id": {
       "type": "string",
@@ -65,6 +65,112 @@
         "reverted",
         "rejected"
       ]
+    },
+    "proposer_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "change_kind": {
+      "enum": [
+        "prompt",
+        "tools",
+        "retrieval",
+        "context",
+        "model_routing",
+        "planning",
+        "recovery",
+        "verification"
+      ]
+    },
+    "pairing": {
+      "const": "paired_same_case_same_environment"
+    },
+    "holdout_access": {
+      "const": "evaluator_only"
+    },
+    "primary_metric": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "enum": [
+            "higher_is_better",
+            "lower_is_better"
+          ]
+        },
+        "non_inferiority_margin": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "name",
+        "direction",
+        "non_inferiority_margin"
+      ],
+      "additionalProperties": false
+    },
+    "guardrail_metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "max_regression": {
+            "type": "number",
+            "minimum": 0
+          },
+          "scope": {
+            "enum": [
+              "overall",
+              "per_stratum"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "max_regression",
+          "scope"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rollout": {
+      "type": "object",
+      "properties": {
+        "stage": {
+          "enum": [
+            "none",
+            "shadow",
+            "canary"
+          ]
+        },
+        "max_traffic_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "rollback_trigger_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "stage",
+        "max_traffic_percent",
+        "rollback_trigger_refs"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
@@ -81,7 +187,14 @@
     "objective",
     "promotion_policy_ref",
     "reviewer_ref",
-    "state"
+    "state",
+    "proposer_ref",
+    "change_kind",
+    "pairing",
+    "holdout_access",
+    "primary_metric",
+    "guardrail_metrics",
+    "rollout"
   ],
   "additionalProperties": false
 }

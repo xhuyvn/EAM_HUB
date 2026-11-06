@@ -1,12 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "PPM Contract 2.0",
+  "title": "PPM Contract 2.1 (reads 2.0)",
   "oneOf": [
     {
       "type": "object",
       "properties": {
         "contract_version": {
-          "const": "2.0"
+          "enum": [
+            "2.0",
+            "2.1"
+          ]
         },
         "kind": {
           "const": "project"
@@ -176,7 +179,8 @@
                 "enum": [
                   "member_of_program",
                   "member_of_portfolio",
-                  "depends_on"
+                  "depends_on",
+                  "uses_component"
                 ]
               },
               "state": {
@@ -209,7 +213,10 @@
       "type": "object",
       "properties": {
         "contract_version": {
-          "const": "2.0"
+          "enum": [
+            "2.0",
+            "2.1"
+          ]
         },
         "kind": {
           "const": "status"
@@ -224,7 +231,8 @@
         },
         "updated_at": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
         },
         "lifecycle_reported": {
           "enum": [
@@ -295,7 +303,10 @@
       "type": "object",
       "properties": {
         "contract_version": {
-          "const": "2.0"
+          "enum": [
+            "2.0",
+            "2.1"
+          ]
         },
         "kind": {
           "const": "update"
@@ -314,7 +325,8 @@
         },
         "recorded_at": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
         },
         "actor": {
           "type": "string",
@@ -370,6 +382,14 @@
               "description": {
                 "type": "string",
                 "minLength": 1
+              },
+              "criterion_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             },
             "required": [
@@ -393,6 +413,14 @@
               "description": {
                 "type": "string",
                 "minLength": 1
+              },
+              "criterion_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             },
             "required": [
@@ -442,6 +470,22 @@
                   "string",
                   "null"
                 ]
+              },
+              "criterion_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "test_ids": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             },
             "required": [
@@ -503,7 +547,10 @@
       "type": "object",
       "properties": {
         "contract_version": {
-          "const": "2.0"
+          "enum": [
+            "2.0",
+            "2.1"
+          ]
         },
         "kind": {
           "const": "acceptance"
@@ -546,6 +593,32 @@
                   "runtime_probe",
                   "artifact_inspection"
                 ]
+              },
+              "verification_refs": {
+                "type": "array",
+                "description": "2.1: owner-approved mapping used by the reducer. test_id/probe_id must appear in verifier or CI-attested results; artifact_path is inspected, never trusted as a test result.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "test_id",
+                        "probe_id",
+                        "artifact_path",
+                        "manual_review"
+                      ]
+                    },
+                    "ref": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "ref"
+                  ],
+                  "additionalProperties": false
+                }
               }
             },
             "required": [
@@ -573,7 +646,10 @@
       "type": "object",
       "properties": {
         "contract_version": {
-          "const": "2.0"
+          "enum": [
+            "2.0",
+            "2.1"
+          ]
         },
         "kind": {
           "const": "registry"

@@ -1,5 +1,5 @@
 {
-  "contract_version": "2.0",
+  "contract_version": "2.1",
   "kind": "update",
   "project_id": "proj-example",
   "update_id": "upd-example-001",
@@ -25,7 +25,11 @@
       "result": "not_run",
       "evidence_path": null,
       "tested_revision": null,
-      "environment": null
+      "environment": null,
+      "criterion_ids": [
+        "AC-001"
+      ],
+      "test_ids": []
     }
   ],
   "blockers": [],

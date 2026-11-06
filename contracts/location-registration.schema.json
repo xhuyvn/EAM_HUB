@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "location-registration",
+  "description": "Trusted host location record owned by the Platform Location Service. Aliases are owner-configured; repository content can only propose aliases through onboarding proposals. Several projects may register the same repository (monorepo) with distinct metadata_root; registrations are rejected as duplicates only when source_id and metadata_root are both equal, or when a metadata_root is claimed by two projects. Overlapping scan_scope across projects is allowed for reading; deliverable ownership decides counting.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.1"
+    },
+    "location_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "host_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "connector_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "root_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absolute host path; canonicalized by the connector at registration and on every scan."
+    },
+    "metadata_root": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "scan_scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+      }
+    },
+    "artifact_aliases": {
+      "type": "object",
+      "properties": {
+        "architecture": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          }
+        },
+        "blueprint": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          }
+        },
+        "implementation_plan": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          }
+        }
+      },
+      "required": [
+        "architecture",
+        "blueprint",
+        "implementation_plan"
+      ],
+      "additionalProperties": false
+    },
+    "notes_globs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+      }
+    },
+    "follow_symlinks": {
+      "const": false
+    },
+    "allow_hardlinked_files": {
+      "const": false
+    },
+    "max_file_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16777216
+    },
+    "deny_globs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "classification": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    },
+    "egress_policy_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "canonical_root_fingerprint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "repo_identity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        }
+      },
+      "required": [
+        "canonical_root_fingerprint",
+        "repo_identity"
+      ],
+      "additionalProperties": false
+    },
+    "state": {
+      "enum": [
+        "proposed",
+        "active",
+        "suspended",
+        "retired"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "registered_by_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approved_by_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "source_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Physical source (host + canonical root + repo identity) owned by the Location Service. Many project scopes may reference one source; the source is snapshotted once per scan."
+    }
+  },
+  "required": [
+    "contract_version",
+    "location_id",
+    "project_id",
+    "source_id",
+    "host_id",
+    "connector_id",
+    "root_path",
+    "metadata_root",
+    "scan_scope",
+    "artifact_aliases",
+    "notes_globs",
+    "follow_symlinks",
+    "allow_hardlinked_files",
+    "max_file_bytes",
+    "deny_globs",
+    "classification",
+    "egress_policy_ref",
+    "identity",
+    "state",
+    "revision",
+    "registered_by_ref",
+    "approved_by_ref"
+  ],
+  "additionalProperties": false
+}

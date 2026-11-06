@@ -1,4 +1,4 @@
-# Project Management Contract 2.0
+# Project Management Contract 2.1 (tương thích 2.0)
 
 ## 1. Tính chất
 MUST = yêu cầu bắt buộc của contract này; SHOULD = khuyến nghị có thể ngoại lệ nếu ghi lý do. Đây là tiêu chuẩn nội bộ được đề xuất, không phải tiêu chuẩn ISO mới.
@@ -72,3 +72,38 @@ Update báo M2 done, test pass nhưng evidence_path null: reported done, verific
 Test report fail ở current implementation: contradicted, cần xử lý.
 Owner nói “đã dùng ổn”: ghi observation/acceptance proposal, xác định scope trước formal acceptance.
 Project đóng, sản phẩm chạy: lifecycle closed và operation running cùng tồn tại.
+
+## 14. Contract 2.1 (06/11/2026) — bổ sung tương thích ngược
+Bổ sung sau review `ppm-v2/docs/ARCHITECTURE_REVIEW.md`. Tài liệu 2.0 vẫn hợp lệ, không cần migration.
+
+### 14.1 Version
+`contract_version` nhận `'2.0'` hoặc `'2.1'`. Trường 2.1 chỉ được dùng khi file khai `'2.1'`; file khai 2.0 mà dùng trường 2.1 bị từ chối (validator). Reader MUST đọc được cả 2.0 và 2.1. Minor cao hơn (2.2+) hoặc major khác → quarantine `unsupported_version` và gap report read-only.
+
+### 14.2 Trường mới (đều optional)
+- `acceptance.yaml` → `criteria[].verification_refs[]`: `{kind: test_id | probe_id | artifact_path | manual_review, ref}`. Đây là mapping đề xuất; chỉ có hiệu lực khi owner duyệt thành baseline trong PPM DB. Reducer dùng mapping baseline để biết test nào bao phủ criterion; thiếu mapping → `coverage_not_mapped`, không đoán.
+- `updates/*.yaml` → `completed[]/in_progress[]/checks[].criterion_ids[]`, `checks[].test_ids[]`: liên kết claim với criterion để không phải dùng LLM đoán. ID phải tồn tại trong `acceptance.yaml` cùng metadata root.
+- `project.yaml` → relation `uses_component`: project này dùng deliverable của project khác (shared component). Không đưa criteria của component vào `acceptance.yaml` của consumer.
+
+### 14.3 Lớp tin cậy của bằng chứng (MUST)
+| Trust class | Nguồn | Có thể verify criterion? |
+|---|---|---|
+| `verifier_observed` | Verifier sandbox của PPM/platform chạy lại test/probe được map tại đúng revision | Có |
+| `ci_attested` | Kết quả CI có provenance kiểm được (định danh pipeline, revision, chữ ký/attestation) do owner cấu hình là tin cậy | Có |
+| `reported_artifact` | File report nằm trong repository (JUnit/JSON/log) do coding agent hoặc người tạo, kể cả khi update trỏ `evidence_path` tới nó | **Không**; chỉ là claim có kèm file |
+| `none` | Không có | Không |
+Lý do: producer viết cả code, update lẫn file report trong cùng repo, nên file report trong repo không độc lập với claim. FAIL trong `reported_artifact` vẫn được dùng như tín hiệu phản bác (thận trọng), PASS thì không.
+
+### 14.4 Danh tính project khi copy/clone
+Cùng `project_id` xuất hiện ở hai source khác `repo_identity` (copy repo để làm sản phẩm mới mà quên đổi ID) → `identity_conflict`, quarantine location mới, không gộp updates; owner chọn: cấp ID mới hoặc xác nhận là worktree/clone của cùng project. Clone/worktree đã xác nhận vẫn không cộng tiến độ riêng (§10).
+
+### 14.5 Baseline từ draft
+`acceptance.yaml` luôn là `draft`. Owner tạo baseline qua PPM API từ snapshot hash của `acceptance.yaml` (+ chỉnh sửa nếu cần); baseline lưu revision, approver, thời điểm và mapping verification. Trước khi có baseline: assessment hiển thị trạng thái từng criterion là *provisional*, `progress.basis=none`, không có acceptance readiness. Sau đó, `acceptance.yaml` khác baseline → tín hiệu `baseline_drift` và gợi ý change proposal, không tự đổi baseline.
+
+### 14.6 Waiver
+Waiver chỉ tồn tại trong PPM DB (approver, lý do, scope, expiry), không nằm trong repo. Criterion được waive hiển thị riêng, ra khỏi mẫu số tiến độ và được tính là thỏa cho acceptance readiness đến khi waiver hết hạn.
+
+### 14.7 Registry và chế độ platform
+`templates/registry.example.yaml` là cấu hình cho chế độ standalone và là **định dạng import một lần** khi chuyển sang platform. Ở chế độ platform, nguồn sự thật là `location-registration` 1.1 (`contracts/location-registration.schema.json`): import tạo record `proposed`, owner bổ sung `source_id`, `host_id`, `artifact_aliases`, `classification`, `egress_policy_ref` và approve. `access_policy.cloud_processing: approved_only` không tự chuyển thành quyền egress; owner phải chọn `egress_policy_ref`.
+
+### 14.8 Kiểm tra bổ sung của validator
+Ngoài schema: criterion ID trùng; supersession trỏ tới update không tồn tại hoặc tạo vòng; update tham chiếu criterion không tồn tại; nhiều `project_id` trong một metadata root; `recorded_at/updated_at` lệch tương lai > 24 giờ; trường 2.1 trong file 2.0. Chạy `python tools/run_negative_cases.py` để kiểm các case trong `evals/negative_cases.json`.

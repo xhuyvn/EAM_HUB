@@ -1,7 +1,8 @@
 {
-  "contract_version": "1.0",
+  "contract_version": "1.1",
   "task_id": "task-001",
   "run_id": "run-001",
+  "attempt": 1,
   "execution_ref": "exec-example-001",
   "outcome": "succeeded",
   "summary": "Assessment prepared with missing integration evidence",
@@ -19,6 +20,7 @@
     "cost_status": "unknown",
     "cost_usd": null,
     "provider_usage_ref": null,
-    "as_of": "2026-11-05T09:10:00Z"
+    "as_of": "2026-11-05T09:10:00Z",
+    "usage_scope": "run"
   }
 }

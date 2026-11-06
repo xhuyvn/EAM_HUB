@@ -16,7 +16,8 @@ Owner_ref trong package là metadata đề xuất. Registry đối chiếu owner
 
 ## Adapter interface
 capabilities(binding) trả verified flags và evidence reference.
-submit(task, execution_context, idempotency_key) trả execution_ref hoặc ambiguous outcome.
+submit(task, execution_context, idempotency_key) trả execution_ref hoặc ambiguous outcome. idempotency_key là operation key ổn định của run (docs/02), không phải key mới mỗi lần thử.
+lookup(idempotency_key) trả found(execution_ref)/not_found/unsupported; `not_found` chỉ có giá trị khi provider cam kết lookup authoritative. Adapter không có lookup thì không được tự retry submit.
 status(execution_ref) trả normalized state + provider raw code + observed_at.
 events(execution_ref, cursor) trả events nếu supported, polling adapter có snapshot reconciliation.
 collect_result(execution_ref) trả typed result + artifact refs.
@@ -28,6 +29,8 @@ Unsupported capability trả typed error `CAPABILITY_UNSUPPORTED`. CLI exit 0 ch
 Native Python domain có typed function/tool boundary. HTTP service dùng service identity, endpoint allowlist, timeouts, webhook signature + replay protection. CLI process dùng executable path đã pin, argv, explicit cwd, env allowlist và process tree ownership. Vendor SDK dùng supported public API và version pin. Session mở sẵn cần explicit registration/handover và exclusive controller. GUI automation cần user-session bridge, focus/input arbitration và capability review riêng.
 
 Codex/Claude/OpenCode/Antigravity names trong manifest là adapter target. P0 phải xác minh version/auth/OS/tool approval/cancel/resume thật bằng fixture. Package không mặc định vendor nào có full attach/resume hoặc cost accounting.
+
+Vendor runtime tự thực thi tool phía server cần phân loại riêng. Ví dụ đã kiểm chứng (Claude Platform docs, Managed Agents permission policies, truy cập 06/11/2026): permission policies điều khiển tool chạy phía server (agent toolset, MCP toolset); custom tools do ứng dụng thực thi và không chịu permission policies. Hệ quả: custom tools có thể đi qua Action Service (đạt L2); built-in toolset (bash/file/web) chạy trong sandbox của vendor nằm ngoài platform enforcement và là đường egress cloud. Binding chỉ được `governed` khi built-in toolset bị tắt hoặc mọi tool server-side đặt `always_ask` và confirmation được bridge sang platform approval có digest; nếu không, `execution_boundary=external_trusted` và tối đa L1. Adapter certification phải có test chứng minh cấu hình này (C25).
 
 ## Conformance
 Schema + IDs + output refs; unauthorized submit/action; scope narrowing delegation; duplicate submission; crash before/after external acceptance; out-of-order stream; cancellation late acknowledgement; missing heartbeat; schema drift; redaction; cost unknown; provider failover egress policy; task result vs acceptance separation. `evals/CONFORMANCE_CASES.md` có expected outcomes.

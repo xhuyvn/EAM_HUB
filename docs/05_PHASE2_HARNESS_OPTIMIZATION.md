@@ -42,3 +42,16 @@ H3 canary/rollback drill và regression monitoring, acceptance bởi domain owne
 
 ## Bàn giao
 Experiment manifest, dataset lineage, version locks, paired result table, quality/cost scatter, failure examples đã redact, reviewer decision, deployment record và rollback proof. HUD Harness Lab hiển thị thông tin này cùng trạng thái candidate/approved/canary/promoted/reverted.
+
+## Revision 1.1 — phát hiện candidate rẻ hơn nhưng giảm chất lượng
+Experiment contract 1.1 bắt buộc khai báo trước khi chạy: `change_kind` (prompt/tools/retrieval/context/model_routing/…), một `primary_metric` với `non_inferiority_margin`, ít nhất một `guardrail_metrics` (khuyến nghị PPM: false_verified_rate=0 per stratum, unsupported_claim_acceptance=0, critical_policy_violations=0), `pairing=paired_same_case_same_environment`, `holdout_access=evaluator_only`, `proposer_ref ≠ reviewer_ref`.
+
+Quy trình đánh giá:
+1. Baseline selection: base_release_digest là release đang active, chạy lại trên cùng task set/environment/model profile trong cùng cửa sổ thời gian với candidate (không dùng số liệu lịch sử) để loại provider drift.
+2. Paired evaluation: mỗi case chạy base và candidate với cùng input snapshot, seed nếu hỗ trợ, `trials_per_case` lần; báo cáo hiệu số theo cặp và khoảng tin cậy (bootstrap theo case).
+3. Non-inferiority: candidate chỉ đạt khi cận dưới khoảng tin cậy của (candidate − base) ≥ −margin cho primary metric, và mọi guardrail đạt ở từng stratum (domain × risk). Giảm chi phí không bù cho guardrail fail.
+4. Silent quality loss: so sánh thêm phân phối độ dài output, số evidence ref, tỷ lệ "unknown/missing evidence" và tỷ lệ tool call bị bỏ — candidate rẻ hơn thường giảm bằng cách làm ít việc hơn. Mỗi tín hiệu lệch quá ngưỡng đã khai báo chuyển experiment sang `review_required` với ví dụ đã redact.
+5. Grader drift: LLM grader pinned theo evaluator_version, được hiệu chỉnh trên tập nhãn người; deterministic oracle cho authorization/state/idempotency/verified-criterion. Holdout chỉ evaluator service đọc; optimizer chỉ nhận aggregate.
+6. Rollout: shadow (read-only/simulated side effects) → canary giới hạn `max_traffic_percent` và task class → promote. Rollback triggers khai báo trong `rollout.rollback_trigger_refs`; run đang chạy giữ release cũ.
+
+Phase 1 vẫn sở hữu permissions, recovery, audit và thu thập eval evidence (baseline dataset, trace redacted); Phase 2 chỉ thêm optimizer và experiment pipeline trên nền đó.

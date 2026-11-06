@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "run-command",
+  "description": "Operator command record. retry_new_attempt is rejected with REMOTE_OUTCOME_UNKNOWN while the run is unknown. cancel on an unknown run is accepted as a recorded intent and executed after reconciliation.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.1"
+    },
+    "command_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": [
+        "cancel",
+        "reconcile",
+        "retry_new_attempt"
+      ]
+    },
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8
+    },
+    "requested_by_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requested_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "state": {
+      "enum": [
+        "accepted",
+        "acknowledged",
+        "completed",
+        "rejected"
+      ]
+    },
+    "rejection_code": {
+      "enum": [
+        "FORBIDDEN",
+        "STALE_REVISION",
+        "CAPABILITY_UNSUPPORTED",
+        "REMOTE_OUTCOME_UNKNOWN",
+        "TERMINAL_STATE",
+        null
+      ]
+    },
+    "outcome_note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    }
+  },
+  "required": [
+    "contract_version",
+    "command_id",
+    "run_id",
+    "kind",
+    "expected_revision",
+    "idempotency_key",
+    "requested_by_ref",
+    "requested_at",
+    "state",
+    "rejection_code",
+    "outcome_note"
+  ],
+  "additionalProperties": false
+}

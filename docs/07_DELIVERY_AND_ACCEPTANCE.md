@@ -1,4 +1,6 @@
 # Delivery plan và gates
+Work packages chi tiết, dependency graph, critical path và acceptance evidence nằm trong `docs/IMPLEMENTATION_PLAN.md` (revision 1.1). Local MVP = P0 + P1a + P2a + P3a, kết thúc bằng D1-fixture rồi Local-pilot (plan 1.2). Shared pilot = toàn bộ P1–P5.
+
 | Milestone | Deliverable | Acceptance |
 |---|---|---|
 | P0 | Contract ADRs, provider/SDK compatibility, mock fixtures, deployment assumptions | schemas/examples pass, capability report, threat model và baseline dataset |

@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0",
+  "contract_version": "1.1",
   "task_id": "task-001",
   "run_id": "run-001",
   "parent_task_id": null,
@@ -27,6 +27,8 @@
   },
   "budget_reservation_ref": "reservation-example",
   "deadline": "2026-11-05T10:00:00Z",
-  "idempotency_key": "dispatch-run-001",
-  "completion_policy_ref": "ppm-assessment-output-valid-v1"
+  "idempotency_key": "2d95e8e9c4dd27a505b77ec5eaf7956a99baec27d3603cfca4e647738efc0065",
+  "completion_policy_ref": "ppm-assessment-output-valid-v1",
+  "lease_fencing_token": 1,
+  "task_intent_key": "bd26959f46630d52b7362f53608330f10ba7d2607ccbe80f51c33025fdfb1d06"
 }

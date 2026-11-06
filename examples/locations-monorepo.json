@@ -1,0 +1,142 @@
+[
+  {
+    "contract_version": "1.1",
+    "location_id": "loc-mono-a",
+    "project_id": "proj-app-a",
+    "host_id": "host-windows-pilot",
+    "connector_id": "connector-host-1",
+    "root_path": "D:/projects/example-monorepo",
+    "metadata_root": "apps/a",
+    "scan_scope": [
+      "apps/a",
+      "libs/shared"
+    ],
+    "artifact_aliases": {
+      "architecture": [
+        "apps/a/architecture.md"
+      ],
+      "blueprint": [
+        "apps/a/blueprint.md"
+      ],
+      "implementation_plan": [
+        "apps/a/implement_plan.md"
+      ]
+    },
+    "notes_globs": [
+      "apps/a/.ppm/notes/*.md"
+    ],
+    "follow_symlinks": false,
+    "allow_hardlinked_files": false,
+    "max_file_bytes": 2097152,
+    "deny_globs": [
+      ".env",
+      ".env.*",
+      "*.pem",
+      "*.key"
+    ],
+    "classification": "internal",
+    "egress_policy_ref": "egress:local-only",
+    "identity": {
+      "canonical_root_fingerprint": "fp-example-0001",
+      "repo_identity": "git:example-monorepo@root-commit-0001"
+    },
+    "state": "active",
+    "revision": 1,
+    "registered_by_ref": "principal:owner-example",
+    "approved_by_ref": "principal:owner-example",
+    "source_id": "src-example-monorepo"
+  },
+  {
+    "contract_version": "1.1",
+    "location_id": "loc-mono-b",
+    "project_id": "proj-app-b",
+    "host_id": "host-windows-pilot",
+    "connector_id": "connector-host-1",
+    "root_path": "D:/projects/example-monorepo",
+    "metadata_root": "apps/b",
+    "scan_scope": [
+      "apps/b",
+      "libs/shared"
+    ],
+    "artifact_aliases": {
+      "architecture": [
+        "apps/b/architecture.md"
+      ],
+      "blueprint": [
+        "apps/b/blueprint.md"
+      ],
+      "implementation_plan": [
+        "apps/b/implement_plan.md"
+      ]
+    },
+    "notes_globs": [
+      "apps/b/.ppm/notes/*.md"
+    ],
+    "follow_symlinks": false,
+    "allow_hardlinked_files": false,
+    "max_file_bytes": 2097152,
+    "deny_globs": [
+      ".env",
+      ".env.*",
+      "*.pem",
+      "*.key"
+    ],
+    "classification": "internal",
+    "egress_policy_ref": "egress:local-only",
+    "identity": {
+      "canonical_root_fingerprint": "fp-example-0001",
+      "repo_identity": "git:example-monorepo@root-commit-0001"
+    },
+    "state": "active",
+    "revision": 1,
+    "registered_by_ref": "principal:owner-example",
+    "approved_by_ref": "principal:owner-example",
+    "source_id": "src-example-monorepo"
+  },
+  {
+    "contract_version": "1.1",
+    "location_id": "loc-mono-shared",
+    "project_id": "proj-shared-gateway",
+    "host_id": "host-windows-pilot",
+    "connector_id": "connector-host-1",
+    "root_path": "D:/projects/example-monorepo",
+    "metadata_root": "libs/shared",
+    "scan_scope": [
+      "libs/shared"
+    ],
+    "artifact_aliases": {
+      "architecture": [
+        "libs/shared/architecture.md"
+      ],
+      "blueprint": [
+        "libs/shared/blueprint.md"
+      ],
+      "implementation_plan": [
+        "libs/shared/implement_plan.md"
+      ]
+    },
+    "notes_globs": [
+      "libs/shared/.ppm/notes/*.md"
+    ],
+    "follow_symlinks": false,
+    "allow_hardlinked_files": false,
+    "max_file_bytes": 2097152,
+    "deny_globs": [
+      ".env",
+      ".env.*",
+      "*.pem",
+      "*.key"
+    ],
+    "classification": "internal",
+    "egress_policy_ref": "egress:local-only",
+    "identity": {
+      "canonical_root_fingerprint": "fp-example-0001",
+      "repo_identity": "git:example-monorepo@root-commit-0001"
+    },
+    "state": "active",
+    "revision": 1,
+    "registered_by_ref": "principal:owner-example",
+    "approved_by_ref": "principal:owner-example",
+    "source_id": "src-example-monorepo"
+  }
+]

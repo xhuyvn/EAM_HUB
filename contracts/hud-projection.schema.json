@@ -1,0 +1,339 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "hud-projection",
+  "description": "User-scoped HUD snapshot 1.1. Percent is rendered only when progress.kind=units. Cost partial renders as a lower bound; unknown never renders as zero. Task state, run state, connectivity, remote outcome and project acceptance are independent fields.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.1"
+    },
+    "projection_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "snapshot_cursor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "viewer_scope_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "task_state": {
+            "enum": [
+              "draft",
+              "ready",
+              "active",
+              "blocked",
+              "review_required",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "run_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "attempt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "run_state": {
+            "enum": [
+              "queued",
+              "dispatching",
+              "running",
+              "waiting_approval",
+              "cancelling",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "timed_out",
+              "unknown",
+              null
+            ]
+          },
+          "remote_outcome": {
+            "enum": [
+              "known",
+              "unknown",
+              "not_applicable"
+            ]
+          },
+          "connectivity": {
+            "enum": [
+              "healthy",
+              "stale",
+              "offline",
+              "unknown"
+            ]
+          },
+          "last_observed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "observation_source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "progress": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "units",
+                  "stage_only",
+                  "none"
+                ]
+              },
+              "completed_units": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "total_units": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "unit": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "stage": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "kind",
+              "completed_units",
+              "total_units",
+              "unit",
+              "stage"
+            ],
+            "additionalProperties": false
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "project_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "assessment_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1
+                  },
+                  "verification": {
+                    "enum": [
+                      "unknown",
+                      "claimed",
+                      "partially_verified",
+                      "verified",
+                      "contradicted",
+                      "stale"
+                    ]
+                  },
+                  "validity": {
+                    "enum": [
+                      "current",
+                      "stale",
+                      "unknown",
+                      "conflicted"
+                    ]
+                  },
+                  "acceptance": {
+                    "enum": [
+                      "not_requested",
+                      "pending",
+                      "accepted",
+                      "rejected",
+                      "superseded"
+                    ]
+                  },
+                  "assessment_as_of": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+                  },
+                  "verified_weight": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "total_weight": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "project_id",
+                  "assessment_id",
+                  "verification",
+                  "validity",
+                  "acceptance",
+                  "assessment_as_of",
+                  "verified_weight",
+                  "total_weight"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "cost": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "actual",
+                  "estimated",
+                  "partial",
+                  "unknown"
+                ]
+              },
+              "amount_usd": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "as_of": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+              },
+              "scope": {
+                "enum": [
+                  "run",
+                  "task_tree"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "amount_usd",
+              "as_of",
+              "scope"
+            ],
+            "additionalProperties": false
+          },
+          "pending_command": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "command_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "enum": [
+                      "cancel",
+                      "reconcile",
+                      "retry_new_attempt"
+                    ]
+                  },
+                  "state": {
+                    "enum": [
+                      "accepted",
+                      "acknowledged"
+                    ]
+                  }
+                },
+                "required": [
+                  "command_id",
+                  "kind",
+                  "state"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "task_id",
+          "task_state",
+          "run_id",
+          "attempt",
+          "run_state",
+          "remote_outcome",
+          "connectivity",
+          "last_observed_at",
+          "observation_source",
+          "progress",
+          "project",
+          "cost",
+          "pending_command"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "contract_version",
+    "projection_revision",
+    "snapshot_cursor",
+    "as_of",
+    "viewer_scope_ref",
+    "rows"
+  ],
+  "additionalProperties": false
+}

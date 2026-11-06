@@ -4,7 +4,7 @@
   "name": "Existing Research Agent",
   "version": "1.0.0",
   "domain": "research",
-  "business_owner_ref": "owner-ppm-example",
+  "business_owner_ref": "owner-research-example",
   "technical_owner_ref": "owner-platform-example",
   "runtime_kind": "http",
   "task_types": [
@@ -22,10 +22,9 @@
     "approve_tool": false
   },
   "desired_tools": [
-    "ppm.read_snapshot",
-    "evidence.read",
-    "ppm.propose_assessment"
+    "research.read_sources",
+    "evidence.read"
   ],
   "harness_version": "baseline-1.0",
-  "eval_profile_ref": "ppm-critical-v1"
+  "eval_profile_ref": "research-critical-v1"
 }

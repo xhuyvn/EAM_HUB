@@ -27,3 +27,30 @@ POST /v1/runs/{id}/commands {kind, expected_revision, idempotency_key}. Command 
 ## Acceptance targets đề xuất
 At 20 active runs, 10 metadata events/s/run, p95 authorized event-to-HUD <2s trên môi trường pilot được ghi rõ. Client hiển thị stale nếu 30s không thấy heartbeat (configurable). Các số cần benchmark, chưa là SLA đạt được.
 Gates gồm duplicate/out-of-order events, SSE reconnect without resubmission, expired cursor resync, auth revoke during stream, unknown cost, missing progress denominator, click cancel twice, expired approval, late terminal event, narrow screen/keyboard focus và output redaction.
+
+## Revision 1.1 — projection contract và ngữ nghĩa hiển thị
+Snapshot tuân theo `contracts/hud-projection.schema.json` 1.1 (ví dụ `examples/hud-projection.json`). Mỗi row có các trục độc lập, mỗi trục có nhãn chữ riêng:
+
+| Trục | Field | Nguồn sự thật | Hiển thị |
+|---|---|---|---|
+| Task | task_state | Task Service | Badge chữ, không suy từ run |
+| Run | run_state, attempt | Run Service journal | "Attempt 2 · running" |
+| Remote outcome | remote_outcome | Run Service reconciliation | `unknown` hiển thị "Remote outcome unknown — no retry until reconciled" |
+| Connectivity | connectivity, last_observed_at, observation_source | Heartbeat/connector status | "Stale · last observed 09:10:30 (+07:00) via run-service" |
+| Project | verification, validity, acceptance, assessment_as_of | PPM domain DB | Ba chip riêng; acceptance chỉ đổi qua reviewer action |
+| Cost | status, amount_usd, scope, as_of | Usage ledger | actual/estimated: số; partial: "≥ $0.42 (some calls unknown)"; unknown: "Unknown", không bao giờ "$0" |
+| Pending command | kind, state | Command table | "Cancel requested" cho đến acknowledgement |
+
+Mẫu số: percent chỉ khi `progress.kind=units` và total_units ≥ 1. Project progress hiển thị `verified_weight / total_weight` của baseline revision hiện hành, kèm "N/M criteria có evidence hiện hành"; không có baseline thì hiển thị "No baseline — progress not computed". Tổng chi phí nhiều run: cộng các run actual/estimated/partial thành lower bound, đếm riêng số run unknown ("≥ $4.82 · 2 runs unknown"); mockup hiện tại ghi "$4.82 Estimate · 2 runs unknown" phải đổi sang dạng lower bound khi implement. Ô "Verified scope 6 / 10 criteria" trong mockup phải hiển thị weight và baseline revision.
+
+Reconnect và quyền: mỗi lần mở SSE, server xác thực lại session và kiểm tra cursor thuộc cùng tenant/principal/filter và cùng `policy_version` hoặc grant set; nếu grants đổi hoặc cursor quá retention → `resync_required`, client bỏ cache, gọi snapshot mới. Cursor không bao giờ mở rộng quyền đã bị thu hồi. Client hiển thị trạng thái kết nối HUD (live/reconnecting/offline + thời điểm snapshot) tách khỏi connectivity của worker.
+
+Năng lực cần đo trước khi cam kết: 20 active runs × 10 metadata events/s = 200 events/s; với payload bounded ~1 KB, ingestion ~0.2 MB/s và vài trăm insert/s là giả định nằm trong khả năng một PostgreSQL node và một API process SSE. Không thêm Redis/Kafka/WebSocket gateway cho tới khi load test P3 cho thấy p95 event-to-HUD vượt 2 s hoặc DB CPU > 70% ở profile này.
+
+### Thu hồi quyền khi SSE vẫn đang mở
+Reconnect không phải nơi duy nhất kiểm quyền. Subscription manager giữ `grant_epoch` của từng subscription. Khi grant/ACL đổi, Policy Service phát `policy.changed` (outbox, cùng transaction với thay đổi grant). Subscription manager tăng epoch và đánh giá lại phạm vi trước khi gửi event tiếp theo. Mỗi event gửi đi được lọc theo phạm vi của epoch hiện hành, không theo phạm vi lúc subscribe. Rows bị mất quyền nhận delta `row.removed` và client xóa cache detail. Evidence/artifact luôn tải qua `GET /v1/artifacts/{id}` có xác thực ở mỗi request; MVP không dùng signed URL. Nếu sau này dùng signed URL, TTL ≤ 60 s và revocation không thu hồi được URL đã cấp trong TTL: đây là residual risk phải ghi rõ.
+Mục tiêu đề xuất (cần đo): p95 thời gian từ commit thu hồi quyền tới khi chính sách có hiệu lực trên stream đang mở < 2 s. Test C30: giữ HUD mở, thu hồi quyền đọc project, rồi phát event chứa dữ liệu project đó. Ghi timestamp commit thu hồi, timestamp event cuối client nhận cho project, và kết quả mở evidence bằng đường dẫn cũ (phải 403).
+
+### Ngân sách dung lượng
+Throughput đỉnh không đủ để ước lượng dung lượng. Ở 200 events/s và payload 1 KB, nếu chạy liên tục cả ngày: 200 × 1 KB × 86.400 s ≈ 17,3 GB/ngày, chưa tính index, WAL và backup. Trên server 100 GB dùng chung với websites, con số quyết định là tỷ lệ thời gian ở mức đỉnh và số byte thực lưu mỗi event. Thiết kế giảm dung lượng (áp dụng khi số đo cần): heartbeat không lưu thành event bền vững (chỉ cập nhật last_observed_at); progress coalesce; raw token deltas không lưu; audit/action/state events luôn bền vững. Retention theo lớp (HUD metadata events, trace, audit, evidence) chỉ được chốt ở D-05 sau khi có số đo của P5-WP4.
+Chính sách evidence đã chốt cho Phase 1: không dùng signed URL. Mỗi lần mở evidence đều qua `GET /v1/artifacts/{id}`, kiểm quyền tại thời điểm request. Sau khi thu hồi quyền, đường dẫn cũ trả 403.

@@ -4,7 +4,7 @@
   "type": "object",
   "properties": {
     "contract_version": {
-      "const": "1.0"
+      "const": "1.1"
     },
     "task_id": {
       "type": "string",
@@ -61,8 +61,10 @@
           "enum": [
             "actual",
             "estimated",
+            "partial",
             "unknown"
-          ]
+          ],
+          "description": "partial: cost_usd is a known lower bound; at least one call has unknown cost."
         },
         "cost_usd": {
           "type": [
@@ -81,21 +83,33 @@
           "type": "string",
           "format": "date-time",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "usage_scope": {
+          "enum": [
+            "run",
+            "task_tree"
+          ]
         }
       },
       "required": [
         "cost_status",
         "cost_usd",
         "provider_usage_ref",
-        "as_of"
+        "as_of",
+        "usage_scope"
       ],
       "additionalProperties": false
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
     }
   },
   "required": [
     "contract_version",
     "task_id",
     "run_id",
+    "attempt",
     "execution_ref",
     "outcome",
     "summary",
