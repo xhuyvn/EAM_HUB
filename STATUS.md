@@ -5,16 +5,16 @@ Last updated: 2026-11-06 by architecture review (plan rev 1.5). Coding agents up
 Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_requested` · `blocked` · `accepted` (owner only).
 
 ## Current position
-- Phase: P0-WP0 completed and ready for owner review.
-- Next WP: **P0-WP1 Skeleton, CI, environment** (after owner review/acceptance of P0-WP0).
+- Phase: P0-WP0 accepted by owner. Starting P0-WP1.
+- Next WP: **P0-WP1 Skeleton, CI, environment**.
 - Can run in parallel once P0-WP1 is accepted: **PPM-M0** (prompt: `ppm-v2/prompts/START_NEXT_MILESTONE.md`).
-- Waiting on owner: review P0-WP0; sign DG-1/DG-2 after P0-WP7 (`docs/IMPLEMENTATION_PLAN.md` §3).
+- Waiting on owner: sign DG-1/DG-2 after P0-WP7 (`docs/IMPLEMENTATION_PLAN.md` §3).
 
 ## Work packages to D0-thin-slice
 
 | WP | Title | Prereqs | Status | Branch / commit | Acceptance evidence | Notes |
 |---|---|---|---|---|---|---|
-| P0-WP0 | English canonical docs | — | ready_for_review | `wp/P0-WP0` (d477872) | `check_translation.py` (--compare: 38 pairs 0 diff, --fixture: PASS, --links: 0 broken, --tokens: 20.7% reduction, default: 38 up-to-date), `validate_package.py` PASS, `run_negative_cases.py` PASS, `sha256sum` PASS | ADR-025, ISS-007 resolved |
+| P0-WP0 | English canonical docs | — | accepted | `wp/P0-WP0` (a36d44e) | `check_translation.py` (--compare: 38 pairs 0 diff, --fixture: PASS, --links: 0 broken, --tokens: 20.7% reduction, default: 38 up-to-date), `validate_package.py` PASS, `run_negative_cases.py` PASS, `sha256sum` PASS | ADR-025, ISS-007 resolved; accepted by owner |
 | P0-WP1 | Skeleton, CI, environment | P0-WP0 | not_started | | | `docs/DEV_ENVIRONMENT.md` checklist |
 | P0-WP2 | Contract models | P0-WP1 | not_started | | | |
 | P0-WP7 | Decision record DG-1/DG-2 | P0-WP2 | not_started | | | ends at `P0 ready_for_owner_review` |
@@ -38,5 +38,6 @@ The remaining WPs to D1-fixture (P2a-WP5…WP9, P1a-WP4…WP7, P3a-WP1…WP4, D1
 ## Session log (newest first)
 | Date | WP | Agent/session | Result | Commit |
 |---|---|---|---|---|
-| 2026-11-06 | P0-WP0 | coding agent (implementation lead) | ready_for_review; 38 docs translated, tools/check_translation.py created, ISS-007 resolved (-20.7% tokens), all shared checks pass | `wp/P0-WP0` (d477872) |
+| 2026-11-06 | P0-WP0 | owner | accepted; merged wp/P0-WP0 into main | (owner action) |
+| 2026-11-06 | P0-WP0 | coding agent (implementation lead) | ready_for_review; 38 docs translated, tools/check_translation.py created, ISS-007 resolved (-20.7% tokens), all shared checks pass | `wp/P0-WP0` (a36d44e) |
 | 2026-11-06 | — | architecture review | plan rev 1.5, workflow files created | (owner commit) |
