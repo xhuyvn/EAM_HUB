@@ -1,109 +1,109 @@
-# Project Management Contract 2.1 (tương thích 2.0)
+# Project Management Contract 2.1 (compatible with 2.0)
 
-## 1. Tính chất
-MUST = yêu cầu bắt buộc của contract này; SHOULD = khuyến nghị có thể ngoại lệ nếu ghi lý do. Đây là tiêu chuẩn nội bộ được đề xuất, không phải tiêu chuẩn ISO mới.
-Mọi tài liệu portable dùng `contract_version: '2.0'` và `kind`. JSON Schema Draft 2020-12 kiểm tra cấu trúc; rule engine kiểm tra ngữ nghĩa, quyền và provenance.
+## 1. Nature
+MUST = mandatory requirement of this contract; SHOULD = recommendation with allowed exception if rationale is recorded. This is a proposed internal standard, not a new ISO standard.
+All portable documents use `contract_version: '2.0'` and `kind`. JSON Schema Draft 2020-12 verifies structure; rule engine verifies semantics, authority, and provenance.
 
 ## 2. Authority matrix
-| Dữ liệu | Nguồn chính thức | Ai được ghi |
+| Data | Canonical source | Who may write |
 |---|---|---|
-| Location tuyệt đối, scan schedule, cloud/access | Registry trên host PPM | Owner/trusted admin |
-| Danh tính/mục tiêu đề xuất/mapping | `.ppm/project.yaml` | Owner hoặc coding agent được giao |
-| Nhật ký công việc | `.ppm/updates/*.yaml` | Người/agent thực hiện trong scope được cấp |
-| Reported summary | `.ppm/status.yaml` | Một designated writer; có thể tái dựng từ updates |
-| Tiêu chí đề xuất | `.ppm/acceptance.yaml` | Owner/coding agent; phê duyệt trong domain DB |
-| Quyết định đề xuất | `.ppm/decisions/*.md` | Agent/người soạn |
-| Baseline, assessment, acceptance | Domain DB + audit | Domain service theo quyền |
+| Absolute location, scan schedule, cloud/access | Registry on PPM host | Owner/trusted admin |
+| Identity/proposed objectives/mapping | `.ppm/project.yaml` | Owner or assigned coding agent |
+| Work journal | `.ppm/updates/*.yaml` | Person/agent executing within granted scope |
+| Reported summary | `.ppm/status.yaml` | Single designated writer; reconstructible from updates |
+| Proposed criteria | `.ppm/acceptance.yaml` | Owner/coding agent; approved in domain DB |
+| Proposed decisions | `.ppm/decisions/*.md` | Authoring agent/person |
+| Baseline, assessment, acceptance | Domain DB + audit | Domain service according to permissions |
 
-MUST không coi `owner_ref`, actor hoặc chữ accepted trong file repo là chứng thực danh tính hay approval. Không nhập approved baseline từ repo khi chưa đối chiếu approval event tin cậy.
+MUST not treat `owner_ref`, actor, or the word accepted in repo files as identity certification or approval. Do not import approved baseline from repo without reconciling with a trusted approval event.
 
-## 3. Cấu trúc tối thiểu
-`.ppm/project.yaml`, `.ppm/status.yaml`, `.ppm/updates/` là profile adoption tối thiểu; thư mục updates có thể rỗng lúc mới tạo. `.ppm/acceptance.yaml` bắt buộc trước verified-delivery assessment; nếu chưa có phải báo coverage gap. `.ppm/decisions/` và notes là bổ sung. `README.md` và `.gitignore` mẫu giúp triển khai.
+## 3. Minimal structure
+`.ppm/project.yaml`, `.ppm/status.yaml`, `.ppm/updates/` form the minimal adoption profile; the updates directory may be empty when first initialized. `.ppm/acceptance.yaml` is mandatory prior to verified-delivery assessment; if missing, a coverage gap must be reported. `.ppm/decisions/` and notes are supplementary. Sample `README.md` and `.gitignore` assist implementation.
 
-Paths trong portable mapping MUST là relative POSIX path, không `..`, không absolute hoặc URL. Registry được phép absolute host path; collector vẫn kiểm tra root và realpath. Mọi path đọc thực tế MUST resolve trong trusted root, bao gồm symlink/reparse checks. JSON Schema chỉ chặn một số dạng path, không thay containment check.
+Paths in portable mapping MUST be relative POSIX paths, no `..`, no absolute paths or URLs. Registry is permitted absolute host paths; collector still checks root and realpath. All actual read paths MUST resolve within trusted root, including symlink/reparse checks. JSON Schema only blocks certain path patterns and does not replace containment checks.
 
-## 4. Identity và phiên bản
-Project ID MUST ổn định khi đổi tên/path. Khởi tạo khuyến nghị `proj-<UUID>`; mẫu human-readable được phép nhưng inventory phải kiểm tra unique trong namespace. Di chuyển không tạo project mới; clone/worktree là location mới gắn cùng project/repo identity. Copy để tạo sản phẩm mới phải cấp project ID mới.
-Monorepo: mỗi project có `.ppm/` dưới subdirectory riêng; registry chỉ định metadata_root và scan_scope. Một project nhiều repo: metadata root chính, location_ref trong artifact mapping giải quyết repo phụ. Artifact path không được chui ra root bằng `../`.
-Contract major lạ: quarantine unsupported_version. Migration MUST giữ file gốc/backup và không đổi ID đã đăng ký. Chuyển v1 `schema_version: 1` phải qua explicit migration, không tự đoán.
+## 4. Identity and versioning
+Project ID MUST remain stable across rename/path change. Initialization recommends `proj-<UUID>`; human-readable templates are permitted but inventory must verify uniqueness within namespace. Relocation does not create a new project; clone/worktree is a new location associated with the same project/repo identity. Copying to create a new product must be assigned a new project ID.
+Monorepo: each project has `.ppm/` under its own subdirectory; registry specifies metadata_root and scan_scope. Multi-repo project: primary metadata root, location_ref in artifact mapping resolves secondary repos. Artifact paths must not traverse outside root via `../`.
+Unrecognized contract major: quarantine unsupported_version. Migration MUST preserve original files/backups and must not change registered IDs. Moving from v1 `schema_version: 1` must go through explicit migration, never guessed.
 
 ## 5. Project/status
-Project khai báo objectives dạng draft: id, statement, metric nullable; artifact mapping bắt buộc có architecture/blueprint/implementation_plan với path hoặc null. Thiếu tài liệu phải giữ null và ghi gap, không tạo nội dung giả.
-Status chỉ ghi lifecycle_reported, current_milestone, reported_progress_percent nullable, blockers và next_actions. `reporting_revision` là version của summary, không phải baseline revision. Status cũ được giữ theo snapshot; không xóa lịch sử update.
-Reported progress thiếu baseline MUST để null. 0 chỉ dùng khi người báo cáo thực sự muốn báo 0, không đại diện unknown. Project delivery và operational status tách biệt.
+Project declares objectives in draft form: id, statement, metric nullable; artifact mapping mandatorily includes architecture/blueprint/implementation_plan with path or null. Missing documents must remain null and record gap, never fabricating false content.
+Status records only lifecycle_reported, current_milestone, reported_progress_percent nullable, blockers, and next_actions. `reporting_revision` is the version of the summary, not the baseline revision. Past status is preserved via snapshots; update history is never deleted.
+Reported progress lacking a baseline MUST remain null. 0 is used only when the reporter genuinely intends to report 0, not to represent unknown. Project delivery and operational status remain separated.
 
 ## 6. Session update
-Mỗi update MUST có ID unique và filename tương ứng, project_id, recorded_at có timezone, actor string tự khai, session_id, summary, base_revision/result_revision nullable, working_tree_state, completed/in_progress/checks/blockers/next_actions.
-Work item gồm item_ref nullable và description. Check gồm name, result (`passed`, `failed`, `not_run`, `inconclusive`), evidence_path nullable, tested_revision nullable, environment nullable. Dữ liệu này vẫn là claim của producer; collector thu riêng hash/report metadata rồi verifier xác nhận.
-Check `passed` SHOULD có artifact report; nếu không có thì dùng evidence_path=null và đánh dấu unsupported claim trong assessment. Không ghi passed khi chưa chạy. Evidence không khớp code/criteria không đủ cho verified.
+Each update MUST have a unique ID and corresponding filename, project_id, recorded_at with timezone, self-reported actor string, session_id, summary, base_revision/result_revision nullable, working_tree_state, completed/in_progress/checks/blockers/next_actions.
+Work item consists of item_ref nullable and description. Check consists of name, result (`passed`, `failed`, `not_run`, `inconclusive`), evidence_path nullable, tested_revision nullable, environment nullable. This data remains a claim of the producer; collector independently collects hash/report metadata and verifier confirms.
+A check with result `passed` SHOULD have an artifact report; if unavailable, set evidence_path=null and mark unsupported claim during assessment. Do not record passed when not run. Evidence mismatched with code/criteria is insufficient for verified.
 
-Per-session update là append-only về ngữ nghĩa. Sửa lỗi bằng file mới có `supersedes_update_id`, lý do trong summary; giữ file cũ. Cùng ID/cùng bytes => duplicate no-op; cùng ID/khác bytes => conflict, không last-write-wins. Update đến muộn vẫn xử lý; timestamp không phải ingestion cursor.
+Per-session update is append-only in semantics. Correcting errors requires a new file with `supersedes_update_id` and rationale in summary; retain old file. Same ID/same bytes => duplicate no-op; same ID/different bytes => conflict, not last-write-wins. Late-arriving updates are still processed; timestamp is not an ingestion cursor.
 
-Producer SHOULD tạo ID UUID để tránh collision, ghi ra file tạm rồi atomic rename trong cùng filesystem. Temp suffix `.tmp` không ingest; file chưa parse được retry có giới hạn. Không commit/push chỉ để đáp ứng contract nếu tác vụ không yêu cầu.
+Producer SHOULD generate a UUID ID to prevent collisions, write to a temporary file, and atomically rename within the same filesystem. Temp suffix `.tmp` is not ingested; unparseable files are retried with limits. Do not commit/push solely to satisfy contract if the task does not require it.
 
-## 7. Notes và quyết định
-Ghi chú tự do trong `.ppm/notes/` hoặc mapping `notes` có thể là Markdown. Nó giúp giữ ngữ cảnh nhưng không tự đổi trạng thái, scope hoặc acceptance. Phân biệt loại note: idea, blocker, question, observation. Muốn báo tiến độ nên tạo structured update.
-Decision note phải có scope, alternatives, rationale, impact, evidence_refs và state proposed. Chỉ quyết định được đối chiếu authority/approval event mới có hiệu lực trong DB.
+## 7. Notes and decisions
+Freeform notes in `.ppm/notes/` or mapping `notes` may be Markdown. They help preserve context but do not unilaterally alter status, scope, or acceptance. Distinguish note kinds: idea, blocker, question, observation. To report progress, create a structured update.
+Decision note must contain scope, alternatives, rationale, impact, evidence_refs, and state proposed. Only decisions reconciled against an authority/approval event take effect in DB.
 
-## 8. Source revision và self-reference
-Không bắt update chứa hash commit bao gồm chính update đó: tạo commit hash tự tham chiếu là bất khả thi. `result_revision` có thể trỏ code commit trước documentation commit; hoặc null nếu chưa commit. Collector tự thu HEAD, tree/diff manifest và update hash độc lập. Không sửa code chỉ để khớp revision trong nhật ký.
+## 8. Source revision and self-reference
+Updates are not required to contain a commit hash that includes the update itself: creating a self-referential commit hash is impossible. `result_revision` may point to code commit prior to documentation commit; or null if uncommitted. Collector independently collects HEAD, tree/diff manifest, and update hash. Do not modify code merely to match revision in the journal.
 
 ## 9. Scan contract
-MUST hỗ trợ initial/manual/interval/full_reconciliation; watcher là optimization. Checkpoint chỉ tiến sau transaction ingest thành công. Định danh ingestion theo project+location+artifact path+content hash; domain update dedup thêm project+update_id.
-Scan status: queued/running/succeeded/partial/failed/cancelled. Assessment validity: current/stale/unknown/conflicted. File parse fail có thể scan partial nhưng không được đánh dấu toàn bộ project fresh.
-Đường dẫn mất, quyền bị thu hồi, máy ngủ và cloud lỗi không tạo tiến độ 0 hoặc kết luận no_change. `last_successful_scan_at`, `last_scan_attempt_at`, `last_assessment_at`, source_as_of MUST phân biệt.
-Full reconciliation phát hiện delete/rename và watcher event bị mất. Journal không xóa bản ghi lịch sử khi file bị xóa; tạo tombstone source và đánh giá tác động.
+MUST support initial/manual/interval/full_reconciliation; watcher is an optimization. Checkpoint advances only after successful transaction ingest. Identify ingestion by project+location+artifact path+content hash; domain update dedup adds project+update_id.
+Scan status: queued/running/succeeded/partial/failed/cancelled. Assessment validity: current/stale/unknown/conflicted. File parse failure may produce partial scan but must not mark entire project fresh.
+Missing path, revoked permissions, system sleep, and cloud errors must not produce progress 0 or conclude no_change. `last_successful_scan_at`, `last_scan_attempt_at`, `last_assessment_at`, and source_as_of MUST be distinguished.
+Full reconciliation detects delete/rename and lost watcher events. Journal does not delete historical records when files are removed; creates source tombstone and evaluates impact.
 
-## 10. Nhiều writer
-Mỗi agent ghi update riêng. Status chỉ designated writer cập nhật với expected content hash hoặc CAS. Không có CAS thì để PPM tái dựng và báo status stale thay vì overwrite mù quáng. Khi coding agents có isolated worktree, registry phải chọn integration branch/snapshot để aggregate; không cộng mọi worktree thành tiến độ accepted.
+## 10. Multiple writers
+Each agent writes its own update. Status is updated only by designated writer using expected content hash or CAS. Without CAS, let PPM reconstruct and report status stale rather than blindly overwriting. When coding agents have isolated worktrees, registry must select an integration branch/snapshot to aggregate; do not sum all worktrees into accepted progress.
 
-## 11. Git và dữ liệu nhạy cảm
-Metadata/updates/criteria SHOULD commit để truy vết, sau kiểm tra dữ liệu nhạy cảm. Local cache, host paths, tokens và raw output chứa secret MUST không commit. `.gitignore` không phải security control; kiểm tra cả tracked files. Project repo không tự bật cloud, cron, MCP hoặc arbitrary shell.
+## 11. Git and sensitive data
+Metadata/updates/criteria SHOULD be committed for traceability, after checking for sensitive data. Local cache, host paths, tokens, and raw output containing secrets MUST not be committed. `.gitignore` is not a security control; check tracked files as well. Project repo does not autonomously enable cloud, cron, MCP, or arbitrary shell.
 
 ## 12. Definition of session done
-- Ghi rõ done/in-progress, checks và blockers thực tế.
-- Tạo một update mới; update summary nếu là designated writer.
-- Không tuyên bố accepted/deployed/benefit realized từ code/test pass.
-- Không che failure hoặc dựng lịch sử.
-- Bàn giao next actions và unresolved decisions.
+- Record explicit done/in-progress, actual checks, and blockers.
+- Create one new update; update summary if designated writer.
+- Do not claim accepted/deployed/benefit realized from code/test pass.
+- Do not conceal failure or fabricate history.
+- Hand over next actions and unresolved decisions.
 
-## 13. Ví dụ diễn giải
-Update báo M2 done, test pass nhưng evidence_path null: reported done, verification gap.
-Test report fail ở current implementation: contradicted, cần xử lý.
-Owner nói “đã dùng ổn”: ghi observation/acceptance proposal, xác định scope trước formal acceptance.
-Project đóng, sản phẩm chạy: lifecycle closed và operation running cùng tồn tại.
+## 13. Interpretation examples
+Update reports M2 done, test pass but evidence_path null: reported done, verification gap.
+Test report fail at current implementation: contradicted, requires resolution.
+Owner says "used and works fine": record observation/acceptance proposal, define scope prior to formal acceptance.
+Project closed, product running: lifecycle closed and operation running coexist.
 
-## 14. Contract 2.1 (06/11/2026) — bổ sung tương thích ngược
-Bổ sung sau review `ppm-v2/docs/ARCHITECTURE_REVIEW.md`. Tài liệu 2.0 vẫn hợp lệ, không cần migration.
+## 14. Contract 2.1 (06/11/2026) — backward compatible additions
+Added following review `ppm-v2/docs/ARCHITECTURE_REVIEW.md`. 2.0 documents remain valid, no migration required.
 
 ### 14.1 Version
-`contract_version` nhận `'2.0'` hoặc `'2.1'`. Trường 2.1 chỉ được dùng khi file khai `'2.1'`; file khai 2.0 mà dùng trường 2.1 bị từ chối (validator). Reader MUST đọc được cả 2.0 và 2.1. Minor cao hơn (2.2+) hoặc major khác → quarantine `unsupported_version` và gap report read-only.
+`contract_version` accepts `'2.0'` or `'2.1'`. 2.1 fields may only be used when file declares `'2.1'`; files declaring 2.0 that use 2.1 fields are rejected (validator). Reader MUST be able to read both 2.0 and 2.1. Higher minor (2.2+) or different major → quarantine `unsupported_version` and read-only gap report.
 
-### 14.2 Trường mới (đều optional)
-- `acceptance.yaml` → `criteria[].verification_refs[]`: `{kind: test_id | probe_id | artifact_path | manual_review, ref}`. Đây là mapping đề xuất; chỉ có hiệu lực khi owner duyệt thành baseline trong PPM DB. Reducer dùng mapping baseline để biết test nào bao phủ criterion; thiếu mapping → `coverage_not_mapped`, không đoán.
-- `updates/*.yaml` → `completed[]/in_progress[]/checks[].criterion_ids[]`, `checks[].test_ids[]`: liên kết claim với criterion để không phải dùng LLM đoán. ID phải tồn tại trong `acceptance.yaml` cùng metadata root.
-- `project.yaml` → relation `uses_component`: project này dùng deliverable của project khác (shared component). Không đưa criteria của component vào `acceptance.yaml` của consumer.
+### 14.2 New fields (all optional)
+- `acceptance.yaml` → `criteria[].verification_refs[]`: `{kind: test_id | probe_id | artifact_path | manual_review, ref}`. This is a proposed mapping; takes effect only when owner approves into baseline in PPM DB. Reducer uses baseline mapping to determine which test covers criterion; missing mapping → `coverage_not_mapped`, do not guess.
+- `updates/*.yaml` → `completed[]/in_progress[]/checks[].criterion_ids[]`, `checks[].test_ids[]`: links claim with criterion avoiding LLM guessing. IDs must exist in `acceptance.yaml` under the same metadata root.
+- `project.yaml` → relation `uses_component`: this project uses deliverable of another project (shared component). Do not import component criteria into consumer's `acceptance.yaml`.
 
-### 14.3 Lớp tin cậy của bằng chứng (MUST)
-| Trust class | Nguồn | Có thể verify criterion? |
+### 14.3 Evidence trust classes (MUST)
+| Trust class | Source | Can verify criterion? |
 |---|---|---|
-| `verifier_observed` | Verifier sandbox của PPM/platform chạy lại test/probe được map tại đúng revision | Có |
-| `ci_attested` | Kết quả CI có provenance kiểm được (định danh pipeline, revision, chữ ký/attestation) do owner cấu hình là tin cậy | Có |
-| `reported_artifact` | File report nằm trong repository (JUnit/JSON/log) do coding agent hoặc người tạo, kể cả khi update trỏ `evidence_path` tới nó | **Không**; chỉ là claim có kèm file |
-| `none` | Không có | Không |
-Lý do: producer viết cả code, update lẫn file report trong cùng repo, nên file report trong repo không độc lập với claim. FAIL trong `reported_artifact` vẫn được dùng như tín hiệu phản bác (thận trọng), PASS thì không.
+| `verifier_observed` | Verifier sandbox of PPM/platform reruns mapped test/probe at exact revision | Yes |
+| `ci_attested` | CI result with verifiable provenance (pipeline identity, revision, signature/attestation) configured as trusted by owner | Yes |
+| `reported_artifact` | Report file residing in repository (JUnit/JSON/log) created by coding agent or person, even when update points `evidence_path` to it | **No**; only claim with file |
+| `none` | None | No |
+Rationale: producer authors code, update, and report file in the same repo, so in-repo report files are not independent from claims. FAIL in `reported_artifact` is still used as refutation signal (conservative), PASS is not.
 
-### 14.4 Danh tính project khi copy/clone
-Cùng `project_id` xuất hiện ở hai source khác `repo_identity` (copy repo để làm sản phẩm mới mà quên đổi ID) → `identity_conflict`, quarantine location mới, không gộp updates; owner chọn: cấp ID mới hoặc xác nhận là worktree/clone của cùng project. Clone/worktree đã xác nhận vẫn không cộng tiến độ riêng (§10).
+### 14.4 Project identity on copy/clone
+Same `project_id` appearing at two sources with different `repo_identity` (copying repo to create new product while forgetting to change ID) → `identity_conflict`, quarantine new location, do not merge updates; owner chooses: issue new ID or confirm as worktree/clone of same project. Confirmed clone/worktree still does not sum individual progress (§10).
 
-### 14.5 Baseline từ draft
-`acceptance.yaml` luôn là `draft`. Owner tạo baseline qua PPM API từ snapshot hash của `acceptance.yaml` (+ chỉnh sửa nếu cần); baseline lưu revision, approver, thời điểm và mapping verification. Trước khi có baseline: assessment hiển thị trạng thái từng criterion là *provisional*, `progress.basis=none`, không có acceptance readiness. Sau đó, `acceptance.yaml` khác baseline → tín hiệu `baseline_drift` và gợi ý change proposal, không tự đổi baseline.
+### 14.5 Baseline from draft
+`acceptance.yaml` is always `draft`. Owner creates baseline via PPM API from snapshot hash of `acceptance.yaml` (+ edits if needed); baseline stores revision, approver, timestamp, and verification mapping. Prior to baseline: assessment displays each criterion status as *provisional*, `progress.basis=none`, no acceptance readiness. Afterward, `acceptance.yaml` differing from baseline → `baseline_drift` signal and change proposal suggestion, never unilaterally altering baseline.
 
 ### 14.6 Waiver
-Waiver chỉ tồn tại trong PPM DB (approver, lý do, scope, expiry), không nằm trong repo. Criterion được waive hiển thị riêng, ra khỏi mẫu số tiến độ và được tính là thỏa cho acceptance readiness đến khi waiver hết hạn.
+Waivers exist only in PPM DB (approver, rationale, scope, expiry), never in repo. Waived criterion displays separately, excluded from progress denominator and counted as satisfied for acceptance readiness until waiver expires.
 
-### 14.7 Registry và chế độ platform
-`templates/registry.example.yaml` là cấu hình cho chế độ standalone và là **định dạng import một lần** khi chuyển sang platform. Ở chế độ platform, nguồn sự thật là `location-registration` 1.1 (`contracts/location-registration.schema.json`): import tạo record `proposed`, owner bổ sung `source_id`, `host_id`, `artifact_aliases`, `classification`, `egress_policy_ref` và approve. `access_policy.cloud_processing: approved_only` không tự chuyển thành quyền egress; owner phải chọn `egress_policy_ref`.
+### 14.7 Registry and platform mode
+`templates/registry.example.yaml` is configuration for standalone mode and is a **one-time import format** when migrating to platform. In platform mode, single source of truth is `location-registration` 1.1 (`contracts/location-registration.schema.json`): import creates `proposed` record, owner supplements `source_id`, `host_id`, `artifact_aliases`, `classification`, `egress_policy_ref` and approves. `access_policy.cloud_processing: approved_only` does not automatically convert into egress permission; owner must select `egress_policy_ref`.
 
-### 14.8 Kiểm tra bổ sung của validator
-Ngoài schema: criterion ID trùng; supersession trỏ tới update không tồn tại hoặc tạo vòng; update tham chiếu criterion không tồn tại; nhiều `project_id` trong một metadata root; `recorded_at/updated_at` lệch tương lai > 24 giờ; trường 2.1 trong file 2.0. Chạy `python tools/run_negative_cases.py` để kiểm các case trong `evals/negative_cases.json`.
+### 14.8 Additional validator checks
+Beyond schema: duplicate criterion IDs; supersession pointing to nonexistent update or forming a loop; update referencing nonexistent criterion; multiple `project_id` in single metadata root; `recorded_at/updated_at` skewed into future > 24 hours; 2.1 fields in 2.0 file. Run `python tools/run_negative_cases.py` to check cases in `evals/negative_cases.json`.

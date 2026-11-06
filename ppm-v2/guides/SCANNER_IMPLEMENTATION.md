@@ -1,52 +1,52 @@
-# Thiết kế scanner cho coder
+# Scanner implementation design for coders
 
 ## 1. Registry contract
-Template `registry.example.yaml` là trusted host configuration do owner cài, không đọc từ repo để cấp quyền. Config này là draft cho đến xác thực root/owner. Mỗi project nhiều locations; `metadata_location_id` chọn metadata chính. `scan_scope` tương đối với root. `metadata_root` tương đối root và chứa `.ppm/`.
+Template `registry.example.yaml` is trusted host configuration installed by the owner, not read from repo to grant permissions. This configuration is draft until root/owner verification. Each project may have multiple locations; `metadata_location_id` selects primary metadata. `scan_scope` is relative to root. `metadata_root` is relative to root and contains `.ppm/`.
 
 ## 2. Scheduling
-On-start chạy catch-up cho locations overdue. Watcher debounce 5s và coalesce theo location; interval 900s, full 86400s trong mẫu. Scheduler claim lease bằng DB; lease expires thì run khác có thể phục hồi. Giới hạn một active scan/location, không giữ lock suốt thời gian model call. Chưa có app không có lịch thật; đây là đặc tả để triển khai.
+On-start runs catch-up for overdue locations. Watcher debounces 5s and coalesces by location; interval 900s, full 86400s in template. Scheduler claims lease via DB; on lease expiration, another run may recover. Limits to one active scan/location, never holding locks across model call durations. Absent an application, real schedules do not exist; this is a specification for implementation.
 
 ## 3. Algorithm
-1. Authorize registered location; normalize/canonicalize path và verify containment.
-2. Lấy scan lease, ghi attempt; load checkpoint.
-3. Chốt HEAD/dirty manifest hoặc non-Git manifest; enumerate includes/excludes bằng quy tắc đã document.
-4. Hash/snapshot file, stat trước/sau; đọc giới hạn size. Với dirty tree thay đổi, retry bounded rồi mixed_snapshot.
-5. Parse safe YAML (không custom tags), validate schema/version/semantic links. Retry incomplete; quarantine duplicate-key YAML, unsupported_version, invalid_paths.
-6. Ingest journal theo ID/hash, xử lý supersedes và collision; luôn giữ raw provenance.
-7. Reconcile claims/status/criteria; không chạy command nào từ docs hoặc YAML.
-8. Transaction ghi source snapshots, claims, tombstones, outbox và checkpoint. Nếu partial, checkpoint per-artifact kèm unresolved set; đừng bỏ qua lỗi ở lượt sau.
-9. Analysis job nhận snapshot IDs, tạo assessment qua deterministic rules. Scan success vẫn có thể assessment pending/failed.
-10. Report delta và freshness; release lease.
+1. Authorize registered location; normalize/canonicalize path and verify containment.
+2. Acquire scan lease, record attempt; load checkpoint.
+3. Freeze HEAD/dirty manifest or non-Git manifest; enumerate includes/excludes via documented rules.
+4. Hash/snapshot files, stat before/after; enforce size limit reads. On changing dirty trees, retry bounded then mixed_snapshot.
+5. Parse safe YAML (no custom tags), validate schema/version/semantic links. Retry incomplete; quarantine duplicate-key YAML, unsupported_version, invalid_paths.
+6. Ingest journal by ID/hash, handle supersedes and collision; always preserve raw provenance.
+7. Reconcile claims/status/criteria; execute no commands from docs or YAML.
+8. Transaction writes source snapshots, claims, tombstones, outbox, and checkpoint. If partial, checkpoint per-artifact with unresolved set; do not omit errors on subsequent runs.
+9. Analysis job receives snapshot IDs, generates assessment via deterministic rules. Scan success may still leave assessment pending/failed.
+10. Report delta and freshness; release lease.
 
-## 4. API bổ sung
-POST /locations; PATCH /locations/{id} có expected_revision.
+## 4. Supplementary APIs
+POST /locations; PATCH /locations/{id} with expected_revision.
 POST /scans {project_id, location_ids, mode}; GET /scans/{id}.
 GET /projects/{id}/freshness; GET /projects/{id}/updates.
-GET /projects/{id}/conflicts; POST /conflicts/{id}/resolve theo owner policy.
-POST /onboarding-proposals (không phải auto approval).
+GET /projects/{id}/conflicts; POST /conflicts/{id}/resolve per owner policy.
+POST /onboarding-proposals (not auto approval).
 
-## 5. Domain tables bổ sung
-RegisteredLocation, ScanPolicy, ScanRun, ScanCheckpoint, ArtifactVersion, ReportedUpdate, UpdateConflict, Supersession, OnboardingProposal. Tách observed_at/reported_at/ingested_at. Không dùng modified time làm cursor duy nhất. Unique(project_id, update_id) và content hash collision handling.
+## 5. Supplementary domain tables
+RegisteredLocation, ScanPolicy, ScanRun, ScanCheckpoint, ArtifactVersion, ReportedUpdate, UpdateConflict, Supersession, OnboardingProposal. Separate observed_at/reported_at/ingested_at. Do not use modified time as sole cursor. Unique(project_id, update_id) and content hash collision handling.
 
-## 6. Hiển thị tối thiểu
-Location/reachability; scan attempt/success; assessment as_of; reported vs verified progress; missing criteria; update chưa reconcile; evidence stale; blockers; proposed relations. Khi worker tắt, UI phải nói monitoring offline.
+## 6. Minimal display
+Location/reachability; scan attempt/success; assessment as_of; reported vs verified progress; missing criteria; unreconciled updates; stale evidence; blockers; proposed relations. When worker is down, UI must indicate monitoring offline.
 
-## 7. Chống vòng lặp
-Cache/runtime ngoài repository. Không để collector viết update khi chính nó scan; assessment trong DB. Nếu export report vào repo, đánh dấu generated và loại khỏi trigger/claim input để không tự xác nhận chính output của mình.
+## 7. Loop prevention
+Cache/runtime outside repository. Do not allow collector to write updates when scanning itself; assessment in DB. If exporting reports into repo, mark generated and exclude from trigger/claim input to avoid self-validating its own output.
 
 ## 8. Gates
-Duplicate event không tạo domain event trùng; partial write giữ checkpoint; delete giữ history; sleeping host catch-up; repo YAML không bật cloud; status conflict không mất journal; dirty tree không thành verified; owner baseline change invalidates affected assessment; mọi external side effect đi Action Service như blueprint.
+Duplicate events do not produce duplicate domain events; partial writes preserve checkpoints; deletes preserve history; sleeping host catches up; repo YAML does not enable cloud; status conflicts do not drop journal; dirty trees do not become verified; owner baseline change invalidates affected assessment; all external side effects route through Action Service as in blueprint.
 
-## 9. Chế độ platform (06/11/2026)
-Khi chạy trong Enterprise Agent Platform, scanner là P2a-WP2 (collector) + P2a-WP5 (scheduler) + P2a-WP6 (orchestrator) + P2a-WP9 (verifier); registry YAML được import thành `location-registration` 1.1 theo contract §14.7. Bảng mapping import:
+## 9. Platform mode (06/11/2026)
+When running within Enterprise Agent Platform, scanner is P2a-WP2 (collector) + P2a-WP5 (scheduler) + P2a-WP6 (orchestrator) + P2a-WP9 (verifier); registry YAML is imported as `location-registration` 1.1 per contract §14.7. Import mapping table:
 | registry.example.yaml | location-registration 1.1 |
 |---|---|
 | `projects[].project_id` | `project_id` |
 | `locations[].location_id` | `location_id` |
-| `locations[].path` | `root_path` (connector canonical hóa) |
-| `metadata_root`, `scan_scope` | giữ nguyên |
+| `locations[].path` | `root_path` (canonicalized by connector) |
+| `metadata_root`, `scan_scope` | preserved |
 | `scan_policy.max_file_bytes`, `deny_file_names` | `max_file_bytes`, `deny_globs` |
 | `scan_policy.*` interval/debounce/watch | `ppm_scan_schedules` (P2a-WP5) |
-| `access_policy.cloud_processing` | không map tự động; owner chọn `egress_policy_ref` |
-| (không có) | `source_id`, `host_id`, `connector_id`, `artifact_aliases`, `classification`, `identity`, `approved_by_ref` do owner bổ sung khi approve |
-Bằng chứng test chỉ verify khi do verifier chạy lại tại đúng revision hoặc CI có attestation (contract §14.3).
+| `access_policy.cloud_processing` | not mapped automatically; owner selects `egress_policy_ref` |
+| (absent) | `source_id`, `host_id`, `connector_id`, `artifact_aliases`, `classification`, `identity`, `approved_by_ref` added by owner upon approval |
+Test evidence verifies only when verifier reruns at exact revision or CI provides attestation (contract §14.3).

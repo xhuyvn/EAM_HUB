@@ -1,75 +1,75 @@
 # EAM_HUB — Dev Environment
 
-06/11/2026 · Huynn · Bản gốc: [Claude Docs](https://claude.ai/artifact/CC31A9ymgUtReLd1gPEpmK)
+06/11/2026 · Huynn · Original: [Claude Docs](https://claude.ai/artifact/CC31A9ymgUtReLd1gPEpmK)
 
-## Phạm vi và nguyên tắc
+## Scope and principles
 
-Platform (`src/eap`, `web/hud`) và PPM v2 (`ppm-v2/`) dùng chung một repo `EAM_HUB`, một Python 3.12 và một bộ dịch vụ local. Môi trường này dùng cho dev và test trên máy owner; private server tính sau Local-pilot.
+Platform (`src/eap`, `web/hud`) and PPM v2 (`ppm-v2/`) share a single repository `EAM_HUB`, a single Python 3.12 installation, and a single set of local services. This environment serves development and testing on the owner machine; private servers follow post-Local-pilot.
 
-- **Một repo, một lock file Python**; Node chỉ cho `web/hud`.
-- **PostgreSQL là source of truth duy nhất** cho task, run, journal, assessment và audit. Redis và Qdrant chỉ giữ dữ liệu dẫn xuất, mất là dựng lại được.
-- **`ppm_reducer` không I/O, không đọc `.env`, không import `eap`**; chiều import chỉ `eap.ppm → ppm_reducer`.
-- **Verifier chạy test không tin cậy trong env sạch**, không thừa hưởng `.env` của dev.
-- **Bộ validator PPM standalone** chạy được chỉ với `ppm-v2/tools/requirements.txt`, không cần dịch vụ nào.
+- **One repository, one Python lock file**; Node solely for `web/hud`.
+- **PostgreSQL is the single source of truth** for tasks, runs, journals, assessments, and audit logs. Redis and Qdrant store derived data only, rebuildable upon loss.
+- **`ppm_reducer` has no I/O, does not read `.env`, and never imports `eap`**; import direction is strictly `eap.ppm → ppm_reducer`.
+- **The verifier executes untrusted tests in clean environments**, never inheriting developer `.env`.
+- **The standalone PPM validator** executes with `ppm-v2/tools/requirements.txt` alone, without external services.
 
-## Phiên bản
+## Versions
 
-Bốn thành phần được chốt theo yêu cầu của owner. Mọi image Docker pin đúng tag, không dùng `latest`; kiểm lại tag và digest bằng `docker pull` ở P0-WP1.
+Four core components are pinned per owner specification. All Docker images pin exact tags, avoiding `latest`; tags and digests are verified via `docker pull` in P0-WP1.
 
-| Thành phần | Phiên bản / image | Vai trò | Bắt buộc cho D1 | Kiểm chứng (06/11/2026) |
+| Component | Version / image | Role | Required for D1 | Verification (06/11/2026) |
 | --- | --- | --- | --- | --- |
-| Python | 3.12 (`requires-python = ">=3.12,<3.13"`) | Platform + `ppm_reducer` + validator | Có | Validator hiện mới chạy trên 3.10; CI phải chạy lại trên 3.12 |
-| PostgreSQL | `postgres:18.6-trixie` | Source of truth, work queue (`SKIP LOCKED`), outbox, FTS | Có | 18.6 phát hành 13/08/2026 ([postgresql.org](https://www.postgresql.org/)); tag image chưa kiểm |
-| Redis | `redis:8.10.1-trixie` | Cache/rate limit dẫn xuất (xem mục sau) | Không | 8.10.1 là bản vá bảo mật tháng 8/2026 ([release notes](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/release-notes/redisce/redisos-8.10-release-notes/)); tag image chưa kiểm |
-| Qdrant | `qdrant/qdrant:v1.20.0` | Vector index dẫn xuất cho retrieval | Không | Client Python v1.20.0 phát hành 22/10/2026, hỗ trợ Qdrant 1.20 ([qdrant-client](https://github.com/qdrant/qdrant-client/releases/tag/v1.20.0)); release server v1.20.0 chưa mở trang kiểm |
-| Node | 26 LTS | `web/hud` (Vite + React + TS) | Có | Node 26 vào Active LTS 28/10/2026, EOL 30/04/2029 ([DevX](https://www.devx.com/coding/nodejs-26-lts-new-features-release-date/)) |
-| Ollama | bản cài local | Model local | Không (fake model ở D1) | Spike P0-WP6 |
+| Python | 3.12 (`requires-python = ">=3.12,<3.13"`) | Platform + `ppm_reducer` + validator | Yes | Validator verified on 3.10; CI re-executes on 3.12 |
+| PostgreSQL | `postgres:18.6-trixie` | Source of truth, work queue (`SKIP LOCKED`), outbox, FTS | Yes | 18.6 released 13/08/2026 ([postgresql.org](https://www.postgresql.org/)); image tag verified in P0-WP1 |
+| Redis | `redis:8.10.1-trixie` | Derived cache/rate limiting (see below) | No | 8.10.1 security patch August 2026 ([release notes](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/release-notes/redisce/redisos-8.10-release-notes/)); image tag verified in P0-WP1 |
+| Qdrant | `qdrant/qdrant:v1.20.0` | Derived vector index for retrieval | No | Python client v1.20.0 released 22/10/2026 supporting Qdrant 1.20 ([qdrant-client](https://github.com/qdrant/qdrant-client/releases/tag/v1.20.0)); server release page verification in P0-WP1 |
+| Node | 26 LTS | `web/hud` (Vite + React + TS) | Yes | Node 26 Active LTS entered 28/10/2026, EOL 30/04/2029 ([DevX](https://www.devx.com/coding/nodejs-26-lts-new-features-release-date/)) |
+| Ollama | local installation | Local model provider | No (fake model in D1) | Spike P0-WP6 |
 
-PostgreSQL 18 thay cho 16 (plan rev 1.5, ADR-026); P0-WP1 chạy SC-06 (migration up/down/up) trên 18.6. Redis 8 phân phối theo bộ license AGPL-3.0/RSAL/SSPL; dùng nội bộ thường không vướng, nhưng cần đối chiếu chính sách license của ngân hàng trước khi lên private server.
+PostgreSQL 18 replaces 16 (plan rev 1.5, ADR-026); P0-WP1 executes SC-06 (migration up/down/up) on 18.6. Redis 8 is licensed under AGPL-3.0/RSAL/SSPL; internal evaluation is generally uninhibited, but bank software licensing policies must be cross-checked prior to private server deployment.
 
-## Redis và Qdrant trong kiến trúc
+## Redis and Qdrant in the architecture
 
-Redis và Qdrant có trong môi trường từ đầu nhưng không nằm trên đường tới D1-fixture. Review đã chọn PostgreSQL `SKIP LOCKED` cho work queue và PostgreSQL FTS cho tìm kiếm, với quy tắc không thêm hạ tầng chỉ vì hiệu năng trước khi có số đo.
+Redis and Qdrant exist in the environment from the beginning but do not lie on the critical path to D1-fixture. The review selected PostgreSQL `SKIP LOCKED` for work queues and PostgreSQL FTS for search, following the rule of avoiding infrastructural additions purely for performance before empirical measurements warrant.
 
-| Dịch vụ | Được dùng cho | Không được dùng cho | Điều kiện bật |
+| Service | Used for | Prohibited for | Activation trigger |
 | --- | --- | --- | --- |
-| Redis | Cache projection HUD, rate limit, fan-out SSE khi có nhiều API process | Queue của run/dispatch, journal, lease, idempotency key, cursor HUD (tất cả ở PostgreSQL) | Số đo P1a-WP7 / P3a-WP4 vượt ngưỡng, hoặc chạy >1 API process |
-| Qdrant | Index embedding cho retrieval trên notes/tài liệu, dựng lại được từ PostgreSQL + CAS | Lưu trạng thái criterion, quyết định verified, nguồn duy nhất của bất kỳ bản ghi nào | Benchmark retrieval cho thấy FTS không đủ (H1), embedding model được egress policy cho phép |
+| Redis | HUD projection cache, rate limiting, SSE fan-out with multi-process APIs | Run/dispatch queues, journals, leases, idempotency keys, HUD cursors (all in PostgreSQL) | Measurements from P1a-WP7 / P3a-WP4 exceed thresholds, or >1 API process deployed |
+| Qdrant | Embedding vector index for note/document retrieval, rebuildable from PostgreSQL + CAS | Storing criterion state, verification decisions, single source of any record | Retrieval benchmark proves FTS insufficient (H1), embedding model authorized by egress policy |
 
-- Hai dịch vụ nằm trong compose profile `optional`; `docker compose up` mặc định chỉ bật PostgreSQL.
-- Code chỉ gọi Redis/Qdrant qua interface (`CacheBackend`, `VectorIndex`) có bản in-memory/no-op cho test.
-- Embedding cho Qdrant chịu cùng egress policy với model (binding 1.1): mặc định local-only.
-- Trước khi một trong hai thành phần bắt buộc, ghi ADR mới trong `docs/01` kèm số đo.
+- Both services reside under compose profile `optional`; default `docker compose up` starts PostgreSQL only.
+- Code accesses Redis/Qdrant strictly through interfaces (`CacheBackend`, `VectorIndex`) with in-memory/no-op implementations for testing.
+- Embeddings for Qdrant are subject to the identical egress policy as models (binding 1.1): local-only by default.
+- Before either service becomes mandatory, a new ADR must be recorded in `docs/01` accompanied by empirical measurements.
 
-## Repo và workspace
+## Repository and workspace
 
-Một uv workspace với hai member Python cài editable vào cùng `.venv`; Node tách riêng trong `web/hud`.
+A single uv workspace with two Python packages installed editable into the same `.venv`; Node isolated within `web/hud`.
 
 ```
 EAM_HUB/
   pyproject.toml            # workspace root: package eap, requires-python >=3.12,<3.13
-  uv.lock                   # một lock duy nhất, commit
+  uv.lock                   # single lock file, committed
   src/eap/                  # platform (FastAPI, Run Service, PPM integration ...)
   ppm-v2/reducer/           # workspace member: package ppm_reducer (stdlib + jsonschema + PyYAML)
-  ppm-v2/tools/             # validator standalone, requirements.txt riêng
-  web/hud/                  # Vite + React + TS, package-lock.json commit
-  compose.yaml              # postgres (mặc định), redis + qdrant (profile optional)
-  .env.example              # commit; .env thật không commit
+  ppm-v2/tools/             # standalone validator, independent requirements.txt
+  web/hud/                  # Vite + React + TS, package-lock.json committed
+  compose.yaml              # postgres (default), redis + qdrant (optional profile)
+  .env.example              # committed; actual .env never committed
 ```
 
 ```bash
-uv sync                         # tạo .venv, cài eap + ppm_reducer editable
+uv sync                         # creates .venv, installs eap + ppm_reducer editable
 uv run pytest -q
 uv run python tools/validate_package.py
 uv run python ppm-v2/tools/run_negative_cases.py
 npm --prefix web/hud ci && npm --prefix web/hud run build
 ```
 
-Công cụ dev cài trong `[dependency-groups] dev` của root: `pytest`, `ruff`, `mypy`. `ppm_reducer` khai báo dependency tối thiểu của riêng nó; test kiểm nó không import `eap`, `requests`, `socket`, `subprocess`.
+Development dependencies are defined in root `[dependency-groups] dev`: `pytest`, `ruff`, `mypy`. `ppm_reducer` declares its own minimal dependencies; tests ensure it never imports `eap`, `requests`, `socket`, or `subprocess`.
 
-## Dịch vụ local (Docker Compose)
+## Local services (Docker Compose)
 
-PostgreSQL chạy mặc định; Redis và Qdrant chỉ bật với `--profile optional`. Mọi port bind `127.0.0.1`, không ra mạng LAN.
+PostgreSQL executes by default; Redis and Qdrant start solely with `--profile optional`. All ports bind strictly to `127.0.0.1`, never exposing to LAN.
 
 ```yaml
 services:
@@ -105,58 +105,58 @@ volumes:
   qdrantdata:
 ```
 
-- Test dùng database riêng `eap_test`, tạo và xóa theo session pytest; không chạy test trên `eap_dev`.
-- PostgreSQL 18 image dùng thư mục dữ liệu theo phiên bản dưới `/var/lib/postgresql`; kiểm lại đường mount trong README của image ở P0-WP1.
-- Telemetry Qdrant tắt vì telemetry nằm trong egress policy (ARCH-15).
+- Testing utilizes an isolated database `eap_test`, created and dropped per pytest session; tests never run against `eap_dev`.
+- PostgreSQL 18 image utilizes versioned data directories under `/var/lib/postgresql`; mount paths verified in image README during P0-WP1.
+- Qdrant telemetry is disabled because telemetry is governed by platform egress policy (ARCH-15).
 
-## `.env` và secrets
+## `.env` and secrets
 
-Chỉ platform đọc `.env`; reducer, validator và test code của project được verify không bao giờ thấy nó.
+Only the platform reads `.env`; the reducer, validator, and test code of verified projects never see it.
 
 ```dotenv
-# .env.example — commit file này, không commit .env
+# .env.example — commit this file, never commit actual .env
 EAP_ENV=dev
 EAP_BIND=127.0.0.1:8000
 DATABASE_URL=postgresql+psycopg://eap:${POSTGRES_PASSWORD}@127.0.0.1:5432/eap_dev
 TEST_DATABASE_URL=postgresql+psycopg://eap:${POSTGRES_PASSWORD}@127.0.0.1:5432/eap_test
 POSTGRES_PASSWORD=
-REDIS_URL=            # để trống = CacheBackend no-op
+REDIS_URL=            # empty = CacheBackend no-op
 REDIS_PASSWORD=
-QDRANT_URL=           # để trống = VectorIndex tắt
+QDRANT_URL=           # empty = VectorIndex disabled
 QDRANT_API_KEY=
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 EAP_EGRESS_DEFAULT=local_only
 EAP_TELEMETRY=local_only
-EAP_SECRET_CANARY=     # sinh ngẫu nhiên mỗi máy, dùng cho SC-04
+EAP_SECRET_CANARY=     # generated randomly per machine, used for SC-04
 ```
 
-- Thêm biến mới → cập nhật `.env.example` trong cùng commit; config load bằng `pydantic-settings`, thiếu biến bắt buộc thì dừng lúc khởi động.
-- Test dùng `.env.test` sinh từ fixture; coding agent không được đọc `.env` thật.
-- Log/trace/event không chứa giá trị của bất kỳ biến `*_PASSWORD`, `*_KEY`, `EAP_SECRET_CANARY` (SC-04 grep canary).
-- **Verifier (P2a-WP9)** khởi chạy test với env rỗng + allowlist (`PATH`, `HOME` tạm, `LANG`, `PYTHONHASHSEED`), không network, workspace tạm. Test bắt buộc: một fixture test in toàn bộ env, output không được chứa `EAP_SECRET_CANARY`.
+- New environment variables require updating `.env.example` in the identical commit; configs loaded via `pydantic-settings`, halting startup if required variables are missing.
+- Tests utilize `.env.test` generated from fixtures; coding agents must never read real `.env`.
+- Logs, traces, and events omit values of any `*_PASSWORD`, `*_KEY`, or `EAP_SECRET_CANARY` variable (SC-04 grep canary).
+- **Verifier (P2a-WP9)** launches tests in empty environments with allowlisted variables (`PATH`, temporary `HOME`, `LANG`, `PYTHONHASHSEED`), without network, in temporary workspaces. Mandatory test: fixture test printing full environment; output must omit `EAP_SECRET_CANARY`.
 
-## Checklist P0-WP1 và điểm mở
+## P0-WP1 Checklist and open points
 
-Môi trường được coi là xong khi mọi mục dưới có output thật ghi vào `VALIDATION_REPORT.md`.
+Environment is considered complete when all items below have real output recorded in `VALIDATION_REPORT.md`.
 
-- [ ] `docker compose pull` thành công cho ba tag; ghi image digest vào `docs/DEV_ENVIRONMENT.md`
-- [ ] `docker compose up -d` chỉ bật PostgreSQL; healthcheck xanh; `--profile optional` bật thêm Redis, Qdrant
-- [ ] `uv sync` trên Python 3.12 sạch; `uv.lock` commit
-- [ ] `uv run python tools/validate_package.py` và `ppm-v2/tools/run_negative_cases.py` PASS trên 3.12
-- [ ] `pip install -r ppm-v2/tools/requirements.txt` trong venv trống → validator PPM chạy không cần platform
-- [ ] Test import-boundary: `ppm_reducer` không import `eap`/network/subprocess
-- [ ] SC-06 migration up/down/up trên PostgreSQL 18.6
-- [ ] App khởi động và test xanh khi `REDIS_URL`, `QDRANT_URL` để trống
-- [ ] SC-04: canary không xuất hiện trong log
+- [ ] `docker compose pull` succeeds across all three tags; record image digests in `docs/DEV_ENVIRONMENT.md`
+- [ ] `docker compose up -d` starts PostgreSQL only; healthcheck green; `--profile optional` starts Redis and Qdrant
+- [ ] `uv sync` on clean Python 3.12; `uv.lock` committed
+- [ ] `uv run python tools/validate_package.py` and `ppm-v2/tools/run_negative_cases.py` PASS on 3.12
+- [ ] `pip install -r ppm-v2/tools/requirements.txt` in clean venv → standalone PPM validator runs without platform
+- [ ] Test import-boundary: `ppm_reducer` does not import `eap`/network/subprocess
+- [ ] SC-06 migration up/down/up on PostgreSQL 18.6
+- [ ] App starts and tests pass when `REDIS_URL`, `QDRANT_URL` are empty
+- [ ] SC-04: canary does not appear in logs
 
-Điểm mở:
+Open points:
 
-- Plan rev 1.5 đã cập nhật PostgreSQL 18.6 / Python 3.12 / Node 26 LTS (ADR-026).
-- Release server Qdrant v1.20.0 và các tag `-trixie` chưa được mở trang kiểm trực tiếp; P0-WP1 xác nhận bằng `docker pull`.
-- License Redis 8 cần đối chiếu chính sách ngân hàng trước private server.
-- Dung lượng: volume Qdrant/PostgreSQL tính vào ngân sách 100 GB dùng chung; đo ở P5-WP4.
+- Plan rev 1.5 updated PostgreSQL 18.6 / Python 3.12 / Node 26 LTS (ADR-026).
+- Qdrant v1.20.0 server release and `-trixie` tags verified directly in P0-WP1 via `docker pull`.
+- Redis 8 licensing to be evaluated against bank software policies before private server deployment.
+- Storage capacity: Qdrant and PostgreSQL volumes count against 100 GB shared server budget; measured in P5-WP4.
 
-## Nguồn
+## Sources
 
 - [PostgreSQL 18.6 release (postgresql.org)](https://www.postgresql.org/)
 - [Redis Open Source 8.10 release notes](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/release-notes/redisce/redisos-8.10-release-notes/)

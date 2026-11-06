@@ -1,3 +1,3 @@
 # Notes
-Có thể thêm Markdown notes loại idea/blocker/question/observation. Ghi thời điểm và nguồn.
-Notes không tự thay acceptance hoặc scope. Báo công việc bằng structured session update.
+You can add Markdown notes of kind idea/blocker/question/observation. Record timestamp and source.
+Notes do not automatically alter acceptance or scope. Report work using structured session update.

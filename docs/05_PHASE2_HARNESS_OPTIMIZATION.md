@@ -1,17 +1,17 @@
 # Phase 2 — Harness Engineering & Optimization
 ## Charter
-Cải thiện reliability, grounding và chi phí của các domain agent qua các experiment có thể tái lập. Harness gồm instructions, context builder, tool contract, planner/stop conditions, memory/compaction, recovery, verifier và observability. Policy enforcement và domain source of truth tiếp tục do platform services sở hữu.
+Improve reliability, grounding and cost of domain agents via repeatable experiments. The harness encompasses instructions, context builder, tool contracts, planner/stop conditions, memory/compaction, recovery, verifiers and observability. Policy enforcement and domain source of truth remain owned by platform services.
 
 ## Harness Optimization Agent
-Input là trace đã redact/authorize, failure labels, domain eval summaries, runtime/profile versions và engineering constraints. Output là hypothesis, candidate change, experiment plan và recommendation có evidence. Agent được tạo branch/config candidate trong sandbox, gọi experiment service với dataset được cấp. Promotion vào deployment do release workflow với reviewer có quyền.
+Inputs include authorized redacted traces, failure labels, domain eval summaries, runtime/profile versions and engineering constraints. Outputs include hypotheses, candidate changes, experiment plans and evidence-backed recommendations. The agent creates candidate branches/configs within a sandbox, invoking the experiment service with authorized datasets. Deployment promotion routes through release workflows with authorized reviewers.
 
 ### Workflow
-Detect repeated failure → cluster failure taxonomy → inspect authorized evidence → propose minimal candidate → validate schema/security diff → offline eval with frozen baseline → reviewer assessment → shadow read-only → limited canary → compare → approve promotion hoặc rollback.
+Detect repeated failure → cluster failure taxonomy → inspect authorized evidence → propose minimal candidate → validate schema/security diff → offline eval with frozen baseline → reviewer assessment → shadow read-only → limited canary → compare → approve promotion or rollback.
 
-Các failure classes gồm retrieval miss, context overflow, stale evidence, tool selection/arguments, unauthorized attempts, loop/nontermination, schema invalid, wrong acceptance, provider timeout, resume/replay errors và high-cost redundant calls.
+Failure classes include retrieval miss, context overflow, stale evidence, tool selection/arguments, unauthorized attempts, loop/nontermination, schema invalid, wrong acceptance, provider timeout, resume/replay errors and high-cost redundant calls.
 
 ## Optimization backlog
-| Thử nghiệm | Thay đổi có thể làm | Thước đo |
+| Experiment | Potential changes | Metrics |
 |---|---|---|
 | Context selection | Scope filtering, semantic/keyword fusion, evidence ordering | Relevant evidence recall, answer grounding, tokens |
 | Compaction | Structured handoff, summary provenance, restore plan state | Long-run continuity, missing requirement rate |
@@ -22,36 +22,36 @@ Các failure classes gồm retrieval miss, context overflow, stale evidence, too
 | Recovery | Retry classification, idempotency, checkpoint granularity | Lost/duplicate work, resume success |
 | Reuse | Context/cache keyed by input hash + ACL/policy version | Cost saving without stale/unauthorized access |
 
-Mọi cache có tenant/resource ACL và invalidation khi source/policy/model thay đổi. Model compatibility được probe, OpenAI-compatible API không đủ chứng minh tool/structured output correctness. Local-only domain không chuyển cloud trong experiment.
+All caches enforce tenant/resource ACLs and invalidation upon source/policy/model alterations. Model compatibility is probed; OpenAI-compatible APIs alone do not guarantee tool or structured output correctness. Local-only domains cannot transition to cloud within experiments.
 
 ## Experiment protocol
-Mỗi experiment có experiment_id, candidate/base bundle digest, task set version, execution environment, provider/model immutable config, seed nếu hỗ trợ, trial count, budgets, gates và evaluator version. Giữ freeze holdout ngoài optimizer permission, chỉ trả aggregate/curated failure summaries. Synthetic/anonymized fixtures trước live data, xử lý quyền source và output đầy đủ.
+Each experiment declares experiment_id, candidate/base bundle digest, task set version, execution environment, provider/model immutable config, seed if supported, trial count, budgets, gates and evaluator version. Holdouts remain frozen outside optimizer permissions, exposing only aggregated or curated failure summaries. Synthetic or anonymized fixtures precede live data, handling source permissions and outputs comprehensively.
 
-Đề xuất baseline ít nhất 100 tasks phân tầng theo domain/risk, 5 trials cho critical scenarios. Report numerator/denominator, confidence intervals và per-domain failures. Chạy paired trials trên cùng task/environment, ghi thời điểm vì provider drift có thể ảnh hưởng. LLM grader bổ sung semantic rubric, deterministic oracle cho authorization/state/idempotency. Có SME review cho PPM acceptance và governance content.
+Proposed baseline includes at least 100 tasks stratified by domain/risk, with 5 trials for critical scenarios. Reports provide numerator/denominator, confidence intervals and per-domain failures. Execute paired trials on identical task/environment configurations, recording timestamps to counter provider drift. LLM graders supplement semantic rubrics, alongside deterministic oracles for authorization/state/idempotency. SME reviews govern PPM acceptance and compliance content.
 
 ## Promotion gates
-Critical policy/security regressions phải bằng 0 trên suite đã định. Primary task-quality metric không giảm vượt tolerance đã duyệt. Ví dụ tolerance 2 percentage points là cấu hình experiment, cần justification. Cost target đề xuất giảm 15% ở chất lượng tương đương hoặc tăng completion 5 points trong budget; lựa chọn một objective trước chạy. Test set hữu hạn không chứng minh zero production risk.
+Critical policy/security regressions must equal 0 across defined suites. Primary task-quality metrics must not degrade beyond approved tolerance. For instance, a tolerance of 2 percentage points is an experimental configuration requiring justification. Cost targets propose a 15% reduction at equivalent quality or a 5-point completion increase within budget; selecting a single primary objective prior to execution. Finite test sets do not prove zero production risk.
 
-Canary giới hạn deployment subset, task class và budget. Shadow mode chỉ đọc hoặc dùng simulated side effects. Canary real write chỉ khi grant/approval cho phép. Triggers rollback gồm false acceptance, unauthorized action, elevated failure rate so baseline và budget runaway. Run đã bắt đầu pin old release; new release áp new runs. Khi security revocation, dừng new calls và reconcile active work. Rollback config khác với hoàn tác external side effects, cần compensation procedure riêng.
+Canaries constrain deployment subsets, task classes and budgets. Shadow mode operates read-only or utilizes simulated side effects. Real writes in canary require explicit grant/approval authorization. Rollback triggers include false acceptance, unauthorized actions, elevated failure rates relative to baseline, and budget runaway. Running runs remain pinned to older releases; new releases apply strictly to new runs. Upon security revocations, halt new calls and reconcile active work. Configuration rollbacks differ from reversing external side effects, necessitating dedicated compensation procedures.
 
 ## Phase 2 milestones
 H0 trace quality baseline + benchmark report.
-H1 context/tool/model routing experiments với ít nhất hai candidates và control.
-H2 Optimization Agent tạo candidate và experiment có bounded scope, reviewer chọn release.
-H3 canary/rollback drill và regression monitoring, acceptance bởi domain owner + platform owner.
+H1 context/tool/model routing experiments with at least two candidates and control.
+H2 Optimization Agent proposes bounded candidates and experiments, reviewer selects releases.
+H3 canary/rollback drills and regression monitoring, accepted by domain owner + platform owner.
 
-## Bàn giao
-Experiment manifest, dataset lineage, version locks, paired result table, quality/cost scatter, failure examples đã redact, reviewer decision, deployment record và rollback proof. HUD Harness Lab hiển thị thông tin này cùng trạng thái candidate/approved/canary/promoted/reverted.
+## Deliverables
+Experiment manifest, dataset lineage, version locks, paired result table, quality/cost scatter plot, redacted failure examples, reviewer decisions, deployment records and rollback verification. HUD Harness Lab displays these alongside candidate/approved/canary/promoted/reverted statuses.
 
-## Revision 1.1 — phát hiện candidate rẻ hơn nhưng giảm chất lượng
-Experiment contract 1.1 bắt buộc khai báo trước khi chạy: `change_kind` (prompt/tools/retrieval/context/model_routing/…), một `primary_metric` với `non_inferiority_margin`, ít nhất một `guardrail_metrics` (khuyến nghị PPM: false_verified_rate=0 per stratum, unsupported_claim_acceptance=0, critical_policy_violations=0), `pairing=paired_same_case_same_environment`, `holdout_access=evaluator_only`, `proposer_ref ≠ reviewer_ref`.
+## Revision 1.1 — detecting cheaper candidates with silent quality degradation
+Experiment contract 1.1 requires declaring prior to execution: `change_kind` (prompt/tools/retrieval/context/model_routing/...), a single `primary_metric` with `non_inferiority_margin`, at least one `guardrail_metrics` (recommended for PPM: false_verified_rate=0 per stratum, unsupported_claim_acceptance=0, critical_policy_violations=0), `pairing=paired_same_case_same_environment`, `holdout_access=evaluator_only`, `proposer_ref ≠ reviewer_ref`.
 
-Quy trình đánh giá:
-1. Baseline selection: base_release_digest là release đang active, chạy lại trên cùng task set/environment/model profile trong cùng cửa sổ thời gian với candidate (không dùng số liệu lịch sử) để loại provider drift.
-2. Paired evaluation: mỗi case chạy base và candidate với cùng input snapshot, seed nếu hỗ trợ, `trials_per_case` lần; báo cáo hiệu số theo cặp và khoảng tin cậy (bootstrap theo case).
-3. Non-inferiority: candidate chỉ đạt khi cận dưới khoảng tin cậy của (candidate − base) ≥ −margin cho primary metric, và mọi guardrail đạt ở từng stratum (domain × risk). Giảm chi phí không bù cho guardrail fail.
-4. Silent quality loss: so sánh thêm phân phối độ dài output, số evidence ref, tỷ lệ "unknown/missing evidence" và tỷ lệ tool call bị bỏ — candidate rẻ hơn thường giảm bằng cách làm ít việc hơn. Mỗi tín hiệu lệch quá ngưỡng đã khai báo chuyển experiment sang `review_required` với ví dụ đã redact.
-5. Grader drift: LLM grader pinned theo evaluator_version, được hiệu chỉnh trên tập nhãn người; deterministic oracle cho authorization/state/idempotency/verified-criterion. Holdout chỉ evaluator service đọc; optimizer chỉ nhận aggregate.
-6. Rollout: shadow (read-only/simulated side effects) → canary giới hạn `max_traffic_percent` và task class → promote. Rollback triggers khai báo trong `rollout.rollback_trigger_refs`; run đang chạy giữ release cũ.
+Evaluation procedure:
+1. Baseline selection: base_release_digest reflects the active release, rerun across identical task sets/environments/model profiles within the same temporal window as candidates (omitting historical metrics) to eliminate provider drift.
+2. Paired evaluation: each case executes base and candidate with matching input snapshots, seeds if supported, and `trials_per_case` iterations; reporting paired differences and confidence intervals (bootstrapped per case).
+3. Non-inferiority: candidate qualifies solely when the lower bound of the confidence interval for (candidate − base) ≥ −margin for the primary metric, and all guardrails succeed across each stratum (domain × risk). Cost reductions cannot offset guardrail failures.
+4. Silent quality loss: additionally inspect output length distributions, evidence ref counts, "unknown/missing evidence" rates and omitted tool call ratios — cheaper candidates frequently economize by performing less work. Deviations exceeding declared thresholds flag experiments as `review_required` with redacted samples.
+5. Grader drift: LLM grader pinned to evaluator_version, calibrated against human-labeled datasets; deterministic oracles for authorization/state/idempotency/verified criteria. Holdouts are read exclusively by evaluator service; optimizer receives aggregate feedback.
+6. Rollout: shadow (read-only/simulated side effects) → canary constrained by `max_traffic_percent` and task classes → promote. Rollback triggers declared in `rollout.rollback_trigger_refs`; active runs retain older releases.
 
-Phase 1 vẫn sở hữu permissions, recovery, audit và thu thập eval evidence (baseline dataset, trace redacted); Phase 2 chỉ thêm optimizer và experiment pipeline trên nền đó.
+Phase 1 retains ownership of permissions, recovery, audit and eval evidence capture (baseline dataset, redacted traces); Phase 2 builds optimizer and experiment pipelines on that foundation.

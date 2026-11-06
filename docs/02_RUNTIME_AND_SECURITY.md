@@ -1,89 +1,89 @@
-# Runtime, persistence và kiểm soát hành động
+# Runtime, persistence and action controls
 ## Request admission
 Authenticate → resolve tenant/principal → authorize task type and resource refs → validate input schema → resolve approved agent release and binding → reserve task-tree budget → create task/run + dispatch intent/outbox transaction → worker claim lease → adapter submit → persist external execution ID → events/results → domain verification.
-Public request body không nhận tenant/user/permission claims. Internal envelopes do gateway xây từ credentials. Scope chỉ được thu hẹp khi delegate. Parent cancellation ngừng task con theo policy và đợi confirmation hoặc reconcile.
+Public request bodies do not accept tenant/user/permission claims. Internal envelopes are constructed by the gateway from credentials. Scopes can only be narrowed upon delegation. Parent cancellation stops child tasks according to policy and waits for confirmation or reconciliation.
 
 ## State transitions
-Bảng này là nguồn chính thức; `tools/validate_package.py` (ALLOWED) kiểm tra fixtures theo cùng bảng. Mọi chuyển trạng thái được ghi bởi Run Service trong cùng transaction với outbox event `run.state_changed`.
+This table serves as the authoritative source; `tools/validate_package.py` (ALLOWED) validates fixtures against this exact table. All state transitions are recorded by Run Service within the same transaction emitting the outbox event `run.state_changed`.
 
-| Run state | Event/command | Next | Điều kiện |
+| Run state | Event/command | Next | Condition |
 |---|---|---|---|
 | queued | dispatch claimed | dispatching | lease + fencing token + capability + budget valid |
-| queued | cancel | cancelled | chưa có dispatch intent |
-| dispatching | external ID confirmed | running | provider acceptance persisted cùng execution_ref |
-| dispatching | provider từ chối rõ ràng (validation/auth) trước khi nhận | failed | response xác định, không có execution_ref |
-| dispatching | journal chứng minh submit chưa gửi + cancel | cancelled | dispatch intent ở trạng thái `prepared` |
-| dispatching | response ambiguous / ack timeout / worker crash sau khi gửi | unknown | journal `sent`, chưa có execution_ref |
+| queued | cancel | cancelled | no dispatch intent yet |
+| dispatching | external ID confirmed | running | provider acceptance persisted with execution_ref |
+| dispatching | provider rejects explicitly (validation/auth) before acceptance | failed | deterministic response, no execution_ref |
+| dispatching | journal proves submit not yet sent + cancel | cancelled | dispatch intent in `prepared` state |
+| dispatching | response ambiguous / ack timeout / worker crash after send | unknown | journal `sent`, no execution_ref |
 | running | action proposal | waiting_approval | immutable action digest + expiry |
-| waiting_approval | authorized decision | running | reauthorize và consume approval |
+| waiting_approval | authorized decision | running | reauthorize and consume approval |
 | running | output validated | succeeded | result schema pass; domain verification queued |
-| running | provider failure xác nhận | failed | provider status/terminal event |
-| running/waiting_approval | cancel requested | cancelling | adapter certified cancel hoặc operator workflow |
-| running/waiting_approval | deadline | timed_out | gửi stop request, tiếp tục track remote outcome |
+| running | provider failure confirmed | failed | provider status/terminal event |
+| running/waiting_approval | cancel requested | cancelling | adapter certified cancel or operator workflow |
+| running/waiting_approval | deadline | timed_out | issue stop request, continue tracking remote outcome |
 | cancelling | provider stop confirmed | cancelled | confirmation evidence |
-| cancelling | provider hoàn tất trước khi dừng | succeeded/failed | ghi kết quả thật, cancel command → completed với note |
-| cancelling | cancel ack lost | unknown | không biết provider đã dừng chưa |
-| unknown | verified provider status | running/waiting_approval/succeeded/failed/cancelled | quan sát authoritative theo operation_key/execution_ref |
+| cancelling | provider completes prior to stop | succeeded/failed | persist actual result, cancel command → completed with note |
+| cancelling | cancel ack lost | unknown | cannot determine if provider stopped |
+| unknown | verified provider status | running/waiting_approval/succeeded/failed/cancelled | authoritative observation by operation_key/execution_ref |
 
-Terminal states (succeeded, failed, cancelled, timed_out) không hồi sinh. Không có chuyển `unknown → queued`: retry một run unknown là tạo attempt mới, chỉ được phép sau khi reconciliation kết luận remote không tồn tại/không thực hiện side effect, hoặc operator chấp nhận rủi ro bằng decision có audit. Deadline khi run đang `unknown`/`cancelling` không chuyển sang timed_out; nó tạo attention item vì platform không thể khẳng định remote đã dừng.
+Terminal states (succeeded, failed, cancelled, timed_out) do not resurrect. Transitions `unknown → queued` do not exist: retrying an unknown run creates a new attempt, permitted only after reconciliation determines remote does not exist or produced no side effects, or operator accepts risk via audited decision. Deadlines while runs are `unknown`/`cancelling` do not transition to timed_out; an attention item is generated because platform cannot assert remote has halted.
 
-### Dispatch journal và chuỗi lost-ack/restart/cancel
-Dispatch journal (bảng `dispatch_intents`) có khóa unique `(binding_id, run_id, operation='submit')` và trạng thái `prepared → sent → acknowledged | ambiguous`. `idempotency_key` gửi cho adapter = sha256(binding_id|run_id|'submit'), không đổi khi worker restart. Lease có `fencing_token` tăng đơn điệu; gateway và result ingestion từ chối token cũ.
+### Dispatch journal and lost-ack/restart/cancel sequence
+Dispatch journal (`dispatch_intents` table) enforces unique key `(binding_id, run_id, operation='submit')` and states `prepared → sent → acknowledged | ambiguous`. `idempotency_key` delivered to adapter = sha256(binding_id|run_id|'submit'), stable across worker restarts. Leases possess monotonically increasing `fencing_token`; gateway and result ingestion reject stale tokens.
 
-1. Worker A claim lease (token 7), ghi intent `prepared`, commit, gọi adapter.submit, ghi `sent` trước khi gửi bytes (hoặc ngay khi gọi CLI).
-2. Provider nhận task; acknowledgement bị mất. Worker A crash.
-3. Lease hết hạn; worker B claim (token 8). Thấy intent `sent` không có execution_ref → run `unknown`, không gọi submit mới.
-4. Worker B gọi `adapter.lookup(operation_key)` hoặc `status` theo idempotency key. Có kết quả → ghi execution_ref, `unknown → running`. Adapter không hỗ trợ lookup → giữ `unknown`, attention item "remote outcome unknown", đề xuất operator kiểm tra thủ công.
-5. User bấm cancel trong lúc unknown: command `accepted`, lưu intent; HUD hiển thị "Cancel requested — remote outcome unknown". Sau reconciliation: running → cancelling → cancelled (có evidence), hoặc nếu remote đã xong thì ghi succeeded/failed thật và command completed với note.
-6. Kết quả trễ từ worker A (token 7) bị fence từ chối ghi state; payload được lưu làm diagnostic artifact.
+1. Worker A claims lease (token 7), writes intent `prepared`, commits, calls adapter.submit, writes `sent` prior to byte transmission (or upon CLI invocation).
+2. Provider receives task; acknowledgement is lost. Worker A crashes.
+3. Lease expires; worker B claims (token 8). Discovers intent `sent` lacking execution_ref → run `unknown`, avoids issuing fresh submit.
+4. Worker B invokes `adapter.lookup(operation_key)` or `status` by idempotency key. Upon result → persists execution_ref, `unknown → running`. If adapter lacks lookup support → retains `unknown`, creates attention item "remote outcome unknown", recommending operator review.
+5. User clicks cancel during unknown state: command `accepted`, records intent; HUD renders "Cancel requested — remote outcome unknown". Following reconciliation: running → cancelling → cancelled (with evidence), or if remote completed records actual succeeded/failed and completes command with note.
+6. Delayed results from worker A (token 7) are rejected by fencing; payload stored as diagnostic artifact.
 
-Acceptance cho chuỗi này: đúng một external submission ở provider mock (đếm theo operation_key), attempt history giữ nguyên, các event `run.state_changed` theo thứ tự trên, HUD row có `remote_outcome=unknown` trong khoảng 2–4 (conformance C05, C06, C21).
+Acceptance for this sequence: exactly one external submission at provider mock (counted by operation_key), attempt history intact, sequential `run.state_changed` events as above, HUD row exhibits `remote_outcome=unknown` during intervals 2–4 (conformance C05, C06, C21).
 
-### Hai loại khóa: dispatch key và business-intent key
-Theo nguyên tắc idempotent API có client request token (AWS Builders' Library, "Making retries safe with idempotent APIs", truy cập 06/11/2026), mỗi ý định nghiệp vụ cần một định danh do bên gọi cấp và ổn định qua mọi lần retry.
+### Dual keys: dispatch key and business-intent key
+Following the principle of idempotent APIs with client request tokens (AWS Builders' Library, "Making retries safe with idempotent APIs", accessed 06/11/2026), every business intent requires a caller-issued identifier stable across retries.
 
-| Khóa | Ai cấp | Công thức | Phạm vi ổn định | Dùng cho |
+| Key | Issuer | Formula | Scope of stability | Purpose |
 |---|---|---|---|---|
-| `task_intent_key` | Task Service lúc admission | sha256(tenant_id\|task_id) | Mọi attempt của task | Gửi cho provider có client token (ví dụ tên branch/PR marker), để attempt mới không tạo resource thứ hai |
-| `idempotency_key` (dispatch) | Run Service | sha256(binding_id\|run_id\|'submit') | Một run; giữ nguyên qua worker restart | Submit/lookup ở adapter |
-| `operation_key` (action) | Action Service khi action được đề xuất lần đầu cho task | sha256(tenant_id\|task_id\|intent_key) | Mọi attempt của task | Execution journal; approval consumption |
+| `task_intent_key` | Task Service at admission | sha256(tenant_id\|task_id) | All attempts of task | Delivered to provider with client token (e.g. branch/PR marker), preventing attempt from creating secondary resource |
+| `idempotency_key` (dispatch) | Run Service | sha256(binding_id\|run_id\|'submit') | Single run; preserved across worker restarts | Submit/lookup at adapter |
+| `operation_key` (action) | Action Service when action initially proposed | sha256(tenant_id\|task_id\|intent_key) | All attempts of task | Execution journal; approval consumption |
 
-**`action_slot` do platform giữ, không do agent tự đặt.** Workflow/Action Service cấp slot (hoặc xác thực slot agent đề xuất theo danh sách bước của task type) và **lưu bền vào `task_intents` trước lần gọi tool đầu tiên**, cùng transaction với execution intent. Khi retry/resume, Action Service phục hồi slot từ `task_intents` theo (task_id, tool_id, bước workflow), không dùng slot mới do agent đề xuất. Agent đề xuất slot mới (`create_pr#2`) cho một bước đã có slot → bị ánh xạ về slot đã lưu nếu cùng bước, hoặc bị từ chối `ACTION_SLOT_UNDECLARED` nếu task type không cho phép bước thứ hai; tạo PR thứ hai hợp lệ chỉ qua intent mới do người dùng xác nhận (audit). Biến thể C29b: sau restart agent đề xuất `create_pr#2` → số PR thực tạo vẫn là 1.
+**`action_slot` is held by the platform, not self-assigned by the agent.** Workflow/Action Service issues slots (or validates agent-proposed slots against task-type step definitions) and **persistently stores in `task_intents` prior to initial tool call**, in the same transaction as execution intent. Upon retry/resume, Action Service recovers slots from `task_intents` by (task_id, tool_id, workflow step), rejecting new agent-proposed slots. Agent proposing new slot (`create_pr#2`) for an existing step is mapped back to persisted slot if same step, or rejected with `ACTION_SLOT_UNDECLARED` if task type forbids secondary steps; valid secondary PRs require fresh user-confirmed intents (audited). Conformance variant C29b: agent proposing `create_pr#2` after restart still results in exactly 1 PR created.
 
-Quy tắc:
-- Retry tạo `run_id` mới nhưng là **cùng ý định nghiệp vụ** khi cùng task và cùng action (tool_id, arguments_sha256, resource_ref). Khi đó action mới dùng lại `operation_key`; Action Service trả kết quả đã journal thay vì gọi tool lần hai.
-- Cùng `operation_key` nhưng khác tool_id, arguments_sha256 hoặc resource_ref → `409 OPERATION_KEY_CONFLICT`, không thực thi (validator: "same operation_key with different target repository").
-- Một ý định mới (người dùng muốn tạo PR thứ hai) phải là task mới hoặc intent_key mới do người dùng xác nhận rõ ràng, có audit.
-- `retry_new_attempt` bị từ chối với `REMOTE_OUTCOME_UNKNOWN` khi run hiện tại `unknown`. Với agent `external_trusted` tự thực hiện side effect, platform chỉ có `task_intent_key` và reconciliation; không có dedupe phía Action Service, nên run phải ở `unknown` cho tới khi có bằng chứng đối soát.
+Rules:
+- Retries create new `run_id` but represent **identical business intent** when task and action match (tool_id, arguments_sha256, resource_ref). The new action reuses `operation_key`; Action Service returns journaled results rather than invoking tool twice.
+- Matching `operation_key` with differing tool_id, arguments_sha256 or resource_ref → `409 OPERATION_KEY_CONFLICT`, preventing execution (validator: "same operation_key with different target repository").
+- New business intent (user requesting second PR) requires new task or fresh user-confirmed intent_key with audit.
+- `retry_new_attempt` rejected with `REMOTE_OUTCOME_UNKNOWN` when current run is `unknown`. For `external_trusted` agents executing side effects autonomously, platform possesses only `task_intent_key` and reconciliation; lacking Action Service deduplication, runs remain in `unknown` until reconciliation evidence exists.
 
-Acceptance (C29): provider mock tạo PR rồi mất response; worker restart; người dùng bấm retry. Kết quả bắt buộc: retry bị từ chối khi còn unknown; sau reconcile tìm thấy PR theo `task_intent_key`/operation_key; đúng 1 PR ở mock; attempt history đầy đủ; một retry với cùng key nhưng repository đích khác bị 409.
+Acceptance (C29): mock provider creates PR then loses response; worker restarts; user clicks retry. Mandatory outcome: retry rejected while unknown; after reconcile PR found via `task_intent_key`/operation_key; exactly 1 PR at mock; complete attempt history; retry with same key but different target repository yields 409.
 
-Run failed không tự retry các side effect chưa rõ. Terminal state không hồi sinh vì late event. Late usage/artifact có thể được append vào result history; conflict result tạo reconciliation record. Pause/resume dùng checkpoint chỉ khi capability đã certify. `waiting_approval` không phải pause mọi process bên provider, adapter phải mô tả boundary đó.
+Failed runs do not blindly retry ambiguous side effects. Terminal states do not resurrect on late events. Late usage/artifacts can append to result history; conflicting results yield reconciliation records. Pause/resume utilizes checkpoints only when certified. `waiting_approval` does not imply pausing all provider processes; adapter must define that boundary.
 
-## At-least-once và consistency
-Unique task submission theo tenant+client idempotency key. Unique adapter submission theo binding+run ID+operation key. Event key theo tenant+producer+event_id. Cùng ID/different hash thành quarantine/conflict. Outbox transaction cùng mutation. Projection có revision/CAS và versioned reducer.
-External idempotency không có thì store intent, query status trước retry. Process identity gồm PID và creation time trên host. Lease có fencing token cho gateway writes, old shell có filesystem access cần stop/quarantine workspace trước re-dispatch. Không hứa exactly-once remote side effects.
+## At-least-once and consistency
+Unique task submission enforced by tenant + client idempotency key. Unique adapter submission by binding + run ID + operation key. Event keys by tenant + producer + event_id. Matching ID with divergent hash quarantined as conflict. Outbox transaction coincides with mutation. Projections employ revision/CAS and versioned reducers.
+Lacking external idempotency, store intent and query status before retrying. Process identity tracks PID and host creation time. Leases employ fencing tokens for gateway writes; stale shells with filesystem access require stopping/quarantining workspace before re-dispatch. Exactly-once remote side effects are not promised.
 
 ## Event ordering
-event_id unique, run_id, producer_id, producer_seq, occurred_at, received_at. Ingestion tự gán monotonic offset theo tenant stream. producer_seq chỉ có thứ tự trong producer/run, không phải global clock. Dedupe, gap detection, bounded buffer và reconciliation khi seq gap; replay dùng ingestion cursor và reducer rules. Heartbeat không thay task progress. SSE Last-Event-ID trỏ cursor opaque user-scoped, không dùng wall-clock làm cursor.
+event_id unique, run_id, producer_id, producer_seq, occurred_at, received_at. Ingestion assigns monotonic offset per tenant stream. producer_seq is ordered strictly within producer/run, not globally. Deduplication, gap detection, bounded buffers and reconciliation upon seq gaps; replay utilizes ingestion cursor and reducer rules. Heartbeats do not substitute for task progress. SSE Last-Event-ID points to opaque user-scoped cursor, avoiding wall-clock cursors.
 
-### Offset theo thứ tự commit (ADR-020)
-Không dùng sequence/bigserial cấp trong transaction ghi event làm cursor: hai transaction có thể lấy offset 10 rồi 11 nhưng commit 11 trước 10. Nếu SSE đã gửi 11, client với cursor 11 sẽ không bao giờ nhận 10. Thiết kế: transaction nghiệp vụ chỉ ghi outbox (không có offset). Một relay đơn (một worker giữ advisory lock theo tenant stream) đọc các outbox row **đã commit**, cấp `ingest_offset` tăng dần trong transaction riêng, rồi publish. Vì vậy thứ tự offset chính là thứ tự relay nhìn thấy commit. Cursor HUD chỉ trỏ tới offset do relay cấp. Snapshot HUD ghi `projection_revision` = offset lớn nhất đã áp vào projection, trong cùng transaction đọc. Throughput relay đơn cần đo ở P1a-WP7; nếu không đủ mới cân nhắc phân vùng theo tenant hoặc watermark theo `pg_snapshot_xmin`.
-Test C33: hai transaction lấy thứ tự cấp 10, 11; ép 11 commit trước 10. Sau replay từ cursor bất kỳ, projection HUD phải bằng snapshot mới tạo; không event nào bị mất hay lặp.
+### Offsets strictly in commit order (ADR-020)
+Sequence/bigserial assigned inside write transactions cannot serve as cursors: transactions can acquire offsets 10 and 11 but commit 11 before 10. If SSE transmits 11, clients with cursor 11 permanently miss 10. Design: business transactions write outbox entries without offsets. A single relay (one worker holding advisory lock per tenant stream) reads **committed** outbox rows, assigns monotonic `ingest_offset` in dedicated transactions, and publishes. Cursor offsets reflect the exact order relay observes commits. HUD cursors point exclusively to relay-assigned offsets. HUD snapshots record `projection_revision` = highest offset applied to projection, within the same read transaction. Single-relay throughput benchmarked at P1a-WP7; partitioning or `pg_snapshot_xmin` watermarks considered only if required.
+Test C33: two transactions acquire sequence 10, 11; forced commit 11 before 10. Replay from any cursor produces projection matching fresh snapshot; zero lost or duplicate events.
 
 ## Authorization
-Quyền effective là giao user grant, agent deployment grant, task scope và resource policy. Tool gateway kiểm tra tại thời điểm execute, bao gồm after-approval và resumed runs. RBAC role + ABAC tenant/project/classification/purpose. Approval payload có arguments hash, target revision, scope, expiration, nonce và approver. `action_digest` = SHA-256 của RFC 8785 JCS trên đúng các trường binding_id, run_id, task_id, tool_id, arguments_sha256, resource_ref, expected_resource_revision, policy_version, operation_key, nonce, expires_at (`sha256-jcs-v1`). Approval decision (`contracts/approval-decision.schema.json`) single-use: Action Service trong một transaction kiểm tra digest/nonce/valid_until/role, chuyển consumption → consumed và ghi execution intent theo operation_key; execution trùng operation_key trả kết quả journal cũ thay vì gọi tool lần hai. Agent text không được approve action của chính nó.
+Effective permissions represent the intersection of user grants, agent deployment grants, task scopes and resource policies. Tool gateway verifies at execution time, including post-approval and resumed runs. RBAC role + ABAC tenant/project/classification/purpose. Approval payload includes arguments hash, target revision, scope, expiration, nonce and approver. `action_digest` = SHA-256 over RFC 8785 JCS across fields binding_id, run_id, task_id, tool_id, arguments_sha256, resource_ref, expected_resource_revision, policy_version, operation_key, nonce, expires_at (`sha256-jcs-v1`). Approval decision (`contracts/approval-decision.schema.json`) is single-use: Action Service in a single transaction verifies digest/nonce/valid_until/role, transitions consumption → consumed and persists execution intent by operation_key; duplicate operation_key executions return journaled results without invoking tools. Agent generated text cannot approve its own actions.
 
-Custom tools dùng cùng Action Service dù vendor có permission policy. Credentials qua secret store, resource handles chỉ resolve server-side. SSRF checks cho URL tools phải kiểm tra protocol/resolved IP/redirects. File root check xử lý symlink/reparse + TOCTOU, giới hạn parser/file sizes. Trên Windows connector phải: mở file bằng handle với `FILE_FLAG_OPEN_REPARSE_POINT` và từ chối reparse point/junction; lấy final path từ handle (`GetFinalPathNameByHandle`) rồi so containment theo dạng chuẩn hóa, không phân biệt hoa/thường; từ chối `\\?\`, UNC, alternate data streams (`:` trong tên), 8.3 short-name mismatch và file có link count > 1 (hardlink không bị realpath phát hiện); kiểm tra lại size/hash sau khi đọc. Trên Linux dùng `openat2(RESOLVE_BENEATH|RESOLVE_NO_SYMLINKS)` khi có, hoặc `O_NOFOLLOW` từng thành phần. Đây là giả định thiết kế cần spike P0-WP3 trên Windows thật. Commands allowlisted argv trong isolated worker.
+Custom tools route through Action Service even when vendors provide permission policies. Credentials stored in secret vaults; resource handles resolve server-side. SSRF checks for URL tools verify protocol, resolved IP and redirects. File root checks handle symlinks/reparse points and TOCTOU, limiting parser and file sizes. On Windows, connectors must: open files using handles with `FILE_FLAG_OPEN_REPARSE_POINT` to reject reparse points/junctions; resolve final path via `GetFinalPathNameByHandle` and verify normalized case-insensitive containment; reject `\\?\`, UNC, alternate data streams (`:` in names), 8.3 short-name mismatches and link count > 1 (hardlinks undetected by realpath); re-verify size/hash post-read. On Linux, use `openat2(RESOLVE_BENEATH|RESOLVE_NO_SYMLINKS)` or `O_NOFOLLOW` per component. Validated in spike P0-WP3 on native Windows. Commands require allowlisted argv in isolated workers.
 
-### Untrusted project content và prompt injection
-Nội dung repo (`architecture.md`, blueprint, implement plan, `.ppm/notes`, `.ppm/updates`) chỉ đi vào model như data có delimiter và provenance. Enforcement không dựa vào prompt: (1) analysis agent chỉ có tools đọc snapshot đã cấp và `ppm.propose_assessment`; (2) mọi evidence_ref trong proposal phải resolve tới evidence do collector thu, nếu không reducer loại bỏ; (3) reducer deterministic đặt criterion `verified` chỉ từ evidence observed khớp revision/criterion — text của model hoặc note không thể đặt verified; (4) Model Gateway áp egress policy theo classification trước request, nên lời nhắc "gửi .env lên cloud" không có đường thực thi; (5) deny_globs loại `.env`, khóa, credentials trước snapshot. Test: fixture note chứa lệnh giả mạo (C22).
+### Untrusted project content and prompt injection
+Repository contents (`architecture.md`, blueprint, implementation plan, `.ppm/notes`, `.ppm/updates`) enter models as delimited data with provenance. Enforcement relies on architectural guardrails, not prompts: (1) analysis agents possess tools solely to read scoped snapshots and call `ppm.propose_assessment`; (2) all evidence_refs in proposals must resolve to collector-gathered evidence, otherwise reducer strips them; (3) deterministic reducer marks criteria `verified` solely via observed evidence matching revision/criteria — model text or notes cannot verify; (4) Model Gateway applies egress policy by classification pre-request, closing paths for "upload .env to cloud" injections; (5) deny_globs exclude `.env`, keys and credentials before snapshot capture. Test: fixture note containing forged commands (C22).
 
-### Tenant và producer identity
-Ingestion gắn tenant từ binding/credential của producer; event có `tenant_id` khác binding bị quarantine và tạo security event (C23). Cursor HUD, idempotency key và project ID đều scoped theo tenant.
+### Tenant and producer identity
+Ingestion binds tenant from producer binding/credentials; events with `tenant_id` mismatching bindings are quarantined with security alerts (C23). HUD cursors, idempotency keys and project IDs are scoped by tenant.
 
 ## Budget
-Reserve trước dispatch theo task tree, có max tokens, wall time, tool calls, child tasks và cost estimate. Model calls ghi provider usage IDs để dedup cumulative snapshots. Usage unknown hiển thị unknown. Reservation settlement cần reconcile late usage và release unused reservation. Circuit breaker chặn new calls khi chạm limit, cancellation có độ trễ phải được phản ánh trong HUD.
+Reserve pre-dispatch across task tree, specifying max tokens, wall time, tool calls, child tasks and cost estimates. Model calls record provider usage IDs to dedup cumulative snapshots. Unknown usage renders as unknown. Reservation settlement reconciles late usage and releases unused capacity. Circuit breakers halt new calls upon limit exhaustion; cancellation latency renders in HUD.
 
-## Network và storage
-OIDC service tokens/mTLS hoặc scoped connector token rotation cho host connector. Cloud policy theo provider/classification kể cả traces/embeddings. Events audit mặc định metadata redacted, raw tool output là artifact cần quyền. PostgreSQL role/RLS nếu chọn phải test connection pool tenant reset. Evidence object URI không trực tiếp cấp quyền, download qua authenticated API hoặc signed URL ngắn hạn được kiểm tra lại.
+## Network and storage
+OIDC service tokens/mTLS or scoped connector tokens with rotation for host connectors. Cloud policy governs provider/classification including traces and embeddings. Audit events default to redacted metadata; raw tool outputs are permission-gated artifacts. PostgreSQL roles/RLS requires testing connection pool tenant resets. Evidence object URIs do not directly grant access; downloads require authenticated APIs or short-lived verified signed URLs.

@@ -1,21 +1,21 @@
-# Enterprise Agent Platform với Agent Operations HUD
+# Enterprise Agent Platform with Agent Operations HUD
 ## Integrated Blueprint 1.1
-Ngày 05/11/2026, revision 1.1 ngày 06/11/2026 theo `docs/ARCHITECTURE_REVIEW.md` (ADR-011–ADR-016). Repository hiện chỉ có specification, contracts, fixtures và validators; chưa có application code. Phạm vi một công ty với nhiều phòng ban, project và agent. Pilot một workspace có thể vận hành trên local hoặc private server. Company/tenant_id là boundary dữ liệu ngay từ đầu.
+Date 05/11/2026, revision 1.1 on 06/11/2026 following `docs/ARCHITECTURE_REVIEW.md` (ADR-011–ADR-016). The repository currently contains specification, contracts, fixtures and validators; application code is not yet implemented. Scope encompasses an enterprise with multiple departments, projects and agents. A single-workspace pilot can operate locally or on a private server. Company/tenant_id serves as the data boundary from the start.
 
-## 1. Mục tiêu và kết quả
-Platform đăng ký agent, giao task, chạy workflow, kiểm tra quyền, lưu bằng chứng và cung cấp HUD để giám sát/can thiệp. PPM v2 là domain đầu tiên, quản lý inventory theo location path và đồng bộ `.ppm/`. Các domain khác tham gia qua cùng integration contract.
+## 1. Objectives and outcomes
+The platform registers agents, assigns tasks, executes workflows, enforces permissions, captures evidence and provides the HUD for monitoring and intervention. PPM v2 is the first domain, managing inventory by location path and synchronizing `.ppm/`. Other domains participate via the identical integration contract.
 
-Kết quả cần đạt gồm inventory agent có owner/version, task/run có lịch sử, tiến độ PPM có nguồn, approval gắn hành động chính xác, chi phí theo task tree và agent release có eval evidence. Phase 2 cải tiến harness dựa trên trace và experiment.
+Expected outcomes include agent inventory with owner/version, task/run history, source-attributed PPM progress, exact action approvals, cost tracking by task tree and agent releases backed by evaluation evidence. Phase 2 improves harnesses based on traces and experiments.
 
-### Phân kỳ
-| Phase | Kết quả |
+### Phases
+| Phase | Outcome |
 |---|---|
-| Phase 1 | Platform core, HUD, PPM v2, onboarding kit, một adapter thực và pilot vận hành |
-| Phase 2 | Harness Optimization Agent, context/retrieval/model-routing experiments, canary/rollback, mở rộng domain theo ưu tiên |
+| Phase 1 | Platform core, HUD, PPM v2, onboarding kit, one real adapter and operational pilot |
+| Phase 2 | Harness Optimization Agent, context/retrieval/model-routing experiments, canary/rollback, domain expansion by priority |
 
-Phase 1 phải bao gồm (chưa triển khai) authentication, authorization, durable run journal, idempotency, sandbox profile, budgets, audit và eval baseline. Phase 2 tối ưu chất lượng/hiệu suất trên nền tảng đã đo được.
+Phase 1 must include (unimplemented) authentication, authorization, durable run journal, idempotency, sandbox profile, budgets, audit and eval baseline. Phase 2 optimizes quality and performance on the measured foundation.
 
-## 2. Kiến trúc
+## 2. Architecture
 ```mermaid
 flowchart TD
   U["Web HUD / chat gateway"] --> API["Identity and API"]
@@ -32,10 +32,10 @@ flowchart TD
   E --> Q["Evals and audit"]
 ```
 
-Control plane sở hữu registry, version/deployment, policy, task admission và budgets. Execution plane sở hữu workflow nodes, adapter dispatch, worker leases và cancellation. Data plane có domain DB, evidence blobs, document corpus và rebuildable search indexes. Assurance plane có trace, audit, evals, incidents và release gates.
+The control plane owns registry, version/deployment, policy, task admission and budgets. The execution plane owns workflow nodes, adapter dispatch, worker leases and cancellation. The data plane contains domain DB, evidence blobs, document corpus and rebuildable search indexes. The assurance plane contains traces, audit, evals, incidents and release gates.
 
-### Trách nhiệm dịch vụ
-| Module | Trách nhiệm | Owner nghiệp vụ |
+### Service responsibilities
+| Module | Responsibility | Business owner |
 |---|---|---|
 | Agent Registry | Agent definition, release, capability certification | Platform team + business owner |
 | Task Service | Objective, input/output refs, dependencies, task tree | Domain requesting task |
@@ -47,55 +47,55 @@ Control plane sở hữu registry, version/deployment, policy, task admission v�
 | HUD Projection | User-scoped views, attention queue, run detail | Operations |
 | Harness Optimization | Candidate proposals, experiments, release evidence | Phase 2 engineering owner |
 
-## 3. Topology triển khai
-Pilot local gồm API/worker/PostgreSQL, evidence directory và web HUD. Máy Windows chạy local connector, workspace manager và Ollama riêng. Deployment server dùng Ubuntu/Docker/Traefik, OIDC và HTTPS. Connector mở kết nối outbound có authentication tới server, nhận job scoped theo host và roots đã đăng ký. Domain objects dùng logical location_id, connector resolve path trên host. Trong local MVP connector là module chạy cùng process worker trên cùng máy, dùng cùng contract `location-registration` 1.1; tách thành service outbound chỉ khi chuyển sang private server. Không thêm service riêng cho Evidence/HUD Projection/Policy trong pilot: đây là module của modular monolith có ranh giới API nội bộ.
+## 3. Deployment topology
+The local pilot consists of API/worker/PostgreSQL, evidence directory and web HUD. The Windows host runs local connector, workspace manager and dedicated Ollama. Server deployment uses Ubuntu/Docker/Traefik, OIDC and HTTPS. The connector opens an authenticated outbound connection to the server, receiving jobs scoped by host and registered roots. Domain objects use logical location_id; the connector resolves host paths. In the local MVP, the connector is a module running in the worker process on the same machine, using the same contract `location-registration` 1.1; separation into an outbound service occurs upon transition to private server. No standalone services are introduced for Evidence/HUD Projection/Policy in the pilot: these are modules of a modular monolith with internal API boundaries.
 
-Một tenant pilot với OIDC hoặc bootstrap identity loopback cho cá nhân. Bật multi-user/network exposure phải qua OIDC + resource authorization trước rollout. Secret giữ trong credential store và deployment config, API response chỉ trả credential reference.
+Single-tenant pilot with OIDC or loopback bootstrap identity for personal development. Enabling multi-user or network exposure requires OIDC and resource authorization prior to rollout. Secrets remain in credential stores and deployment configs; API responses return only credential references.
 
-SQLite có thể là local spool của connector khi offline. PostgreSQL là authoritative platform state. Connector replay spool qua dedup keys. Shared filesystem writes bị giới hạn bằng workspace isolation và process ownership. Một writer/integration worker cho target branch.
+SQLite can serve as local spool for the connector when offline. PostgreSQL is authoritative platform state. Connector replays spool via dedup keys. Shared filesystem writes are constrained by workspace isolation and process ownership. A single writer/integration worker per target branch.
 
-Cấu hình máy từng thảo luận là giả định pilot, cần benchmark trước capacity commitment. Ollama concurrency khởi đầu 1 trên GPU local, GPU render/OCR và interactive inference dùng queue quotas riêng. Provider/model IDs là deployment config được probe trước sử dụng.
+Machine hardware discussed previously represents pilot assumptions requiring benchmarking before capacity commitments. Ollama concurrency starts at 1 on local GPU; GPU render/OCR and interactive inference utilize dedicated queue quotas. Provider and model IDs are deployment configs probed prior to use.
 
-## 4. Stack và orchestration owner
-Backend Python/FastAPI/Pydantic; PostgreSQL/SQLAlchemy/Alembic; React/TypeScript cho HUD. Run Service (PostgreSQL) là owner duy nhất của task/run/attempt state, dispatch journal, lease/fencing và cancellation (ADR-011). LangGraph chỉ dùng bên trong một run attempt của native domain agent để điều phối các bước suy luận; checkpoint LangGraph keyed theo run_id+attempt, là dữ liệu nội bộ có thể rebuild, không phải nguồn trạng thái cho HUD hoặc retry. LangGraph replay chạy lại node từ đầu, nên graph node không gọi external side effect trực tiếp; mọi side effect đi qua Action Service/tool gateway với operation_key và execution journal. Domain reducer sở hữu business mutation. Work queue pilot là bảng PostgreSQL với `FOR UPDATE SKIP LOCKED` lease, không thêm message broker khi chưa có số đo.
+## 4. Stack and orchestration owner
+Backend Python/FastAPI/Pydantic; PostgreSQL/SQLAlchemy/Alembic; React/TypeScript for HUD. Run Service (PostgreSQL) is the sole owner of task/run/attempt state, dispatch journal, lease/fencing and cancellation (ADR-011). LangGraph is utilized strictly inside a run attempt of a native domain agent to coordinate reasoning steps; LangGraph checkpoints keyed by run_id+attempt constitute internal rebuildable data, not the state authority for HUD or retries. Because LangGraph replays nodes from the beginning, graph nodes never invoke external side effects directly; all side effects pass through Action Service/tool gateway with operation_key and execution journal. The domain reducer owns business mutations. The pilot work queue is a PostgreSQL table with `FOR UPDATE SKIP LOCKED` lease, avoiding message brokers until measurements warrant.
 
-Provider SDK gọi qua Model Gateway. Claude Agent SDK, Codex, OpenCode và agent HTTP/CLI bên ngoài đi qua adapter boundary. Runtime có agent loop riêng được quản lý như child execution với correlation ID và caps. Pydantic AI/Deep Agents là candidate runtime trong phase 2 hoặc adapter độc lập được certify. Temporal chỉ được đưa vào qua ADR migration chỉ rõ workflow nào chuyển ownership và cách xử lý in-flight runs.
+Provider SDKs are invoked through Model Gateway. Claude Agent SDK, Codex, OpenCode and external HTTP/CLI agents route through adapter boundaries. Runtimes with native agent loops run as child executions with correlation IDs and resource caps. Pydantic AI/Deep Agents serve as candidate runtimes in Phase 2 or certified standalone adapters. Temporal is introduced only via an ADR migration specifying workflow ownership transfer and in-flight run handling.
 
-PostgreSQL full text và metadata đáp ứng pilot PPM. Knowledge có thể bổ sung pgvector hoặc Qdrant sau retrieval benchmark. Object store S3-compatible được dùng khi tách workers hoặc retention/backup yêu cầu, filesystem content-addressed đủ cho local pilot. OpenTelemetry/OTLP cho traces, evidence/audit có lifecycle riêng.
+PostgreSQL full text and metadata satisfy the pilot PPM. Knowledge may incorporate pgvector or Qdrant following retrieval benchmarks. S3-compatible object storage is introduced when worker distribution or retention/backup requires; content-addressed filesystem suffices for local pilot. OpenTelemetry/OTLP handles traces; evidence and audit maintain independent lifecycles.
 
-## 5. Agent, task, run và acceptance
-AgentDefinition có capabilities đề xuất. AgentRelease là cấu hình immutable có bundle digest. DeploymentBinding gắn release với runtime, endpoint, secrets, scope và capability đã kiểm chứng. AgentInstance/Worker là process sống. Task là yêu cầu nghiệp vụ. Run là một attempt. ProviderSession là identity bên vendor.
+## 5. Agent, task, run and acceptance
+AgentDefinition defines proposed capabilities. AgentRelease is an immutable configuration with a bundle digest. DeploymentBinding associates release with runtime, endpoint, secrets, scope and certified capabilities. AgentInstance/Worker is an active process. Task is a business requirement. Run is an attempt. ProviderSession is vendor-side identity.
 
-Task states gồm draft, ready, active, blocked, review_required, completed, failed, cancelled. Run states gồm queued, dispatching, running, waiting_approval, cancelling, succeeded, failed, cancelled, timed_out, unknown. Connectivity có healthy/stale/offline riêng. Remote outcome (known/unknown) là trục riêng: run `unknown` nghĩa là platform không biết provider đã nhận hay đã thực hiện; HUD không được hiển thị nó như failed hoặc retry được. Cancel trên run unknown được ghi thành intent và chỉ thực thi sau reconciliation (docs/02). PPM verification và acceptance là hai trục domain riêng.
+Task states include draft, ready, active, blocked, review_required, completed, failed, cancelled. Run states include queued, dispatching, running, waiting_approval, cancelling, succeeded, failed, cancelled, timed_out, unknown. Connectivity tracks healthy/stale/offline independently. Remote outcome (known/unknown) is an independent axis: run `unknown` indicates the platform cannot determine if the provider received or executed the task; HUD must not display it as failed or retryable. Cancellation on an unknown run is recorded as intent and executed only after reconciliation (docs/02). PPM verification and acceptance remain separate domain axes.
 
-Run succeeded chỉ cung cấp result để domain verifier đánh giá. Một scan task có thể completed khi snapshot intake hợp lệ, trong khi project vẫn chưa accepted. Task completed phải theo completion policy của task type. Retry tạo run mới với attempt +1, giữ history. Resume checkpoint giữ run identity khi continuation hợp lệ và được adapter hỗ trợ.
+Run succeeded merely supplies results for domain verifier evaluation. A scan task may complete when snapshot intake is valid, while the project remains unaccepted. Task completion follows task-type completion policy. Retry generates a new run with attempt +1, preserving history. Resume checkpoint retains run identity when continuation is valid and supported by the adapter.
 
-## 6. Các domain và quan hệ
-PPM sở hữu project/program/portfolio, acceptance criteria, dependencies, benefits và status assessment. Knowledge sở hữu document versions, source ACLs, effective dates và citations. Governance/Risk sở hữu requirements/control mappings và review workflow. Research sở hữu source registry, event clustering, briefings. Productivity sở hữu reminder/subscription; dùng project IDs từ PPM. Editorial và Media sở hữu draft/revision/publish/render lifecycle. Engineering/Operations là execution domains có quyền scoped.
+## 6. Domains and relationships
+PPM owns project/program/portfolio, acceptance criteria, dependencies, benefits and status assessment. Knowledge owns document versions, source ACLs, effective dates and citations. Governance/Risk owns requirements/control mappings and review workflows. Research owns source registry, event clustering and briefings. Productivity owns reminders/subscriptions; referencing project IDs from PPM. Editorial and Media own draft/revision/publish/render lifecycles. Engineering/Operations are execution domains with scoped authority.
 
-Secretary là giao diện và routing layer qua web/chat, dùng cùng Task Service và Action Service. Chat identity được map bằng credential/verified binding. Domain agents trao đổi typed task/result refs. Synthesis agent chỉ truy cập resource scope được ủy quyền.
+Secretary serves as interface and routing layer across web/chat, utilizing shared Task Service and Action Service. Chat identity maps via credentials or verified bindings. Domain agents exchange typed task/result refs. Synthesis agents access only authorized resource scopes.
 
-## 7. Data và trust boundaries
-Mọi API có tenant boundary từ authenticated context. Retrieval lọc quyền trước tìm kiếm và kiểm tra lại khi đọc/cite. Domain DB là nguồn cho objective/baseline/approval. Evidence có artifact ID, hash, revision, producer và classification. Run memory có checkpoint/context summaries, mọi summary gắn derived_from và freshness.
+## 7. Data and trust boundaries
+All APIs enforce tenant boundaries from authenticated contexts. Retrieval filters permissions pre-search and re-checks during reading and citing. Domain DB is authoritative for objectives/baselines/approvals. Evidence records artifact ID, hash, revision, producer and classification. Run memory holds checkpoint and context summaries, with each summary tagged with derived_from and freshness.
 
-Cloud Policy C cho phép egress theo quyền, mục đích, classification và provider approval. Check cả embeddings, telemetry và fallback provider. Binding 1.1 liệt kê `fallback_model_profile_refs`, `embedding_profile_ref`, `egress_policy_ref` và `telemetry_export`; Model Gateway deny-by-default mọi profile không có trong binding, kể cả khi provider chính lỗi. OTLP/trace export mặc định `local_only`. Model gateway từ chối nếu thiếu policy hoặc profile chưa được authorize. Tool outputs, repo docs, `.ppm` notes/updates, MCP và websites là data untrusted: chúng chỉ có thể trở thành claim, không thể đổi trạng thái verified/accepted, cấp quyền hoặc kích hoạt tool. Tool execution có server-side enforcement. `tenant_id` trong producer event được ingestion so khớp với binding đã xác thực; lệch thì quarantine. Vendor runtime tự thực thi tool phía server (ví dụ built-in toolset của Claude Managed Agents) nằm ngoài Action Service và phải khai báo `execution_boundary=external_trusted` trừ khi các tool đó bị tắt (docs/06).
+Cloud Policy C authorizes egress based on permissions, purpose, classification and provider approval. Enforces checks across embeddings, telemetry and fallback providers. Binding 1.1 enumerates `fallback_model_profile_refs`, `embedding_profile_ref`, `egress_policy_ref` and `telemetry_export`; Model Gateway denies by default any profile omitted from binding, even during primary provider outages. OTLP/trace export defaults to `local_only`. Model Gateway rejects requests lacking policy or authorized profile. Tool outputs, repo docs, `.ppm` notes/updates, MCP and websites represent untrusted data: they can formulate claims, but cannot alter verified/accepted states, grant permissions or trigger tools. Tool execution enforces server-side controls. Producer event `tenant_id` is matched by ingestion against authenticated binding; mismatches trigger quarantine. Vendor runtimes executing tools server-side (e.g. built-in toolsets in Claude Managed Agents) operate outside Action Service and must declare `execution_boundary=external_trusted` unless disabled (docs/06).
 
 ## 8. HUD
-HUD chính gồm attention queue, tasks/runs table, agent health và capacity, project overview, trace inspector, approvals, artifacts và version/eval views. Mọi trạng thái có as_of, source, coverage và connectivity. UI gửi command tới API, server kiểm tra capability/permission/current revision trước thực thi.
+The primary HUD encompasses attention queue, tasks/runs table, agent health and capacity, project overview, trace inspector, approvals, artifacts and version/eval views. All states display as_of, source, coverage and connectivity. UI submits commands to API; server validates capability/permission/current revision prior to execution.
 
-Tiến độ chỉ hiển thị x/y hoặc percent khi denominator có căn cứ. Task research có current stage và elapsed time. Chi phí có actual/estimated/partial/unknown marker (partial là lower bound khi có call chưa biết cost; tổng không bao giờ cộng unknown như 0), provider_usage_as_of và scope để tránh cộng trùng cumulative counts. Cost ceiling dựa vào reservation + reconciliation, có thể phát sinh usage chưa báo cáo và cần giới hạn concurrency/token trong dispatch.
+Progress displays x/y or percentage only when the denominator is substantiated. Research tasks show current stage and elapsed time. Cost presents actual/estimated/partial/unknown markers (partial serves as lower bound when calls with unknown costs exist; totals never treat unknown as 0), provider_usage_as_of and scope to prevent cumulative double counting. Cost ceiling relies on reservation + reconciliation, with potential unbilled usage requiring concurrency and token limits during dispatch.
 
 ## 9. Phase 2 harness initiative
-Harness Optimization Agent đọc các trace đã được phép, phân loại failure, tạo hypothesis, candidate patch/config, chạy offline controlled experiments, đề xuất release. Experiment Service và người review quản lý test set, secret/holdout và promotion. Mỗi candidate pin model profile/prompt/tools/retrieval policy và source revision.
+Harness Optimization Agent inspects authorized traces, classifies failures, generates hypotheses, proposes candidate patches/configs, executes offline controlled experiments and submits release recommendations. Experiment Service and human reviewers govern test sets, secrets/holdouts and promotions. Each candidate pins model profile/prompt/tools/retrieval policy and source revision.
 
-Harness package gồm context builder, tool contracts, planning/termination rules, retry/recovery, memory/compaction, verification và telemetry. Candidate được đánh giá quality, completion, grounding, tool correctness, cost, latency, retries và security regression. Canary có rollback trigger trước rollout.
+Harness package includes context builder, tool contracts, planning/termination rules, retry/recovery, memory/compaction, verification and telemetry. Candidates are evaluated across quality, completion, grounding, tool correctness, cost, latency, retries and security regression. Canaries define rollback triggers prior to rollout.
 
-## 10. Quyền và trách nhiệm
-Business owner xác định outcome/acceptance. Platform owner vận hành registry/runtime. Data owner cấp phạm vi dữ liệu. Security owner xác nhận policy profiles. Reviewer nghiệm thu. Operator can thiệp task trong quyền đã cấp. Với pilot cá nhân một người có thể kiêm vai trò, audit vẫn ghi actor và quyết định rõ ràng.
+## 10. Roles and responsibilities
+Business owner defines outcomes and acceptance. Platform owner operates registry and runtime. Data owner authorizes data scopes. Security owner confirms policy profiles. Reviewer executes acceptance. Operator intervenes on tasks within granted authority. In personal pilots one individual may assume multiple roles, while audit continues recording actors and decisions explicitly.
 
-Agent package tự khai quyền mong muốn. Trusted deployment binding mới cấp capability hiệu lực. Human approval gắn action digest, target revision, expiry, approver scope. Dịch vụ kiểm tra lại khi thực thi và consume một lần bằng transaction. Credential revocation chặn dispatch/tool calls mới và kích hoạt cancellation/reconciliation với remote work đang chạy.
+Agent package self-declares desired permissions. Trusted deployment binding grants effective capabilities. Human approvals bind action digest, target revision, expiry and approver scope. Services re-verify upon execution and consume approvals once within transactions. Credential revocation terminates new dispatches and tool calls while triggering cancellation and reconciliation with active remote executions.
 
-## 11. Roadmap và bàn giao
-Phase 1 gồm P0 contract/discovery, P1 control plane, P2 PPM intake, P3 HUD, P4 PPM program/portfolio + adapter pilot, P5 hardening/acceptance. Local MVP là lát cắt P0+P1a+P2a+P3a kết thúc bằng D1-fixture (đăng ký một lần, scheduler tự quét lần hai sau khi project đổi → HUD trả lời: tiêu chí nào tiến thêm, bằng chứng nào thuộc đúng revision, vì sao mục agent báo "đã xong" chưa đủ nghiệm thu) rồi Local-pilot (thư mục thật + Ollama thật); shared pilot cần thêm P1b, P3b, P4, P5. Work packages, dependencies và acceptance evidence nằm trong `docs/IMPLEMENTATION_PLAN.md`. Phase 2 gồm H0 baseline, H1 context/tool experiments, H2 Harness Optimization Agent, H3 canary/rollbacks.
+## 11. Roadmap and delivery
+Phase 1 comprises P0 contract/discovery, P1 control plane, P2 PPM intake, P3 HUD, P4 PPM program/portfolio + adapter pilot, P5 hardening/acceptance. Local MVP is the vertical slice P0+P1a+P2a+P3a concluding with D1-fixture (register once, scheduler auto-scans after project modifications → HUD reveals: which criteria advanced, which evidence belongs to current revision, why agent "done" claim is insufficient for acceptance) followed by Local-pilot (real directory + real Ollama); shared pilot requires P1b, P3b, P4, P5. Work packages, dependencies and acceptance evidence reside in `docs/IMPLEMENTATION_PLAN.md`. Phase 2 comprises H0 baseline, H1 context/tool experiments, H2 Harness Optimization Agent, H3 canary/rollbacks.
 
-Chi tiết API/state transitions, HUD behavior, templates, onboarding, eval/operations và các quyết định hợp nhất nằm trong các tài liệu đi kèm. Gate được nghiệm thu bằng runtime evidence tại implementation, package hiện tại kiểm tra structure/examples và tính nhất quán thiết kế.
+Detailed API/state transitions, HUD behavior, templates, onboarding, eval/operations and reconciliation decisions reside in accompanying documents. Gates are accepted via runtime evidence during implementation; the current package verifies structure, examples and architectural consistency.
