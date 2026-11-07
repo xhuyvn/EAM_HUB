@@ -4,6 +4,7 @@
 - **Work Package**: P1a-WP5 (Bootstrap identity per `STATUS.md`, `docs/IMPLEMENTATION_PLAN.md` §6 P1a-WP5, `docs/02_RUNTIME_AND_SECURITY.md`, and ISS-020).
 - **Target State**: `ready_for_review`
 - **Branch**: `wp/P1a-WP5` (branched from `main` at `8151e94`)
+- **Code Commit under Review**: `6f8438f`
 - **Base Commit**: `8151e94` ("accept P1a-WP2 and PPM-M0-WP4; owner fixture amendment ISS-021 (s08, s10 authorization lists)")
 - **Parallel Work Package Isolation**:
   - `src/eap/run/**`, `src/eap/action/**`, `src/eap/adapters/**`, `src/eap/api/routes.py`, `migrations/**` (P1a-WP4): Zero modifications.
