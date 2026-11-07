@@ -184,7 +184,7 @@ SC-06 Verification: ALL CYCLES PASSED
    ```
 10. **GitHub Actions CI Automation**:
     - Workflow: `validate-and-test` with `postgres:18.6-trixie`
-    - Run URL: [https://github.com/xhuyvn/EAM_HUB/actions/runs/42350393234](https://github.com/xhuyvn/EAM_HUB/actions/runs/42350393234)
+    - Run URLs: [https://github.com/xhuyvn/EAM_HUB/actions/runs/42350572193](https://github.com/xhuyvn/EAM_HUB/actions/runs/42350572193) (latest, commit `10674ec`) and [https://github.com/xhuyvn/EAM_HUB/actions/runs/42350393234](https://github.com/xhuyvn/EAM_HUB/actions/runs/42350393234) (commit `6cfe452`)
     - Status: `completed success` (all 13 steps passed)
 
 ---
