@@ -378,6 +378,43 @@ def build_negatives(events):
     return out
 
 
+def build_pair_negatives(decision):
+    pair_negatives = []
+    d = copy.deepcopy(decision)
+    d['nonce'] = 'nonce-replayed-000000000'
+    pair_negatives.append(('approval replay with different nonce', d))
+    d = copy.deepcopy(decision)
+    d['valid_until'] = '2026-11-05T11:00:00Z'
+    pair_negatives.append(('approval outlives proposal', d))
+    d = copy.deepcopy(decision)
+    d['consumption'] = {'state': 'consumed', 'consumed_at': '2026-11-05T09:21:00Z', 'consumed_by_operation_key': 'op-other'}
+    pair_negatives.append(('approval consumed by different operation', d))
+    return pair_negatives
+
+
+def build_operation_key_negatives(proposal, retry):
+    bad = copy.deepcopy(retry)
+    bad['resource_ref'] = 'repo:other-target'
+    return [('same operation_key with different target repository', [proposal, bad])]
+
+
+def build_location_negatives(locs):
+    cases = []
+    for name, mutate in [
+        ('duplicate registration of same repository and metadata_root',
+         lambda ls: ls.append(dict(copy.deepcopy(ls[0]), location_id='loc-dup'))),
+        ('metadata_root claimed by two projects',
+         lambda ls: ls.append(dict(copy.deepcopy(ls[0]), location_id='loc-x', project_id='proj-x'))),
+        ('same physical folder registered as a second source',
+         lambda ls: ls.append(dict(copy.deepcopy(ls[0]), location_id='loc-y', source_id='src-other',
+                                   metadata_root='apps/c', project_id='proj-app-c'))),
+    ]:
+        ls = copy.deepcopy(locs)
+        mutate(ls)
+        cases.append((name, ls))
+    return cases
+
+
 def main():
     validators, checks = {}, []
     for path in sorted((ROOT / 'contracts').glob('*.schema.json')):
@@ -437,14 +474,7 @@ def main():
     validate('ppm-output', waived)
     checks.append('approved waiver excluded from denominator (verified 1 / total 3) accepted')
 
-    pair_negatives = []
-    d = copy.deepcopy(decision); d['nonce'] = 'nonce-replayed-000000000'
-    pair_negatives.append(('approval replay with different nonce', d))
-    d = copy.deepcopy(decision); d['valid_until'] = '2026-11-05T11:00:00Z'
-    pair_negatives.append(('approval outlives proposal', d))
-    d = copy.deepcopy(decision)
-    d['consumption'] = {'state': 'consumed', 'consumed_at': '2026-11-05T09:21:00Z', 'consumed_by_operation_key': 'op-other'}
-    pair_negatives.append(('approval consumed by different operation', d))
+    pair_negatives = build_pair_negatives(decision)
     for name, d in pair_negatives:
         try:
             check_approval_pair(proposal, d)
@@ -457,26 +487,19 @@ def main():
     validate('action-proposal', retry)
     check_operation_key_reuse([proposal, retry])
     checks.append('retry attempt reuses operation_key for the identical action (run-002 -> run-003)')
-    bad = copy.deepcopy(retry); bad['resource_ref'] = 'repo:other-target'
-    try:
-        check_operation_key_reuse([proposal, bad])
-        raise AssertionError('Negative case accepted: same operation_key, different target repository')
-    except ValueError:
-        checks.append('same operation_key with different target repository correctly rejected')
+    for name, pair in build_operation_key_negatives(proposal, retry):
+        try:
+            check_operation_key_reuse(pair)
+            raise AssertionError('Negative case accepted: ' + name)
+        except ValueError:
+            checks.append(name + ' correctly rejected')
 
     locs = read_json(ROOT / 'examples/locations-monorepo.json')
     for loc in locs:
         validate('location-registration', loc)
     check_location_set(locs)
     checks.append('monorepo: %d projects share one repository with distinct metadata_root' % len(locs))
-    for name, mutate in [('duplicate registration of same repository and metadata_root',
-                          lambda ls: ls.append(dict(copy.deepcopy(ls[0]), location_id='loc-dup'))),
-                         ('metadata_root claimed by two projects',
-                          lambda ls: ls.append(dict(copy.deepcopy(ls[0]), location_id='loc-x', project_id='proj-x'))),
-                         ('same physical folder registered as a second source',
-                          lambda ls: ls.append(dict(copy.deepcopy(ls[0]), location_id='loc-y', source_id='src-other',
-                                                    metadata_root='apps/c', project_id='proj-app-c')))]:
-        ls = copy.deepcopy(locs); mutate(ls)
+    for name, ls in build_location_negatives(locs):
         try:
             check_location_set(ls)
             raise AssertionError('Negative case accepted: ' + name)

@@ -13,7 +13,7 @@ def test_canary_is_never_leaked_in_repr():
     canary = f"EAP-CANARY-{uuid.uuid4()}"
     secret_pw = "my-super-secret-password"
     settings = Settings(
-        _env_file=None,
+        _env_file=None,  # type: ignore[call-arg]
         EAP_SECRET_CANARY=SecretStr(canary),
         POSTGRES_PASSWORD=SecretStr(secret_pw),
     )
@@ -46,7 +46,7 @@ def test_caplog_logging_does_not_leak_secrets(caplog: pytest.LogCaptureFixture):
     dsn = f"postgresql+psycopg://eap:{secret_pw}@127.0.0.1:5432/eap_dev"
 
     settings = Settings(
-        _env_file=None,
+        _env_file=None,  # type: ignore[call-arg]
         EAP_SECRET_CANARY=SecretStr(canary),
         POSTGRES_PASSWORD=SecretStr(secret_pw),
         DATABASE_URL=SecretStr(dsn),

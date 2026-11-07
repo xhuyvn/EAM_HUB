@@ -55,9 +55,6 @@ class Settings(BaseSettings):
                 return None
         return v
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
-        super().__init__(*args, **kwargs)  # type: ignore[arg-type,call-arg]
-
     @property
     def has_redis(self) -> bool:
         return bool(self.redis_url)

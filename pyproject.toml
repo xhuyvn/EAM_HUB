@@ -19,6 +19,7 @@ dependencies = [
     "qdrant-client>=1.12.0",
     "httpx>=0.27.0",
     "ppm-reducer",
+    "rfc8785>=0.1.4",
 ]
 
 [tool.uv.workspace]
