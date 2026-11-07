@@ -3,23 +3,37 @@
 ## 1. Milestone and Scope
 - **Work Package**: P0-WP2 (Contract models per `STATUS.md`, `docs/IMPLEMENTATION_PLAN.md` §5 SC-01, SC-02, and §6 P0-WP2).
 - **Scope**:
-  - Implement hand-written, strictly typed Pydantic v2 models for all 16 JSON schemas under `contracts/*.schema.json`, maintaining strict `extra="forbid"` and exact enum/required parity.
+  - Implement hand-written, strictly typed Pydantic v2 models for all 16 JSON schemas under `contracts/*.schema.json`, maintaining strict `extra="forbid"`, `strict=True`, and exact constraint/enum/required parity.
   - Provide a schema registry mapping schema filename and schema name to root models in `src/eap/contracts/models/__init__.py`.
   - Implement RFC 8785 JSON Canonicalization Scheme (JCS) and action proposal digest in `src/eap/contracts/digest.py` pinned to `rfc8785>=0.1.4`.
   - Port all semantic and invariant validation rules from `tools/validate_package.py` into pure functions in `src/eap/contracts/rules.py` raising typed `ContractViolation(code, detail)`.
   - Create comprehensive tests under `tests/contracts/`:
-    - `test_schema_parity.py`: automated recursive parity verification across 16/16 schemas.
+    - `test_schema_parity.py`: automated recursive parity verification across 16/16 schemas and all 11 `event.schema.json` if/then payload branches for field names, required set, types, pattern, minLength/maxLength, minItems/maxItems, minimum/maximum/exclusiveMinimum, and enums/consts.
     - `test_fixture_parity.py`: JCS round-trip parity on all JSON fixtures, event streams, and monorepo locations.
     - `test_digest.py`: template action digest verification (`76580e7cecb951cc2e84d499b6006492bd394b4b44c068372464aedf2d30a436`) and RFC 8785 test vectors.
-    - `test_negative_parity.py`: dynamic test suite importing validator negatives (50/50 cases rejected).
+    - `test_negative_parity.py`: dynamic test suite importing validator negatives (50/50 cases rejected, including pair, operation-key, and location negatives imported directly from `tools/validate_package.py`).
+    - `test_differential.py`: differential mutation testing across all 15 JSON fixtures + 11 events in `events.ndjson` (wrong type including bool/numeric-string for ints, empty string, empty list, negative number/zero, null, extra key, deleted key, invalid enum), asserting `model accepts => jsonschema accepts` (0 violations).
     - `test_rules.py`: unit tests for pure rule functions, state transitions, and compare-and-set assessment resolution.
     - `test_boundary.py`: import boundaries verifying `ppm_reducer` does not import `eap.contracts`, and `eap.contracts` remains pure without I/O, DB, network, or settings dependencies.
 
-## 2. Source Commit and Traceability
+## 2. Review Follow-ups (W2-1, W2-2)
+- **W2-1: Models must never accept what the JSON Schema rejects**:
+  - `ContractModel` config has `strict=True` so that `"2"` or `True`/`False` are never coerced to ints or other types.
+  - Added missing constraints across all models: array item `minLength: 1` (`NonEmptyStr`), `minItems: 1` on arrays, numeric bounds (`gt=0`, `ge=0`, `ge=1`, etc.), string lengths (`min_length`, `max_length`), and exact literals.
+  - Added `StrictFalse = Annotated[Literal[False], BeforeValidator(_validate_bool_exact)]` in `src/eap/contracts/models/base.py` to prevent Python's `0 == False` from accepting `0` for schema boolean `false`.
+  - Updated payload models in `event.py` with exact enums and bounds (`RunState` literal for `RunStateChangedPayload`, `ApprovalDecidedPayload`, `RunFinishedPayload`, `WorkerHeartbeatPayload`, `ArtifactCreatedPayload`).
+  - Extended `tests/contracts/test_schema_parity.py` to recursively compare type, pattern, minLength/maxLength, minItems, minimum/maximum/exclusiveMinimum, and all 11 if/then payload branches of `event.schema.json`.
+  - Implemented `tests/contracts/test_differential.py`: generated 5003 mutations across all 26 targets (15 fixtures + 11 events). Achieved **0 model-looser violations** and **0 model-stricter cases** (down from baseline ~160 violations).
+- **W2-2: Negative parity imports from validator**:
+  - Extracted pure helper functions in `tools/validate_package.py`: `build_pair_negatives(decision)`, `build_operation_key_negatives(proposal, retry)`, and `build_location_negatives(locs)`.
+  - Updated `tests/contracts/test_negative_parity.py` to import and call these helpers directly from `validate_package`, eliminating copied negative definitions.
+- **P0-WP1 Follow-up**:
+  - Removed no-op `Settings.__init__` in `src/eap/config.py`.
+
+## 3. Source Commit and Traceability
 - **Base Commit**: `70ea3bd` (on `main`: "accept P0-WP1: mark accepted in STATUS.md")
 - **Branch**: `wp/P0-WP2`
-- **Code Commit under Review**: `c176ba7` (pushed on branch `wp/P0-WP2`)
-  *(Note: The acceptance packet commit on `main` is recorded by the owner upon merge)*
+- **Code Commit under Review**: `2d5c112` (pushed on branch `wp/P0-WP2`)
 - **Environment**:
   - Python: 3.12.13 (via `uv 0.11.21`)
   - Node.js: 26.7.0 LTS / npm 11.18.0
@@ -29,7 +43,7 @@
   - Library repository: https://github.com/woodruffw/rfc8785-py
   - Access Date: 2026-11-07
 
-## 3. Inventory
+## 4. Inventory
 
 ### Model Inventory (16/16 schemas)
 | Schema File | Root Model Class | Module Path | Additional Models / Sub-models |
@@ -72,11 +86,11 @@
 | `check_event_stream` | `check_event_stream(events)` | `DUPLICATE_EVENT`, `PRODUCER_SEQ_ORDERING`, `RUN_STATE_SEQUENCE_MISMATCH` |
 | `semantic_checks(kind, value)` | `semantic_checks(kind, value)` | Unified dispatcher for all contract kinds |
 
-## 4. Intentional Deviations and Technical Notes
+## 5. Intentional Deviations and Technical Notes
 - **Safe Path Lookahead Validation (ISS-009)**:
   `contracts/location-registration.schema.json` specifies pattern `^(?!/)(?!.*\\)(?!.*:)(?!.*(?:^|/)\.\.(?:/|$)).+$`. `pydantic-core` compiles regex patterns with the Rust `regex` crate, which prohibits lookaround assertions. To maintain strict parity with the schema's regex specification without lowering safety guarantees, `eap.contracts.models.base.SafePathStr` validates using Python standard library `re` via `AfterValidator(_validate_safe_path)`. Both valid paths and invalid traversal attacks (`../`, absolute paths, colons, backslashes) are verified by schema and negative parity tests.
 
-## 5. Acceptance Commands and Real Output
+## 6. Acceptance Commands and Real Output
 
 ### Check 1: SC-01 `uv run python tools/validate_package.py`
 ```
@@ -170,26 +184,27 @@ configfile: pyproject.toml
 testpaths: tests
 plugins: anyio-4.16.0, asyncio-1.4.1.post1
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
-collecting ... collected 44 items
+collecting ... collected 46 items
 
 tests/contracts/test_boundary.py::test_contracts_pure_boundary PASSED    [  2%]
 tests/contracts/test_boundary.py::test_ppm_reducer_does_not_import_eap_contracts PASSED [  4%]
-tests/contracts/test_digest.py::test_template_action_proposal_digest PASSED [  6%]
-tests/contracts/test_digest.py::test_retry_proposal_action_digest PASSED [  9%]
-tests/contracts/test_digest.py::test_rfc8785_number_vectors PASSED       [ 11%]
-tests/contracts/test_digest.py::test_rfc8785_key_ordering_utf16 PASSED   [ 13%]
-tests/contracts/test_digest.py::test_rfc8785_string_escaping_vectors PASSED [ 15%]
-tests/contracts/test_digest.py::test_sha256_digest_utility PASSED        [ 18%]
-tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/new-agent/agent.json-agent] PASSED [ 20%]
-tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/existing-agent/agent.json-agent] PASSED [ 22%]
-tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/admin/deployment-binding.example.json-binding] PASSED [ 25%]
-tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/admin/existing-observe-binding.example.json-binding] PASSED [ 27%]
-tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/actions/action-proposal.example.json-action-proposal] PASSED [ 29%]
-tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/phase2/experiment.example.json-experiment] PASSED [ 31%]
+tests/contracts/test_differential.py::test_differential_mutation_testing PASSED [  6%]
+tests/contracts/test_digest.py::test_template_action_proposal_digest PASSED [  8%]
+tests/contracts/test_digest.py::test_retry_proposal_action_digest PASSED [ 10%]
+tests/contracts/test_digest.py::test_rfc8785_number_vectors PASSED       [ 13%]
+tests/contracts/test_digest.py::test_rfc8785_key_ordering_utf16 PASSED   [ 15%]
+tests/contracts/test_digest.py::test_rfc8785_string_escaping_vectors PASSED [ 17%]
+tests/contracts/test_digest.py::test_sha256_digest_utility PASSED        [ 19%]
+tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/new-agent/agent.json-agent] PASSED [ 21%]
+tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/existing-agent/agent.json-agent] PASSED [ 23%]
+tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/admin/deployment-binding.example.json-binding] PASSED [ 26%]
+tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/admin/existing-observe-binding.example.json-binding] PASSED [ 28%]
+tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/actions/action-proposal.example.json-action-proposal] PASSED [ 30%]
+tests/contracts/test_fixture_parity.py::test_fixture_round_trip[templates/phase2/experiment.example.json-experiment] PASSED [ 32%]
 tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/task-request.json-task-request] PASSED [ 34%]
 tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/task-envelope.json-task-envelope] PASSED [ 36%]
-tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/result.json-result] PASSED [ 38%]
-tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/ppm-input.json-ppm-input] PASSED [ 40%]
+tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/result.json-result] PASSED [ 39%]
+tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/ppm-input.json-ppm-input] PASSED [ 41%]
 tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/ppm-output.json-ppm-output] PASSED [ 43%]
 tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/hud-projection.json-hud-projection] PASSED [ 45%]
 tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/approval-decision.json-approval-decision] PASSED [ 47%]
@@ -197,43 +212,45 @@ tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/locatio
 tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/run-command.json-run-command] PASSED [ 52%]
 tests/contracts/test_fixture_parity.py::test_fixture_round_trip[examples/action-proposal-retry.json-action-proposal] PASSED [ 54%]
 tests/contracts/test_fixture_parity.py::test_events_ndjson_round_trip PASSED [ 56%]
-tests/contracts/test_fixture_parity.py::test_locations_monorepo_round_trip PASSED [ 59%]
-tests/contracts/test_fixture_parity.py::test_research_models_round_trip PASSED [ 61%]
+tests/contracts/test_fixture_parity.py::test_locations_monorepo_round_trip PASSED [ 58%]
+tests/contracts/test_fixture_parity.py::test_research_models_round_trip PASSED [ 60%]
 tests/contracts/test_negative_parity.py::test_all_validator_negatives_rejected PASSED [ 63%]
 tests/contracts/test_rules.py::test_transition_table_allowed_and_terminal PASSED [ 65%]
-tests/contracts/test_rules.py::test_run_progress_rules PASSED            [ 68%]
-tests/contracts/test_rules.py::test_usage_cost_rules PASSED              [ 70%]
-tests/contracts/test_rules.py::test_apply_assessment_basis_seq_compare_and_set PASSED [ 72%]
-tests/contracts/test_rules.py::test_ppm_waiver_rules_and_baseline PASSED [ 75%]
-tests/contracts/test_rules.py::test_event_stream_ordering_and_continuity PASSED [ 77%]
-tests/contracts/test_schema_parity.py::test_schema_parity_all_16_schemas PASSED [ 79%]
-tests/test_config.py::test_settings_empty_optional_services PASSED       [ 81%]
+tests/contracts/test_rules.py::test_run_progress_rules PASSED            [ 67%]
+tests/contracts/test_rules.py::test_usage_cost_rules PASSED              [ 69%]
+tests/contracts/test_rules.py::test_apply_assessment_basis_seq_compare_and_set PASSED [ 71%]
+tests/contracts/test_rules.py::test_ppm_waiver_rules_and_baseline PASSED [ 73%]
+tests/contracts/test_rules.py::test_event_stream_ordering_and_continuity PASSED [ 76%]
+tests/contracts/test_schema_parity.py::test_schema_parity_all_16_schemas PASSED [ 78%]
+tests/contracts/test_schema_parity.py::test_event_payload_branches_parity PASSED [ 80%]
+tests/test_config.py::test_settings_empty_optional_services PASSED       [ 82%]
 tests/test_config.py::test_settings_with_optional_services PASSED        [ 84%]
 tests/test_config.py::test_env_example_interpolation PASSED              [ 86%]
-tests/test_create_app_empty_optional_services_serves_healthz PASSED [ 88%]
-tests/test_healthz.py::test_healthz_endpoint PASSED                      [ 90%]
+tests/test_config.py::test_create_app_empty_optional_services_serves_healthz PASSED [ 89%]
+tests/test_healthz.py::test_healthz_endpoint PASSED                      [ 91%]
 tests/test_import_boundary.py::test_ppm_reducer_forbidden_imports_and_calls PASSED [ 93%]
 tests/test_secret_canary.py::test_canary_is_never_leaked_in_repr PASSED  [ 95%]
 tests/test_secret_canary.py::test_dsn_password_not_in_repr_or_str PASSED [ 97%]
 tests/test_secret_canary.py::test_caplog_logging_does_not_leak_secrets PASSED [100%]
 
-============================= 44 passed in 0.57s ==============================
+============================= 46 passed in 1.21s ==============================
 ```
 
 Counts per test module:
 - `tests/contracts/test_boundary.py`: 2 passed
+- `tests/contracts/test_differential.py`: 1 passed (5003 mutations tested, 0 violations)
 - `tests/contracts/test_digest.py`: 6 passed
 - `tests/contracts/test_fixture_parity.py`: 19 passed
-- `tests/contracts/test_negative_parity.py`: 1 passed (50 cases verified internally)
+- `tests/contracts/test_negative_parity.py`: 1 passed (50 cases verified internally via imported validator functions)
 - `tests/contracts/test_rules.py`: 6 passed
-- `tests/contracts/test_schema_parity.py`: 1 passed (16 schemas verified internally)
+- `tests/contracts/test_schema_parity.py`: 2 passed (16/16 schemas + 11 payload branches verified internally)
 - `tests/test_config.py`: 4 passed
 - `tests/test_healthz.py`: 1 passed
 - `tests/test_import_boundary.py`: 1 passed
 - `tests/test_secret_canary.py`: 3 passed
-Total: 44 passed, 0 skipped, 0 failed.
+Total: 46 passed, 0 skipped, 0 failed.
 
-### Check 4: Schema Parity Coverage (16/16 schemas)
+### Check 4: Schema Parity Coverage (16/16 schemas + 11 payload branches)
 `uv run pytest -s tests/contracts/test_schema_parity.py` output:
 ```
 --- SCHEMA PARITY COVERAGE (16/16 schemas) ---
@@ -313,23 +330,33 @@ Total: 16/16 schemas verified
 Total validator negative cases tested: 50
 ```
 
-### Check 6: Action Proposal Template Digest
+### Check 6: Differential Mutation Testing (W2-1)
+`uv run pytest -s tests/contracts/test_differential.py` output:
+```
+--- DIFFERENTIAL MUTATION TESTING ---
+Total targets tested: 26 (15 fixtures + 11 events)
+Total mutations generated: 5003
+Model-looser violations: 0
+Model-stricter cases: 0
+```
+
+### Check 7: Action Proposal Template Digest
 `uv run pytest -s tests/contracts/test_digest.py -k test_template_action_proposal_digest` output:
 ```
 [DIGEST OK] Template digest: 76580e7cecb951cc2e84d499b6006492bd394b4b44c068372464aedf2d30a436
 ```
 
-### Check 7: Static Linting and Type Checking
+### Check 8: Static Linting and Type Checking
 `uv run ruff check src tests ppm-v2/reducer migrations`
 ```
 All checks passed!
 ```
 `uv run mypy src tests ppm-v2/reducer`
 ```
-Success: no issues found in 48 source files
+Success: no issues found in 49 source files
 ```
 
-### Check 8: Web HUD Build
+### Check 9: Web HUD Build
 `npm --prefix web/hud run build`
 ```
 > eap-hud@0.1.0 build
@@ -343,19 +370,19 @@ computing gzip size...
 dist/index.html                   0.39 kB │ gzip:  0.27 kB
 dist/assets/index-a8RAso0v.css    0.71 kB │ gzip:  0.39 kB
 dist/assets/index-DLYonLHq.js   225.08 kB │ gzip: 70.02 kB
-✓ built in 555ms
+✓ built in 612ms
 ```
 
-### Check 9: SHA256SUMS Verification
+### Check 10: SHA256SUMS Verification
 `sha256sum -c SHA256SUMS.txt`
 ```
 Pass on all tracked repository files after regeneration.
 ```
 
-## 6. Unresolved Gaps
-- None. All 16 models, rules, digest vectors, and validator negative cases are fully satisfied.
+## 7. Unresolved Gaps
+- None. All review items W2-1 and W2-2 are fully resolved.
 
-## 7. Recommendation and Rollback
+## 8. Recommendation and Rollback
 - **Status**: `ready_for_review` (set in `STATUS.md`).
 - **Owner Action**: Review branch `wp/P0-WP2` and merge into `main` if accepted.
 - **Rollback Procedure**: Contract models and rules are fully decoupled from database and runtime migrations. Revert branch `wp/P0-WP2` via `git checkout main && git branch -D wp/P0-WP2`.
