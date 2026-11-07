@@ -1,0 +1,17 @@
+{
+  "case_id": "C01",
+  "milestone": "P1a",
+  "work_package": "P1a-WP2",
+  "status": "passed",
+  "observed_outcome": "Submitting the same tenant_id and client idempotency key sequentially or concurrently across separate database connections returns the exact same logical task reference; exactly one task row, one initial run row, one history record, and one outbox event are persisted in PostgreSQL.",
+  "counts": {
+    "passed_tests": 4,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/test_c01_tasks.py::test_c01_sequential_same_client_key_returns_same_task",
+    "tests/test_c01_tasks.py::test_c01_concurrent_same_client_key_two_connections",
+    "tests/test_c01_tasks.py::test_c01_same_client_key_different_tenants_allowed",
+    "tests/test_api_tasks.py::test_api_create_task_and_c01_idempotency"
+  ]
+}

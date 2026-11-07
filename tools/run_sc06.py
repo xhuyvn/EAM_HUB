@@ -85,7 +85,7 @@ def seed_fixture_data(db_url: str) -> None:
                 task_type="ppm.assessment",
                 agent_id="agent-sc06",
                 agent_version="1.0",
-                state="queued",
+                state="ready",
                 deadline=deadline,
             )
         )

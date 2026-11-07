@@ -75,7 +75,7 @@ def test_runs_constraints(db_conn: sa.Connection) -> None:
             task_type="ppm.assessment",
             agent_id="agent-1",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=deadline,
         )
     )
@@ -169,7 +169,7 @@ def test_run_attempt_history_constraints(db_conn: sa.Connection) -> None:
             task_type="ppm.assessment",
             agent_id="agent-1",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=deadline,
         )
     )
@@ -215,7 +215,7 @@ def test_commands_status_check(db_conn: sa.Connection) -> None:
             task_type="ppm.assessment",
             agent_id="agent-1",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=deadline,
         )
     )
@@ -292,7 +292,7 @@ def test_task_intents_constraints(db_conn: sa.Connection) -> None:
             task_type="ppm.assessment",
             agent_id="agent-1",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=deadline,
         )
     )

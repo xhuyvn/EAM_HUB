@@ -25,6 +25,10 @@ from compute_dg1_vectors import (  # type: ignore[import-not-found]
     compute_operation_key,
     compute_payload_hash,
     compute_task_intent_key,
+    derive_dispatch_idempotency_key,
+    derive_operation_key,
+    derive_payload_hash,
+    derive_task_intent_key,
 )
 
 
@@ -36,17 +40,22 @@ def test_test_vector_recomputation(vector) -> None:
 
     if ktype == "task_intent_key":
         raw, digest = compute_task_intent_key(inputs["tenant_id"], inputs["task_id"])
+        direct_derived = derive_task_intent_key(inputs["tenant_id"], inputs["task_id"])
     elif ktype == "operation_key":
         raw, digest = compute_operation_key(inputs["tenant_id"], inputs["task_id"], inputs["action_slot"])
+        direct_derived = derive_operation_key(inputs["tenant_id"], inputs["task_id"], inputs["action_slot"])
     elif ktype == "dispatch_idempotency_key":
         raw, digest = compute_dispatch_idempotency_key(inputs["binding_id"], inputs["run_id"], inputs["operation"])
+        direct_derived = derive_dispatch_idempotency_key(inputs["binding_id"], inputs["run_id"], inputs["operation"])
     elif ktype == "payload_hash":
         raw, digest = compute_payload_hash(inputs["tool_id"], inputs["arguments_sha256"], inputs.get("resource_ref"))
+        direct_derived = derive_payload_hash(inputs["tool_id"], inputs["arguments_sha256"], inputs.get("resource_ref"))
     else:
         raise ValueError(f"Unknown key type {ktype}")
 
     assert raw == vector.raw_delimited, f"Delimited encoding mismatch for {vector.name}"
     assert digest == vector.expected_hex, f"Hex digest mismatch for {vector.name}"
+    assert direct_derived == vector.expected_hex, f"Direct derive mismatch for {vector.name}"
     assert len(digest) == 64, f"Digest must be 64 characters lowercase hex for {vector.name}"
     assert all(c in "0123456789abcdef" for c in digest), f"Digest must be lowercase hex for {vector.name}"
 

@@ -98,7 +98,7 @@ def test_cross_tenant_fk_runs_rejected(db_conn: sa.Connection) -> None:
             task_type="ppm.assessment",
             agent_id="agent-iso",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=now + dt.timedelta(hours=1),
         )
     )
@@ -149,7 +149,7 @@ def test_cross_tenant_fk_run_attempt_history_rejected(db_conn: sa.Connection) ->
             task_type="ppm.assessment",
             agent_id="agent-iso",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=now + dt.timedelta(hours=1),
         )
     )
@@ -198,7 +198,7 @@ def test_cross_tenant_fk_task_intents_rejected(db_conn: sa.Connection) -> None:
             task_type="ppm.assessment",
             agent_id="agent-iso",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=now + dt.timedelta(hours=1),
         )
     )
@@ -247,7 +247,7 @@ def test_cross_tenant_fk_commands_rejected(db_conn: sa.Connection) -> None:
             task_type="ppm.assessment",
             agent_id="agent-iso",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=now + dt.timedelta(hours=1),
         )
     )
@@ -296,7 +296,7 @@ def test_cross_tenant_fk_artifacts_rejected(db_conn: sa.Connection) -> None:
             task_type="ppm.assessment",
             agent_id="agent-iso",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=now + dt.timedelta(hours=1),
         )
     )

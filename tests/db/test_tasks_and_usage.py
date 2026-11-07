@@ -43,7 +43,7 @@ def test_tasks_task_intent_key_unique_per_tenant(db_conn: sa.Connection) -> None
             task_type="ppm.assessment",
             agent_id="agent-1",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=deadline,
         )
     )
@@ -58,7 +58,7 @@ def test_tasks_task_intent_key_unique_per_tenant(db_conn: sa.Connection) -> None
                 task_type="ppm.assessment",
                 agent_id="agent-1",
                 agent_version="1.0",
-                state="queued",
+                state="ready",
                 deadline=deadline,
             )
         )
@@ -80,7 +80,7 @@ def test_tasks_client_key_unique_per_tenant(db_conn: sa.Connection) -> None:
             task_type="ppm.assessment",
             agent_id="agent-1",
             agent_version="1.0",
-            state="queued",
+            state="ready",
             deadline=deadline,
         )
     )
@@ -95,7 +95,7 @@ def test_tasks_client_key_unique_per_tenant(db_conn: sa.Connection) -> None:
                 task_type="ppm.assessment",
                 agent_id="agent-1",
                 agent_version="1.0",
-                state="queued",
+                state="ready",
                 deadline=deadline,
             )
         )
@@ -104,7 +104,7 @@ def test_tasks_client_key_unique_per_tenant(db_conn: sa.Connection) -> None:
 
 
 def test_tasks_state_check_constraint(db_conn: sa.Connection) -> None:
-    """Invalid task state violates ck_tasks_state."""
+    """Invalid task state violates ck_tasks_state (including 'queued' per ISS-017)."""
     deadline = dt.datetime.now(dt.UTC) + dt.timedelta(hours=1)
     with pytest.raises(IntegrityError) as exc_info, db_conn.begin_nested():
         db_conn.execute(
@@ -117,6 +117,24 @@ def test_tasks_state_check_constraint(db_conn: sa.Connection) -> None:
                 agent_id="agent-1",
                 agent_version="1.0",
                 state="unknown_task_state",
+                deadline=deadline,
+            )
+        )
+
+    _assert_constraint(exc_info, "ck_tasks_state")
+
+    # Under ISS-017, 'queued' is no longer a valid task state (aligned with hud-projection enum)
+    with pytest.raises(IntegrityError) as exc_info, db_conn.begin_nested():
+        db_conn.execute(
+            tasks.insert().values(
+                id="task-queued-invalid",
+                tenant_id="tenant-bad",
+                client_idempotency_key="ck-queued",
+                task_intent_key="tik-queued",
+                task_type="ppm.assessment",
+                agent_id="agent-1",
+                agent_version="1.0",
+                state="queued",
                 deadline=deadline,
             )
         )

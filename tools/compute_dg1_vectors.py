@@ -13,18 +13,24 @@ leading/trailing whitespace, or non-NFC input (raise KeyDerivationError, never n
 
 from __future__ import annotations
 
-import hashlib
 import json
-import re
 import unicodedata
 from typing import NamedTuple
 
-HEX_64_PATTERN = re.compile(r"^[a-f0-9]{64}$")
-
-
-class KeyDerivationError(ValueError):
-    """Raised when an input component violates strict canonical formatting rules."""
-    pass
+from eap.contracts.keys import (
+    HEX_64_PATTERN,
+    KeyDerivationError,
+    compute_dispatch_idempotency_key,
+    compute_operation_key,
+    compute_payload_hash,
+    compute_task_intent_key,
+    derive_dispatch_idempotency_key,
+    derive_operation_key,
+    derive_payload_hash,
+    derive_task_intent_key,
+    validate_component,
+    validate_identifier,
+)
 
 
 class VectorCase(NamedTuple):
@@ -42,71 +48,6 @@ class NegativeVectorCase(NamedTuple):
     expected_error: str
     reason: str
 
-
-def validate_component(name: str, value: str, allow_empty: bool = False) -> None:
-    """Validate a key derivation string component strictly.
-
-    MUST reject:
-    - Non-string types
-    - Delimiter character '|' (0x7C)
-    - Leading or trailing whitespace
-    - Non-NFC unicode inputs
-    - Empty strings (unless allow_empty=True, e.g. optional resource_ref)
-    """
-    if not isinstance(value, str):
-        raise KeyDerivationError(f"{name} must be a string, got {type(value).__name__}")
-    if not allow_empty and len(value) == 0:
-        raise KeyDerivationError(f"{name} must not be empty")
-    if "|" in value:
-        raise KeyDerivationError(f"{name} must not contain delimiter '|' (was {value!r})")
-    if value != value.strip():
-        raise KeyDerivationError(f"{name} must not contain leading or trailing whitespace (was {value!r})")
-    if unicodedata.normalize("NFC", value) != value:
-        raise KeyDerivationError(f"{name} must be in Unicode Normalization Form C (NFC)")
-
-
-def compute_task_intent_key(tenant_id: str, task_id: str) -> tuple[str, str]:
-    validate_component("tenant_id", tenant_id)
-    validate_component("task_id", task_id)
-    raw = f"{tenant_id}|{task_id}"
-    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-    return raw, digest
-
-
-def compute_operation_key(tenant_id: str, task_id: str, action_slot: str) -> tuple[str, str]:
-    validate_component("tenant_id", tenant_id)
-    validate_component("task_id", task_id)
-    validate_component("action_slot", action_slot)
-    raw = f"{tenant_id}|{task_id}|{action_slot}"
-    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-    return raw, digest
-
-
-def compute_dispatch_idempotency_key(
-    binding_id: str, run_id: str, operation: str = "submit"
-) -> tuple[str, str]:
-    validate_component("binding_id", binding_id)
-    validate_component("run_id", run_id)
-    validate_component("operation", operation)
-    raw = f"{binding_id}|{run_id}|{operation}"
-    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-    return raw, digest
-
-
-def compute_payload_hash(
-    tool_id: str, arguments_sha256: str, resource_ref: str | None = None
-) -> tuple[str, str]:
-    validate_component("tool_id", tool_id)
-    validate_component("arguments_sha256", arguments_sha256)
-    if not HEX_64_PATTERN.match(arguments_sha256):
-        raise KeyDerivationError(
-            f"arguments_sha256 must be 64 lowercase hex characters, got {arguments_sha256!r}"
-        )
-    res = resource_ref or ""
-    validate_component("resource_ref", res, allow_empty=True)
-    raw = f"{tool_id}|{arguments_sha256}|{res}"
-    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-    return raw, digest
 
 
 # -----------------------------------------------------------------------------

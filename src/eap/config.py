@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     eap_egress_default: str = Field(default="local_only", alias="EAP_EGRESS_DEFAULT")
     eap_telemetry: str = Field(default="local_only", alias="EAP_TELEMETRY")
     eap_secret_canary: SecretStr | None = Field(default=None, alias="EAP_SECRET_CANARY")
+    eap_bootstrap_tenant_id: str = Field(default="tenant-default", alias="EAP_BOOTSTRAP_TENANT_ID")
+    eap_bootstrap_principal_id: str = Field(default="principal-default", alias="EAP_BOOTSTRAP_PRINCIPAL_ID")
 
     @field_validator(
         "redis_url",
