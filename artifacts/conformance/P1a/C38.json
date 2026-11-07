@@ -1,0 +1,14 @@
+{
+  "case_id": "C38",
+  "milestone": "P1a",
+  "work_package": "P1a-WP4",
+  "status": "passed",
+  "observed_outcome": "When provider adapter lacks lookup support (lookup_supported=False), reconciliation fails to determine remote status; run remains strictly in unknown state; retries are blocked with 409 REMOTE_OUTCOME_UNKNOWN; provider mock receives zero fresh submissions; attention item is rendered in projection for operator intervention (DG1-C2).",
+  "counts": {
+    "passed_tests": 1,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/test_p1a_wp4_conformance.py::test_c38_lookup_unsupported_rejection"
+  ]
+}

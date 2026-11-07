@@ -1,14 +1,15 @@
 {
   "case_id": "C05",
   "milestone": "P1a",
-  "work_package": "P1a-WP2",
+  "work_package": "P1a-WP4",
   "status": "passed",
-  "observed_outcome": "When external response is lost or worker crashes, run enters state unknown or remote_outcome unknown. Retry via retry_new_attempt is rejected with HTTP 409 RemoteOutcomeUnknownError (REMOTE_OUTCOME_UNKNOWN); attempt count and outbox events remain strictly unchanged.",
+  "observed_outcome": "Worker crash before external response commits dispatch_intents state as 'sent' then 'ambiguous'; run transitions to unknown; retry rejected with 409 REMOTE_OUTCOME_UNKNOWN; re-dispatch reconciles without issuing blind resubmissions (mock submissions = 1).",
   "counts": {
-    "passed_tests": 1,
+    "passed_tests": 2,
     "violations": 0
   },
   "evidence_refs": [
-    "tests/test_run_service.py::test_dg1_c1_retry_rejected_when_outcome_unknown"
+    "tests/test_run_service.py::test_dg1_c1_retry_rejected_when_outcome_unknown",
+    "tests/test_p1a_wp4_conformance.py::test_c05_dispatch_journal_recovery"
   ]
 }

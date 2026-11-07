@@ -1,14 +1,18 @@
 {
   "condition_id": "DG1-C1",
   "milestone": "P1a",
-  "work_package": "P1a-WP2",
+  "work_package": "P1a-WP4",
   "status": "passed",
-  "observed_outcome": "RunService.retry_new_attempt rejects retry requests with HTTP 409 RemoteOutcomeUnknownError (REMOTE_OUTCOME_UNKNOWN) whenever the latest attempt's state or remote_outcome is 'unknown' and unreconciled. Attempt count and outbox rows remain strictly unchanged.",
+  "observed_outcome": "RunService.retry_new_attempt and POST /v1/runs/{run_id}/retry reject retry requests with HTTP 409 RemoteOutcomeUnknownError (REMOTE_OUTCOME_UNKNOWN) whenever the latest attempt's state or remote_outcome is 'unknown' and unreconciled. Attempt count and outbox rows remain strictly unchanged; provider mock receives zero fresh submissions until reconciled.",
   "counts": {
-    "passed_tests": 1,
+    "passed_tests": 5,
     "violations": 0
   },
   "evidence_refs": [
-    "tests/test_run_service.py::test_dg1_c1_retry_rejected_when_outcome_unknown"
+    "tests/test_run_service.py::test_dg1_c1_retry_rejected_when_outcome_unknown",
+    "tests/test_p1a_wp4_conformance.py::test_c21_lost_ack_reconciliation_and_cancel",
+    "tests/test_p1a_wp4_conformance.py::test_c29_pr_created_lost_ack_retry_and_conflict",
+    "tests/test_p1a_wp4_conformance.py::test_c38_lookup_unsupported_rejection",
+    "tests/test_p1a_wp4_conformance.py::test_api_cancel_and_retry_routes"
   ]
 }

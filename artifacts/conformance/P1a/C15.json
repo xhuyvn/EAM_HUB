@@ -1,15 +1,16 @@
 {
   "case_id": "C15",
   "milestone": "P1a",
-  "work_package": "P1a-WP1",
+  "work_package": "P1a-WP4",
   "status": "passed",
-  "observed_outcome": "leases table has fencing_token column and NOT NULL constraint enforced in PostgreSQL 18.6 schema; mutual exclusion enforced via uq_leases_resource; separate tenants can lease identical resource identifiers.",
+  "observed_outcome": "Worker writes checked against runs.lease_fencing_token; worker with stale fencing token (token 1 < token 2) is strictly rejected with StaleFencingTokenError; run state and history remain unchanged.",
   "counts": {
-    "passed_tests": 2,
+    "passed_tests": 3,
     "violations": 0
   },
   "evidence_refs": [
     "tests/db/test_leases.py::test_leases_fencing_token_present_and_not_null",
-    "tests/db/test_leases.py::test_leases_resource_unique_per_tenant"
+    "tests/db/test_leases.py::test_leases_resource_unique_per_tenant",
+    "tests/test_p1a_wp4_conformance.py::test_c15_lease_fencing_stale_worker"
   ]
 }

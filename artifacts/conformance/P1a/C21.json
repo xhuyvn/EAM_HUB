@@ -1,14 +1,15 @@
 {
   "case_id": "C21",
   "milestone": "P1a",
-  "work_package": "P1a-WP2",
+  "work_package": "P1a-WP4",
   "status": "passed",
-  "observed_outcome": "Run in dispatching -> unknown state preserves unreconciled status; retries are blocked with REMOTE_OUTCOME_UNKNOWN (HTTP 409), ensuring zero duplicate executions and maintaining immutable attempt history.",
+  "observed_outcome": "Lost ACK on dispatch results in run state 'unknown' and remote_outcome 'unknown'; exactly 1 external submission (mock.submissions[key] == 1); user cancel while unknown records command with status 'accepted'; HUD projection snapshot asserts remote_outcome='unknown' and pending_command.kind='cancel' during unknown phase; stale worker write rejected; reconciliation advances unknown -> running -> cancelling -> cancelled and completes command.",
   "counts": {
-    "passed_tests": 1,
+    "passed_tests": 2,
     "violations": 0
   },
   "evidence_refs": [
-    "tests/test_run_service.py::test_dg1_c1_retry_rejected_when_outcome_unknown"
+    "tests/test_run_service.py::test_dg1_c1_retry_rejected_when_outcome_unknown",
+    "tests/test_p1a_wp4_conformance.py::test_c21_lost_ack_reconciliation_and_cancel"
   ]
 }

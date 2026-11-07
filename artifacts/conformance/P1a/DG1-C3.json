@@ -1,15 +1,16 @@
 {
   "condition_id": "DG1-C3",
   "milestone": "P1a",
-  "work_package": "P1a-WP1",
+  "work_package": "P1a-WP4",
   "status": "passed",
-  "observed_outcome": "Retry or duplicate insert with the same operation_key under the same tenant is rejected by PostgreSQL unique constraint uq_action_executions_key with IntegrityError. The database rejects key collisions; isolation across tenants preserved.",
+  "observed_outcome": "ActionExecutor enforces that retries with the same operation_key but differing payload_hash (different tool_id, arguments_sha256, or resource_ref) are rejected with 409 OperationKeyConflictError (OPERATION_KEY_CONFLICT) without making any tool calls (mock 0 calls). Unique constraint uq_action_executions_key prevents database collisions.",
   "counts": {
-    "passed_tests": 2,
+    "passed_tests": 3,
     "violations": 0
   },
   "evidence_refs": [
     "tests/db/test_action_executions.py::test_dg1_c3_duplicate_operation_key_rejected",
-    "tests/db/test_action_executions.py::test_dg1_c3_same_operation_key_different_tenant_allowed"
+    "tests/db/test_action_executions.py::test_dg1_c3_same_operation_key_different_tenant_allowed",
+    "tests/test_p1a_wp4_conformance.py::test_c29_pr_created_lost_ack_retry_and_conflict"
   ]
 }
