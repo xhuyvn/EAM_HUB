@@ -234,3 +234,228 @@ def test_conflicting_claims_exposed() -> None:
     # Exposed conflicting claims
     assert "claim-a" in res[0].conflicting_claim_refs
     assert "claim-b" in res[0].conflicting_claim_refs
+
+
+def test_waiver_inactive_conditions() -> None:
+    """M2-1: Waiver is active only if approved_by is non-empty AND approved_at is set AND approved_at <= now < expires_at.
+
+    Otherwise ignored (criterion falls back to evidence rules).
+    Tested cases:
+    1. missing / empty approved_by
+    2. null / missing approved_at
+    3. approved_at after now (approved_at > now)
+    4. expires_at == now (boundary second: inactive)
+    """
+    baseline = {
+        "baseline_revision": 1,
+        "criteria": [
+            {
+                "criterion_id": "AC-WV-001",
+                "deliverable_id": "DEL-WV",
+                "owner_project_id": "proj-wv",
+                "weight": 1.0,
+                "required": True,
+                "verification_refs": [{"kind": "test_id", "ref": "test_wv"}],
+                "previous_status": None,
+            }
+        ],
+    }
+    now_str = "2026-11-05T12:00:00Z"
+
+    # Case 0: Baseline active waiver -> waived
+    w_active = [
+        {
+            "waiver_id": "w-valid",
+            "criterion_id": "AC-WV-001",
+            "approved_by": "lead-reviewer",
+            "approved_at": "2026-11-01T00:00:00Z",
+            "expires_at": "2026-11-10T00:00:00Z",
+        }
+    ]
+    res_act = assess_criteria(
+        baseline=baseline, claims=[], evidence=[], waivers=w_active, assessed_revision="rev-1", now=now_str
+    )
+    assert len(res_act) == 1
+    assert res_act[0].status == CriterionStatus.WAIVED
+    assert res_act[0].reason_code == ReasonCode.WAIVER_APPROVED
+
+    # Case 1: missing / empty approved_by -> inactive -> falls back to evidence_missing
+    for bad_by in [None, "", "   "]:
+        w_bad_by = [
+            {
+                "waiver_id": "w-bad-by",
+                "criterion_id": "AC-WV-001",
+                "approved_by": bad_by,
+                "approved_at": "2026-11-01T00:00:00Z",
+                "expires_at": "2026-11-10T00:00:00Z",
+            }
+        ]
+        res = assess_criteria(
+            baseline=baseline, claims=[], evidence=[], waivers=w_bad_by, assessed_revision="rev-1", now=now_str
+        )
+        assert len(res) == 1
+        assert res[0].status == CriterionStatus.UNVERIFIED
+        assert res[0].reason_code == ReasonCode.EVIDENCE_MISSING
+        assert res[0].waiver_ref is None
+
+    # Case 2: null / missing approved_at -> inactive -> falls back to evidence_missing
+    w_null_app = [
+        {
+            "waiver_id": "w-null-app",
+            "criterion_id": "AC-WV-001",
+            "approved_by": "lead-reviewer",
+            "approved_at": None,
+            "expires_at": "2026-11-10T00:00:00Z",
+        }
+    ]
+    res = assess_criteria(
+        baseline=baseline, claims=[], evidence=[], waivers=w_null_app, assessed_revision="rev-1", now=now_str
+    )
+    assert len(res) == 1
+    assert res[0].status == CriterionStatus.UNVERIFIED
+    assert res[0].reason_code == ReasonCode.EVIDENCE_MISSING
+    assert res[0].waiver_ref is None
+
+    # Case 3: approved_at after now (approved_at > now) -> inactive
+    w_future_app = [
+        {
+            "waiver_id": "w-future-app",
+            "criterion_id": "AC-WV-001",
+            "approved_by": "lead-reviewer",
+            "approved_at": "2026-11-06T00:00:00Z",
+            "expires_at": "2026-11-10T00:00:00Z",
+        }
+    ]
+    res = assess_criteria(
+        baseline=baseline, claims=[], evidence=[], waivers=w_future_app, assessed_revision="rev-1", now=now_str
+    )
+    assert len(res) == 1
+    assert res[0].status == CriterionStatus.UNVERIFIED
+    assert res[0].reason_code == ReasonCode.EVIDENCE_MISSING
+    assert res[0].waiver_ref is None
+
+    # Case 4: expires_at == now (boundary second: inactive) -> falls back to evidence_missing
+    w_exact_exp = [
+        {
+            "waiver_id": "w-exact-exp",
+            "criterion_id": "AC-WV-001",
+            "approved_by": "lead-reviewer",
+            "approved_at": "2026-11-01T00:00:00Z",
+            "expires_at": now_str,
+        }
+    ]
+    res = assess_criteria(
+        baseline=baseline, claims=[], evidence=[], waivers=w_exact_exp, assessed_revision="rev-1", now=now_str
+    )
+    assert len(res) == 1
+    assert res[0].status == CriterionStatus.UNVERIFIED
+    assert res[0].reason_code == ReasonCode.EVIDENCE_MISSING
+    assert res[0].waiver_ref is None
+
+
+def test_evidence_from_future() -> None:
+    """M2-2: Evidence with observed_at > now raises InputRejected(reason="evidence_from_future")."""
+    baseline = {
+        "baseline_revision": 1,
+        "criteria": [
+            {
+                "criterion_id": "AC-FUT-001",
+                "deliverable_id": "DEL-FUT",
+                "owner_project_id": "proj-fut",
+                "weight": 1.0,
+                "required": True,
+                "verification_refs": [{"kind": "test_id", "ref": "test_fut"}],
+                "previous_status": None,
+            }
+        ],
+    }
+    now_str = "2026-11-05T12:00:00Z"
+    # Evidence 1 second in the future
+    future_ev = [
+        {
+            "evidence_id": "ev-future-1",
+            "trust_class": "verifier_observed",
+            "revision": "rev-fut-1",
+            "observed_at": "2026-11-05T12:00:01Z",
+            "test_id": "test_fut",
+            "result": "passed",
+        }
+    ]
+
+    with pytest.raises(InputRejected) as exc_info:
+        assess_criteria(
+            baseline=baseline,
+            claims=[],
+            evidence=future_ev,
+            waivers=[],
+            assessed_revision="rev-fut-1",
+            now=now_str,
+        )
+    assert exc_info.value.reason == "evidence_from_future"
+
+
+def test_missing_assessed_revision() -> None:
+    """M2-3: Baseline present and assessed_revision is None or empty raises InputRejected(reason="missing_assessed_revision")."""
+    baseline = {
+        "baseline_revision": 1,
+        "criteria": [
+            {
+                "criterion_id": "AC-REV-001",
+                "deliverable_id": "DEL-REV",
+                "owner_project_id": "proj-rev",
+                "weight": 1.0,
+                "required": True,
+                "verification_refs": [{"kind": "test_id", "ref": "test_rev"}],
+                "previous_status": None,
+            }
+        ],
+    }
+    now_str = "2026-11-05T12:00:00Z"
+
+    # None revision with baseline present
+    with pytest.raises(InputRejected) as exc_none:
+        assess_criteria(
+            baseline=baseline,
+            claims=[],
+            evidence=[],
+            waivers=[],
+            assessed_revision=None,
+            now=now_str,
+        )
+    assert exc_none.value.reason == "missing_assessed_revision"
+
+    # Empty string revision with baseline present
+    with pytest.raises(InputRejected) as exc_empty:
+        assess_criteria(
+            baseline=baseline,
+            claims=[],
+            evidence=[],
+            waivers=[],
+            assessed_revision="",
+            now=now_str,
+        )
+    assert exc_empty.value.reason == "missing_assessed_revision"
+
+    # Whitespace-only revision with baseline present
+    with pytest.raises(InputRejected) as exc_ws:
+        assess_criteria(
+            baseline=baseline,
+            claims=[],
+            evidence=[],
+            waivers=[],
+            assessed_revision="   ",
+            now=now_str,
+        )
+    assert exc_ws.value.reason == "missing_assessed_revision"
+
+    # Draft-only (no baseline) does NOT raise missing_assessed_revision
+    res_draft = assess_criteria(
+        baseline=None,
+        claims=[],
+        evidence=[],
+        waivers=[],
+        assessed_revision=None,
+        now=now_str,
+    )
+    assert res_draft == []
+

@@ -15,7 +15,7 @@
     - `test_corpus.py`: corpus comparison against all 19 fixtures in `ppm-v2/evals/fixtures/` post RFC 8785/JCS normalization (excluding `explanation`).
     - `test_determinism.py`: verification of identical SHA-256 digest across runs with shuffled inputs (claims, evidence, waivers, criteria).
     - `test_properties.py`: Hypothesis property-based tests asserting verification provenance and waiver validity.
-    - `test_reducer_rules.py`: edge cases covering exact TTL boundary second, dangling supersession, unmapped coverage, and concurrent conflicting claims.
+    - `test_reducer_rules.py`: edge cases covering exact TTL boundary second, dangling supersession, unmapped coverage, concurrent conflicting claims, waiver inactivity conditions (M2-1), evidence from future (M2-2), and missing assessed revision (M2-3).
   - Hardened import boundary in `tests/test_import_boundary.py`:
     - AST static analysis enforcing an ALLOWLIST of pure stdlib modules (`dataclasses`, `datetime`, `enum`, `typing`, `re`, `json`, `hashlib`, `functools`, `itertools`, `collections`, `decimal`, `math`, `ppm_reducer`).
     - Runtime audit hook (`sys.addaudithook`) verifying zero I/O, network, subprocess, or os calls across the entire fixture corpus.
@@ -27,9 +27,11 @@
 
 | Rule / Semantic Requirement | Code Location | Fixtures Covered | Observed Behavior |
 |---|---|---|---|
-| **Supersession Resolution (DAG)**: Resolve supersession chains first; reject cycles or dangling references. | `ppm_reducer/supersession.py` (`resolve_supersession`) | `s29-cyclic-supersession` | Raises `InputRejected(reason="supersession_cycle")` on mutual loop `upd-cycle-001` <-> `upd-cycle-002`. Raises `dangling_supersession` on missing target. |
-| **Active Refutation (FAIL in any class)**: A test failure in ANY trust class at the exact assessed revision refutes the deliverable. | `ppm_reducer/criteria.py` lines 170–190 | `s01`, `s02b`, `s27` | Outcome: `contradicted`, `reason_code: evidence_refuted`. In `s27`, producer-authored `reported_artifact` FAIL refutes deliverable. |
-| **Waiver Authority & Expiry**: Approved unexpired waiver at `now` waives criterion and excludes from progress denominator. Expired waiver returns criterion to evidence rules. | `ppm_reducer/criteria.py` lines 192–204; `trust.py` | `s08` (`AC-A-002`), `s25` (`AC-002`), `s22` (`AC-002`) | Outcome: `waived`, `reason_code: waiver_approved`, `evidence_trust: none`. In `s22`, expired waiver returns criterion to denominator (`unverified / evidence_missing`). |
+| **Supersession Resolution (DAG)**: Resolve supersession chains first; reject cycles or dangling references. | `ppm_reducer/supersession.py` (`resolve_supersession`) | `s29-cyclic-supersession`, `test_dangling_supersession` | Raises `InputRejected(reason="supersession_cycle")` on mutual loop `upd-cycle-001` <-> `upd-cycle-002`. Raises `dangling_supersession` on missing target. |
+| **Evidence Temporal Validity (M2-2)**: Evidence with `observed_at > now` is rejected deterministically as future evidence. | `ppm_reducer/criteria.py` lines 86–92 | `test_evidence_from_future` | Raises `InputRejected(reason="evidence_from_future")`. |
+| **Revision Presence Check (M2-3)**: Baseline present with criteria requires a non-empty `assessed_revision`. | `ppm_reducer/criteria.py` lines 94–98 | `test_missing_assessed_revision` | Raises `InputRejected(reason="missing_assessed_revision")`. Baseline absent/empty draft returns `[]`. |
+| **Active Refutation (FAIL in any class)**: A test failure in ANY trust class at the exact assessed revision refutes the deliverable. | `ppm_reducer/criteria.py` lines 180–205 | `s01`, `s02b`, `s27` | Outcome: `contradicted`, `reason_code: evidence_refuted`. In `s27`, producer-authored `reported_artifact` FAIL refutes deliverable. |
+| **Waiver Authority & Temporal Validity (M2-1)**: Waiver is active ONLY if `approved_by` is a non-empty string AND `approved_at` is set AND `approved_at <= now < expires_at`. Inactive waiver is ignored (falls back to evidence rules). | `ppm_reducer/criteria.py` lines 100–120, 207–225; `trust.py` | `s08` (`AC-A-002`), `s25` (`AC-002`), `s22` (`AC-002`), `test_waiver_inactive_conditions` | Outcome: active -> `waived`, `reason_code: waiver_approved`, `evidence_trust: none`. Inactive (e.g. `expires_at == now`, `approved_at > now`, null `approved_at`, missing `approved_by`) ignored; criterion falls back to evidence rules. |
 | **Trust Class Verification Authority**: Only `verifier_observed` or `ci_attested` at assessed revision can verify a criterion. | `ppm_reducer/trust.py` (`is_verifying_trust_class`); `criteria.py` | `s03`, `s07`, `s08`, `s10`, `s19`, `s22`, `s23`, `s25`, `s28` | Outcome: `verified`, `reason_code: evidence_current_pass`. `s28` cryptographically verifies via `ci_attested`. |
 | **In-Repo Reported Artifacts (PPM-01 / ADR-023)**: Test reports authored by producer inside repository cannot verify deliverables. | `ppm_reducer/criteria.py` lines 270–288 | `s21-forged-junit` | Outcome: `unverified`, `reason_code: reported_artifact_only`, `evidence_trust: reported_artifact`. Forged test report cannot verify. |
 | **Stale Revision**: Evidence executed at older commit without current refutation becomes stale. | `ppm_reducer/criteria.py` lines 305–335 | `s02a`, `s06` | Outcome: `stale`, `reason_code: evidence_stale_revision`. Retains prior revision in `evidence_revision`. |
@@ -163,7 +165,7 @@ tests/test_import_boundary.py .                                          [100%]
    ```bash
    uv run pytest -q
    ```
-   Output: `88 passed in 1.70s` (53 platform tests in `tests/` + 35 reducer tests in `ppm-v2/reducer/tests/`)
+   Output: `91 passed in 1.82s` (53 platform tests in `tests/` + 38 reducer tests in `ppm-v2/reducer/tests/`)
 
 6. **Code Quality and Linter**:
    ```bash
@@ -192,10 +194,13 @@ tests/test_import_boundary.py .                                          [100%]
 ---
 
 ## 5. Deviations and Open Issues
-- **Deviations**: None. Full specification implemented per signed fixtures.
-- **Open Issues**:
+- **Deviations**: None. Full specification implemented per signed fixtures and owner review feedback (M2-1, M2-2, M2-3).
+- **Open Issues / Fixture Addition Proposals**:
   - `ISS-NEW-1` (registered in M0-WP1): Structured representation of findings in `ppm-output.schema.json` for future contract minor.
   - `ISS-NEW-2` (registered in M0-WP1): Program and portfolio rollup contract standardization (PPM-C1).
+  - `ISS-NEW-3` (Proposal for `s30` fixture): Waiver inactive conditions (`approved_at > now`, `expires_at == now`, missing/empty `approved_by`, null `approved_at`) falling back to evidence rules.
+  - `ISS-NEW-4` (Proposal for `s31` fixture): Future evidence rejection (`evidence_from_future` when `observed_at > now`).
+  - `ISS-NEW-5` (Proposal for `s32` fixture): Missing assessed revision when baseline present (`missing_assessed_revision` when `assessed_revision` is None/empty).
 
 ---
 

@@ -83,8 +83,8 @@ def scenario_inputs(draw: st.DrawFn) -> dict[str, Any]:
                 "criterion_id": draw(criterion_id_st),
                 "scope": "property test waiver",
                 "rationale": "testing invariants",
-                "approved_by": "prop-owner",
-                "approved_at": "2026-01-01T00:00:00Z",
+                "approved_by": draw(st.sampled_from(["prop-owner", "", "admin", None])),
+                "approved_at": draw(st.sampled_from([None, "2026-01-01T00:00:00Z", draw(iso_date_st)])),
                 "expires_at": draw(iso_date_st),
             }
         )
@@ -185,3 +185,6 @@ def test_hypothesis_invariants(inputs: dict[str, Any]) -> None:
             waiver = matching_waivers[0]
             expires_at_dt = parse_datetime(waiver["expires_at"])
             assert expires_at_dt > now_dt
+            assert waiver.get("approved_by") and str(waiver["approved_by"]).strip() != ""
+            assert waiver.get("approved_at") is not None
+            assert parse_datetime(waiver["approved_at"]) <= now_dt < expires_at_dt

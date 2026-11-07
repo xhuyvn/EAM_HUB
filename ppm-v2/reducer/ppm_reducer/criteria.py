@@ -12,6 +12,7 @@ from .trust import is_evidence_ttl_expired, is_verifying_trust_class, parse_date
 from .types import (
     CriterionResult,
     CriterionStatus,
+    InputRejected,
     ReasonCode,
     ReportedStatus,
     TrustClass,
@@ -50,25 +51,54 @@ def assess_criteria(
         Deterministic list of CriterionResult stably ordered by criterion_id.
 
     Raises:
-        InputRejected: If claims contain cyclic or dangling supersession chains.
+        InputRejected: If claims contain cyclic or dangling supersession chains, evidence
+            has observed_at in the future, or assessed_revision is missing with baseline present.
     """
     # 1. Resolve supersession first (raises InputRejected on cycle or dangling)
     active_claims = resolve_supersession(claims)
+
+    now_dt = parse_datetime(now)
+
+    # M2-2: Evidence with observed_at > now: raise InputRejected(reason="evidence_from_future")
+    for ev in evidence:
+        obs_val = ev.get("observed_at")
+        if obs_val is not None:
+            obs_dt = parse_datetime(obs_val)
+            if obs_dt > now_dt:
+                raise InputRejected(
+                    reason="evidence_from_future",
+                    message=f"Evidence '{ev.get('evidence_id')}' has observed_at {obs_val} after now {now}",
+                )
 
     # 2. If no baseline exists (e.g. s24-draft-only), criteria evaluation returns empty list
     if not baseline or not baseline.get("criteria"):
         return []
 
-    now_dt = parse_datetime(now)
+    # M2-3: Baseline present and assessed_revision is None/empty: raise InputRejected(reason="missing_assessed_revision")
+    if assessed_revision is None or (isinstance(assessed_revision, str) and not assessed_revision.strip()):
+        raise InputRejected(
+            reason="missing_assessed_revision",
+            message="assessed_revision cannot be empty when baseline is present",
+        )
 
-    # 3. Index unexpired approved waivers by criterion_id
+    # 3. Index unexpired approved waivers by criterion_id (M2-1: approved_by non-empty, approved_at set, approved_at <= now < expires_at)
     active_waivers: dict[str, dict[str, Any]] = {}
     for waiver in waivers:
         cid = waiver.get("criterion_id")
         if not cid:
             continue
-        exp_dt = parse_datetime(waiver["expires_at"])
-        if now_dt < exp_dt:
+        approved_by = waiver.get("approved_by")
+        if not approved_by or not str(approved_by).strip():
+            continue
+        approved_at_val = waiver.get("approved_at")
+        if not approved_at_val:
+            continue
+        expires_at_val = waiver.get("expires_at")
+        if not expires_at_val:
+            continue
+        app_dt = parse_datetime(approved_at_val)
+        exp_dt = parse_datetime(expires_at_val)
+        if app_dt <= now_dt < exp_dt:
             active_waivers[cid] = waiver
 
     results: list[CriterionResult] = []
