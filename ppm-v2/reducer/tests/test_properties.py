@@ -9,12 +9,20 @@ Invariants checked:
 from __future__ import annotations
 
 import datetime as dt
+import json
+from pathlib import Path
 from typing import Any
 
+import rfc8785
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from ppm_reducer import InputRejected, assess_criteria
+from ppm_reducer import (
+    InputRejected,
+    assemble_assessment,
+    assess_criteria,
+    calculate_progress,
+)
 from ppm_reducer.trust import parse_datetime
 
 # Strategies for generating domain structures
@@ -188,3 +196,98 @@ def test_hypothesis_invariants(inputs: dict[str, Any]) -> None:
             assert waiver.get("approved_by") and str(waiver["approved_by"]).strip() != ""
             assert waiver.get("approved_at") is not None
             assert parse_datetime(waiver["approved_at"]) <= now_dt < expires_at_dt
+
+
+@settings(max_examples=40, deadline=None)
+@given(inputs=scenario_inputs())
+def test_property_progress_invariants(inputs: dict[str, Any]) -> None:
+    """Verify progress invariants:
+
+    1. Total weight strictly excludes waived criteria.
+    2. Verified weight <= total weight.
+    3. Criteria total == number of criteria in baseline.
+    4. Denominator is always present when baseline exists.
+    """
+    assessed_rev = inputs["assessed_revision"]
+    now_str = inputs["now"]
+
+    try:
+        results = assess_criteria(
+            baseline=inputs["baseline"],
+            claims=inputs["claims"],
+            evidence=inputs["evidence"],
+            waivers=inputs["waivers"],
+            assessed_revision=assessed_rev,
+            now=now_str,
+        )
+    except InputRejected:
+        return
+
+    prog = calculate_progress(results, has_baseline=True)
+
+    assert prog.basis == "baseline_weighted"
+    assert prog.total_weight is not None
+    assert prog.verified_weight is not None
+    assert prog.criteria_total == len(results)
+    assert prog.verified_weight <= prog.total_weight + 1e-9
+
+    expected_total = sum(r.weight for r in results if r.status != "waived")
+    expected_verified = sum(r.weight for r in results if r.status == "verified")
+
+    assert abs(prog.total_weight - expected_total) < 1e-6
+    assert abs(prog.verified_weight - expected_verified) < 1e-6
+
+
+def test_property_findings_decoupled_from_criteria_and_progress() -> None:
+    """Corpus invariant: Removing findings input context produces IDENTICAL criteria and progress.
+
+    Findings never mutate verdicts or progress metrics.
+    """
+    repo_root = Path(__file__).resolve().parents[3]
+    fdir = repo_root / "ppm-v2" / "evals" / "fixtures"
+
+    for p in sorted(fdir.iterdir()):
+        if not p.is_dir() or p.name.startswith("."):
+            continue
+        inputs_file = p / "inputs.json"
+        if not inputs_file.exists() or (p / "expected_error.json").exists():
+            continue
+
+        with inputs_file.open("r", encoding="utf-8") as f:
+            inp = json.load(f)
+
+        # Assessment 1: with original context (if any)
+        res1 = assemble_assessment(inputs=inp)
+
+        # Assessment 2: with context completely stripped
+        inp_stripped = dict(inp)
+        inp_stripped.pop("context", None)
+        res2 = assemble_assessment(inputs=inp_stripped)
+
+        # Invariant check: Criteria and Progress are 100% byte-for-byte identical!
+        crit1_jcs = rfc8785.dumps([c.to_dict(include_explanation=False) for c in res1.criteria])
+        crit2_jcs = rfc8785.dumps([c.to_dict(include_explanation=False) for c in res2.criteria])
+        assert crit1_jcs == crit2_jcs, f"[{p.name}] Context mutated criteria!"
+
+        prog1_jcs = rfc8785.dumps(res1.progress.to_dict())
+        prog2_jcs = rfc8785.dumps(res2.progress.to_dict())
+        assert prog1_jcs == prog2_jcs, f"[{p.name}] Context mutated progress!"
+
+
+def test_property_relationship_proposed_excluded_from_dependency_refs() -> None:
+    """Invariant: relationship_proposed is excluded from confirmed dependency_refs (s07)."""
+    repo_root = Path(__file__).resolve().parents[3]
+    s07_file = repo_root / "ppm-v2" / "evals" / "fixtures" / "s07-inferred-dependency" / "inputs.json"
+
+    with s07_file.open("r", encoding="utf-8") as f:
+        inp = json.load(f)
+
+    res = assemble_assessment(inputs=inp)
+
+    # Invariant: dependency_refs must be empty
+    assert res.dependency_refs == []
+
+    # And finding relationship_proposed is emitted
+    finding_kinds = [f.kind for f in res.findings]
+    assert "relationship_proposed" in finding_kinds
+

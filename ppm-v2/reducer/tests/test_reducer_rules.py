@@ -459,3 +459,218 @@ def test_missing_assessed_revision() -> None:
     )
     assert res_draft == []
 
+
+def test_s24_draft_only_progress_and_readiness() -> None:
+    """M0-WP3 s24 rule: absent a baseline, progress basis is none, weights null, readiness not_ready."""
+    from ppm_reducer import assemble_assessment
+
+    inputs = {
+        "fixture_id": "test-s24",
+        "project_id": "proj-draft",
+        "snapshot_refs": ["snap-1"],
+        "snapshot_seq": 1,
+        "basis_seq": 1,
+        "previous_assessment_id": None,
+        "assessed_revision": "rev-1",
+        "now": "2026-11-05T12:00:00Z",
+        "baseline": None,
+        "claims": [],
+        "evidence": [],
+        "waivers": [],
+    }
+
+    res = assemble_assessment(inputs=inputs)
+    assert res.progress.basis == "none"
+    assert res.progress.verified_weight is None
+    assert res.progress.total_weight is None
+    assert res.progress.criteria_total == 0
+    assert res.progress.criteria_with_current_evidence == 0
+    assert res.acceptance_readiness == "not_ready"
+    assert res.verification == "unknown"
+    assert res.validity == "unknown"
+    assert res.missing_evidence == ["No approved baseline revision in PPM domain database"]
+
+
+def test_s25_active_waiver_excluded_from_denominator() -> None:
+    """M0-WP3 s25 rule: total_weight and verified_weight strictly exclude waived criteria."""
+    from ppm_reducer import assemble_assessment
+
+    inputs = {
+        "fixture_id": "test-s25",
+        "project_id": "proj-waiver",
+        "snapshot_refs": ["snap-1"],
+        "snapshot_seq": 1,
+        "basis_seq": 1,
+        "previous_assessment_id": None,
+        "assessed_revision": "rev-1",
+        "now": "2026-11-05T12:00:00Z",
+        "baseline": {
+            "baseline_revision": 1,
+            "criteria": [
+                {
+                    "criterion_id": "AC-001",
+                    "deliverable_id": "DEL-1",
+                    "owner_project_id": "proj-waiver",
+                    "weight": 2.0,
+                    "required": True,
+                    "verification_refs": [{"kind": "test_id", "ref": "t1"}],
+                    "previous_status": None,
+                },
+                {
+                    "criterion_id": "AC-002",
+                    "deliverable_id": "DEL-2",
+                    "owner_project_id": "proj-waiver",
+                    "weight": 3.0,
+                    "required": True,
+                    "verification_refs": [{"kind": "test_id", "ref": "t2"}],
+                    "previous_status": None,
+                },
+            ],
+        },
+        "claims": [],
+        "evidence": [
+            {
+                "evidence_id": "ev-1",
+                "trust_class": "verifier_observed",
+                "revision": "rev-1",
+                "observed_at": "2026-11-05T11:00:00Z",
+                "test_id": "t1",
+                "covered_test_ids": ["t1"],
+                "result": "passed",
+                "artifact_path": None,
+            }
+        ],
+        "waivers": [
+            {
+                "waiver_id": "w-2",
+                "criterion_id": "AC-002",
+                "scope": "test waiver",
+                "rationale": "hardware unavailable",
+                "approved_by": "lead",
+                "approved_at": "2026-11-01T00:00:00Z",
+                "expires_at": "2026-11-10T00:00:00Z",
+            }
+        ],
+    }
+
+    res = assemble_assessment(inputs=inputs)
+    # AC-001 is verified (weight 2.0)
+    # AC-002 is waived (weight 3.0) -> excluded from total_weight and verified_weight
+    assert res.progress.total_weight == 2.0
+    assert res.progress.verified_weight == 2.0
+    assert res.progress.criteria_total == 2
+    assert res.progress.criteria_with_current_evidence == 1
+    assert res.verification == "verified"
+    assert res.acceptance_readiness == "ready_for_review"
+
+
+def test_domain_findings_types_and_severities() -> None:
+    """Test all 4 domain findings: architecture_drift, relationship_proposed, identity_conflict, conflicting_claims."""
+    from ppm_reducer import (
+        FindingKind,
+        FindingSeverity,
+        assemble_assessment,
+    )
+
+    inputs = {
+        "fixture_id": "test-findings",
+        "project_id": "proj-multi-findings",
+        "snapshot_refs": ["snap-1"],
+        "snapshot_seq": 1,
+        "basis_seq": 1,
+        "previous_assessment_id": None,
+        "assessed_revision": "rev-1",
+        "now": "2026-11-05T12:00:00Z",
+        "baseline": {
+            "baseline_revision": 1,
+            "criteria": [
+                {
+                    "criterion_id": "AC-001",
+                    "deliverable_id": "DEL-1",
+                    "owner_project_id": "proj-multi-findings",
+                    "weight": 1.0,
+                    "required": True,
+                    "verification_refs": [{"kind": "test_id", "ref": "t1"}],
+                    "previous_status": None,
+                }
+            ],
+        },
+        "claims": [
+            {
+                "claim_id": "c1",
+                "source_file": ".ppm/updates/u1.yaml",
+                "criterion_ids": ["AC-001"],
+                "test_ids": ["t1"],
+                "reported_status": "claimed_done",
+                "evidence_path": None,
+                "working_tree_state": "clean",
+                "recorded_at": "2026-11-05T11:00:00Z",
+                "summary": "done",
+            },
+            {
+                "claim_id": "c2",
+                "source_file": ".ppm/updates/u2.yaml",
+                "criterion_ids": ["AC-001"],
+                "test_ids": ["t1"],
+                "reported_status": "claimed_blocked",
+                "evidence_path": None,
+                "working_tree_state": "clean",
+                "recorded_at": "2026-11-05T11:01:00Z",
+                "summary": "blocked",
+            },
+        ],
+        "evidence": [],
+        "waivers": [],
+        "context": {
+            "architecture_drift": {
+                "component": "auth_service",
+                "implemented_pattern": "plain_jwt",
+                "prescribed_pattern": "oauth2_pkce",
+                "has_approved_adr": False,
+            },
+            "relationship_proposals": [
+                {
+                    "source_project_id": "proj-multi-findings",
+                    "target_project_id": "proj-core",
+                    "target_deliverable_id": "DEL-CORE",
+                    "relation_type": "depends_on",
+                    "status": "proposed",
+                }
+            ],
+            "repo_identity": {
+                "registered": "git@github.com:org/primary.git",
+                "observed": "git@github.com:org/mirror.git",
+            },
+        },
+    }
+
+    res = assemble_assessment(inputs=inputs)
+    finding_map = {f.kind: f for f in res.findings}
+
+    # 1. architecture_drift
+    assert FindingKind.ARCHITECTURE_DRIFT in finding_map
+    ad = finding_map[FindingKind.ARCHITECTURE_DRIFT]
+    assert ad.severity == FindingSeverity.REVIEW_REQUIRED
+    assert ad.target_ref == "component:auth_service"
+
+    # 2. relationship_proposed
+    assert FindingKind.RELATIONSHIP_PROPOSED in finding_map
+    rp = finding_map[FindingKind.RELATIONSHIP_PROPOSED]
+    assert rp.severity == FindingSeverity.INFO
+    assert rp.target_ref == "deliverable:DEL-CORE"
+
+    # 3. identity_conflict
+    assert FindingKind.IDENTITY_CONFLICT in finding_map
+    ic = finding_map[FindingKind.IDENTITY_CONFLICT]
+    assert ic.severity == FindingSeverity.BLOCKER
+    assert ic.target_ref == "project:proj-multi-findings"
+
+    # 4. conflicting_claims
+    assert FindingKind.CONFLICTING_CLAIMS in finding_map
+    cc = finding_map[FindingKind.CONFLICTING_CLAIMS]
+    assert cc.severity == FindingSeverity.WARNING
+    assert cc.target_ref == "criterion:AC-001"
+    assert cc.details["conflicting_updates"] == ["c1", "c2"]
+    assert cc.details["claimed_statuses"] == ["claimed_done", "claimed_blocked"]
+
+
