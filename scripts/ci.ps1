@@ -60,6 +60,10 @@ uv run python tools/run_sc06.py
 Write-Host "==> 5. Running Python test suite (SC-02)..."
 uv run pytest -q
 
+Write-Host "==> 5b. Running ingest baseline smoke benchmark 30s (P1a-WP7 / DG1-C4)..."
+$smokeTmp = [System.IO.Path]::GetTempPath()
+uv run python tools/bench/ingest_baseline.py --duration 30 --rate 200 --json-output "$smokeTmp/ingest_smoke.json" --md-output "$smokeTmp/ingest_smoke.md"
+
 Write-Host "==> 6. Linting and type checking platform code..."
 uv run ruff check src tests ppm-v2/reducer migrations
 uv run mypy src tests ppm-v2/reducer
