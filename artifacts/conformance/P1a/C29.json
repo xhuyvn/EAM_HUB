@@ -1,16 +1,17 @@
 {
   "case_id": "C29",
   "milestone": "P1a",
-  "work_package": "P1a-WP1",
+  "work_package": "P1a-WP4",
   "status": "passed",
-  "observed_outcome": "Two action_executions with the same (tenant_id, operation_key) are rejected by PostgreSQL 18.6 with IntegrityError uq_action_executions_key; differing tenant with same key is permitted; state transitions guarded by ck_action_executions_state.",
+  "observed_outcome": "Mock provider creates PR then drops ACK; worker restart leaves run unknown; user retry blocked with 409 REMOTE_OUTCOME_UNKNOWN; post-reconciliation retry reuses operation_key, returning journaled PR result without invoking tool (invoked_tool=False, mock.prs_created=1); divergent resource_ref with same operation_key yields 409 OPERATION_KEY_CONFLICT with 0 tool calls (DG1-C3).",
   "counts": {
-    "passed_tests": 3,
+    "passed_tests": 4,
     "violations": 0
   },
   "evidence_refs": [
     "tests/db/test_action_executions.py::test_dg1_c3_duplicate_operation_key_rejected",
     "tests/db/test_action_executions.py::test_dg1_c3_same_operation_key_different_tenant_allowed",
-    "tests/db/test_action_executions.py::test_action_executions_state_check_constraint"
+    "tests/db/test_action_executions.py::test_action_executions_state_check_constraint",
+    "tests/test_p1a_wp4_conformance.py::test_c29_pr_created_lost_ack_retry_and_conflict"
   ]
 }

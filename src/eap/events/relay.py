@@ -18,6 +18,7 @@ from eap.events.binding import BindingProvider, ProducerBinding
 from eap.events.ingest import IngestResult, check_and_ingest_event
 from eap.events.projection import (
     PROJECTION_NAME_HUD_RUNS,
+    _sync_pending_command,
     load_checkpoint,
     reduce_event,
     save_checkpoint,
@@ -171,6 +172,7 @@ class OutboxRelayWorker:
 
         # 6. Save updated projection checkpoint if new events were ingested
         if state_dirty and current_state is not None and latest_offset is not None:
+            _sync_pending_command(conn, tenant_id=tenant_id, stream_id=stream_id, state=current_state)
             save_checkpoint(
                 conn,
                 tenant_id=tenant_id,

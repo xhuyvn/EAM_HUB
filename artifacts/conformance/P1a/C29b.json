@@ -1,0 +1,14 @@
+{
+  "case_id": "C29b",
+  "milestone": "P1a",
+  "work_package": "P1a-WP4",
+  "status": "passed",
+  "observed_outcome": "Action slot create_pr#1 is persisted in task_intents before the first tool call; when an agent restarts and proposes create_pr#2, mapping policy maps proposal back to recovered slot create_pr#1 returning journaled PR result without calling tool; strict policy rejects proposal with ACTION_SLOT_UNDECLARED; in both cases mock.prs_created == 1.",
+  "counts": {
+    "passed_tests": 1,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/test_p1a_wp4_conformance.py::test_c29b_agent_proposes_new_slot_after_restart"
+  ]
+}

@@ -52,6 +52,11 @@ class RemoteOutcomeUnknownError(RunServiceError):
 
 
 
+class StaleFencingTokenError(RunServiceError):
+    """C15: Worker write rejected due to stale fencing token (HTTP 409)."""
+
+
+
 @dataclass(frozen=True)
 class RunRecord:
     id: str
@@ -95,6 +100,7 @@ class RunService:
         reason: str | None = None,
         evidence_ref: str | None = None,
         remote_outcome: str | None = None,
+        fencing_token: int | None = None,
     ) -> RunRecord:
         """Execute a validated run state transition.
 
@@ -113,6 +119,14 @@ class RunService:
         row = db.execute(stmt).mappings().one_or_none()
         if row is None:
             raise RunNotFoundError(f"Run {run_id} not found in tenant {tenant_id}")
+
+        # C15 fencing check: stale token must reject write immediately
+        if fencing_token is not None:
+            current_fencing = row["lease_fencing_token"] or 0
+            if fencing_token < current_fencing:
+                raise StaleFencingTokenError(
+                    f"STALE_FENCING_TOKEN: Worker token {fencing_token} is strictly less than run lease fencing token {current_fencing}"
+                )
 
         current_state = row["state"]
 
@@ -157,17 +171,21 @@ class RunService:
 
         with db.begin_nested():
             # 1. Update runs
+            update_vals: dict[str, Any] = {
+                "state": to_state,
+                "remote_outcome": new_remote_outcome,
+                "updated_at": now,
+            }
+            if fencing_token is not None and fencing_token > (row["lease_fencing_token"] or 0):
+                update_vals["lease_fencing_token"] = fencing_token
+
             db.execute(
                 runs.update()
                 .where(
                     runs.c.tenant_id == tenant_id,
                     runs.c.run_id == run_id,
                 )
-                .values(
-                    state=to_state,
-                    remote_outcome=new_remote_outcome,
-                    updated_at=now,
-                )
+                .values(**update_vals)
             )
 
             # 2. Insert run_attempt_history

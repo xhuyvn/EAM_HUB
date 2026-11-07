@@ -149,21 +149,31 @@ def reduce_event(
             row["run_state"] = to_state
             if to_state == "unknown":
                 row["remote_outcome"] = "unknown"
+            elif to_state == "running":
+                row["task_state"] = "active"
+                if row["remote_outcome"] == "unknown":
+                    row["remote_outcome"] = "known"
             elif to_state in ("succeeded", "failed", "cancelled", "timed_out"):
                 if to_state == "succeeded":
                     row["task_state"] = "completed"
                     row["remote_outcome"] = "known"
+                    row["pending_command"] = None
                 elif to_state == "cancelled":
                     row["task_state"] = "cancelled"
                     row["remote_outcome"] = "known"
+                    row["pending_command"] = None
                 elif to_state == "failed":
                     row["task_state"] = "failed"
                     row["remote_outcome"] = "known"
+                    row["pending_command"] = None
                 elif to_state == "timed_out":
                     row["task_state"] = "failed"
                     row["remote_outcome"] = "unknown"
             elif to_state == "waiting_approval":
                 row["task_state"] = "review_required"
+
+        if "pending_command" in payload:
+            row["pending_command"] = payload["pending_command"]
 
     elif event_type == "run.waiting_approval":
         row["run_state"] = "waiting_approval"
@@ -439,8 +449,94 @@ def replay_stream(
     else:
         final_state = {"row": initial_hud_row(task_id="unknown")}
 
+    _sync_pending_command(conn, tenant_id=tenant_id, stream_id=stream_id, state=final_state)
     final_hash = compute_projection_hash(final_state)
     return final_state, final_hash, last_offset
+
+
+def _sync_pending_command(
+    conn: sa.Connection,
+    *,
+    tenant_id: str,
+    stream_id: str,
+    state: dict[str, Any],
+) -> None:
+    """Synchronize pending command from commands table (C21, C06)."""
+    row = state.get("row")
+    if not row:
+        return
+
+    run_id = row.get("run_id")
+    if not run_id and stream_id.startswith("run:"):
+        run_id = stream_id.split("run:", 1)[1]
+
+    if run_id:
+        from eap.db.tables import commands
+
+        stmt = (
+            sa.select(commands.c.id, commands.c.command_type, commands.c.status)
+            .where(
+                commands.c.tenant_id == tenant_id,
+                commands.c.run_id == run_id,
+                commands.c.status.in_(["accepted", "acknowledged"]),
+            )
+            .order_by(commands.c.created_at.desc())
+            .limit(1)
+        )
+        cmd_row = conn.execute(stmt).fetchone()
+        if cmd_row is not None:
+            row["pending_command"] = {
+                "command_id": str(cmd_row[0]),
+                "kind": str(cmd_row[1]),
+                "state": str(cmd_row[2]),
+            }
+        else:
+            row["pending_command"] = None
+
+        HudRow.model_validate(row)
+
+
+def get_attention_items(
+    conn: sa.Connection,
+    *,
+    tenant_id: str,
+) -> list[dict[str, Any]]:
+    """Retrieve runs/tasks requiring operator attention (unknown, waiting_approval, failed) (DG1-C2, C38)."""
+    from eap.db.tables import runs, tasks
+
+    stmt = (
+        sa.select(
+            runs.c.run_id,
+            runs.c.task_id,
+            runs.c.attempt,
+            runs.c.state,
+            runs.c.remote_outcome,
+            tasks.c.agent_id,
+        )
+        .join(tasks, sa.and_(tasks.c.tenant_id == runs.c.tenant_id, tasks.c.id == runs.c.task_id))
+        .where(
+            runs.c.tenant_id == tenant_id,
+            sa.or_(
+                runs.c.state == "unknown",
+                runs.c.remote_outcome == "unknown",
+                runs.c.state == "waiting_approval",
+            ),
+        )
+        .order_by(runs.c.created_at.desc())
+    )
+    db_rows = conn.execute(stmt).fetchall()
+    return [
+        {
+            "run_id": str(r[0]),
+            "task_id": str(r[1]),
+            "attempt": int(r[2]),
+            "state": str(r[3]),
+            "remote_outcome": str(r[4]) if r[4] else None,
+            "agent_id": str(r[5]),
+            "reason": "remote_outcome_unknown" if r[3] == "unknown" or r[4] == "unknown" else "approval_required",
+        }
+        for r in db_rows
+    ]
 
 
 def build_fresh_snapshot(
@@ -462,6 +558,7 @@ __all__ = [
     "build_fresh_snapshot",
     "compute_projection_hash",
     "fold_events",
+    "get_attention_items",
     "initial_hud_row",
     "load_checkpoint",
     "reduce_event",

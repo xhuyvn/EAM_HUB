@@ -1,0 +1,19 @@
+{
+  "case_id": "crash_matrix",
+  "milestone": "P1a",
+  "work_package": "P1a-WP4",
+  "status": "passed",
+  "observed_outcome": "Matrix of 3 journal steps (prepared, sent, acknowledged) x 2 drop_ack modes (false, true) tested under simulated process/network kill. In all 6 combinations, total external effects at mock provider never exceeded 1, and no run was silently re-dispatched while unknown.",
+  "counts": {
+    "passed_tests": 6,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/test_p1a_wp4_conformance.py::test_crash_matrix[False-after_prepared]",
+    "tests/test_p1a_wp4_conformance.py::test_crash_matrix[False-after_sent]",
+    "tests/test_p1a_wp4_conformance.py::test_crash_matrix[False-after_acknowledged]",
+    "tests/test_p1a_wp4_conformance.py::test_crash_matrix[True-after_prepared]",
+    "tests/test_p1a_wp4_conformance.py::test_crash_matrix[True-after_sent]",
+    "tests/test_p1a_wp4_conformance.py::test_crash_matrix[True-after_acknowledged]"
+  ]
+}
