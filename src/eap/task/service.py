@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from eap.contracts.keys import derive_task_intent_key, validate_identifier
 from eap.contracts.models.task_request import TaskRequest
 from eap.db import run_attempt_history, runs, tasks
+from eap.observability.logging import set_log_context
 from eap.run.outbox import build_event, create_outbox_record
 
 
@@ -107,6 +108,7 @@ class TaskService:
         actual_deadline = deadline or (dt.datetime.now(dt.UTC) + dt.timedelta(hours=24))
         run_id = f"run-{uuid.uuid4().hex[:12]}"
         actual_binding = binding_id or f"binding-{request.task_type.replace('.', '-')}"
+        set_log_context(task_id=actual_task_id, run_id=run_id, tenant_id=tenant_id)
 
         # 3. Insert tasks + run attempt 1 + history + outbox atomically
         try:
