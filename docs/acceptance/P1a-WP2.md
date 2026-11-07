@@ -4,6 +4,8 @@
 - **Work Package**: P1a-WP2 (Task/Run service per `STATUS.md`, `docs/IMPLEMENTATION_PLAN.md` §5 SC-01/SC-02/SC-04/SC-06 and §6 P1a-WP2, and DG-1 §0/§2/§3/§4).
 - **Target State**: `ready_for_review`
 - **Branch**: `wp/P1a-WP2` (branched from `main` at `02a9f74`)
+- **Code Commit under Review**: `0d5fac0`
+- **GitHub Actions CI Run**: `https://github.com/xhuyvn/EAM_HUB/actions/runs/42364751123` (SUCCESS in 1m2s)
 - **Base Commit**: `02a9f74` ("sign DG-1 and DG-2: owner approval with conditions DG1-C1..C5, DG2-C1; P0 closed")
 - **Parallel Work Package Isolation**:
   - `src/eap/events/**`, relay, projection (P1a-WP3): Zero modifications.
