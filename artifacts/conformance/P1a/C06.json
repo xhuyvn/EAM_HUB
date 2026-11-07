@@ -1,0 +1,15 @@
+{
+  "case_id": "C06",
+  "milestone": "P1a",
+  "work_package": "P1a-WP2",
+  "status": "passed",
+  "observed_outcome": "When cancellation is acknowledged late after run transitions to terminal cancelled, subsequent state transitions are rejected with HTTP 409 LateTerminalEventError without modifying run history or emitting duplicate outbox events.",
+  "counts": {
+    "passed_tests": 2,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/test_run_service.py::test_late_terminal_event_rejected",
+    "tests/test_run_service.py::test_c06_late_cancel_acknowledgement_rejected"
+  ]
+}

@@ -8,6 +8,19 @@ and pure semantic invariant rule enforcement.
 from __future__ import annotations
 
 from eap.contracts.digest import DIGEST_FIELDS, action_digest, jcs, sha256_digest
+from eap.contracts.keys import (
+    KeyDerivationError,
+    compute_dispatch_idempotency_key,
+    compute_operation_key,
+    compute_payload_hash,
+    compute_task_intent_key,
+    derive_dispatch_idempotency_key,
+    derive_operation_key,
+    derive_payload_hash,
+    derive_task_intent_key,
+    validate_component,
+    validate_identifier,
+)
 from eap.contracts.models import (
     SCHEMA_NAME_TO_MODEL,
     SCHEMA_REGISTRY,
@@ -114,6 +127,7 @@ __all__ = [
     "HudRowPendingCommand",
     "HudRowProgress",
     "HudRowProject",
+    "KeyDerivationError",
     "LocationArtifactAliases",
     "LocationIdentity",
     "LocationRegistration",
@@ -156,8 +170,18 @@ __all__ = [
     "check_run_progress",
     "check_run_state_transition",
     "check_usage_cost",
+    "compute_dispatch_idempotency_key",
+    "compute_operation_key",
+    "compute_payload_hash",
+    "compute_task_intent_key",
+    "derive_dispatch_idempotency_key",
+    "derive_operation_key",
+    "derive_payload_hash",
+    "derive_task_intent_key",
     "get_model_for_schema",
     "jcs",
     "semantic_checks",
     "sha256_digest",
+    "validate_component",
+    "validate_identifier",
 ]

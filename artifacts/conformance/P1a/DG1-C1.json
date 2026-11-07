@@ -1,0 +1,14 @@
+{
+  "condition_id": "DG1-C1",
+  "milestone": "P1a",
+  "work_package": "P1a-WP2",
+  "status": "passed",
+  "observed_outcome": "RunService.retry_new_attempt rejects retry requests with HTTP 409 RemoteOutcomeUnknownError (REMOTE_OUTCOME_UNKNOWN) whenever the latest attempt's state or remote_outcome is 'unknown' and unreconciled. Attempt count and outbox rows remain strictly unchanged.",
+  "counts": {
+    "passed_tests": 1,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/test_run_service.py::test_dg1_c1_retry_rejected_when_outcome_unknown"
+  ]
+}

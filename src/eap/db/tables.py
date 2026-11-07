@@ -46,7 +46,7 @@ tasks = Table(
     Column("task_type", String(64), nullable=False),
     Column("agent_id", String(64), nullable=False),
     Column("agent_version", String(32), nullable=False),
-    Column("state", String(32), nullable=False, server_default="queued"),
+    Column("state", String(32), nullable=False, server_default="ready"),
     Column("deadline", DateTime(timezone=True), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
@@ -54,7 +54,7 @@ tasks = Table(
     UniqueConstraint("tenant_id", "client_idempotency_key", name="uq_tasks_tenant_client_key"),
     UniqueConstraint("tenant_id", "id", name="uq_tasks_tenant_id"),
     CheckConstraint(
-        "state IN ('draft', 'ready', 'active', 'blocked', 'review_required', 'completed', 'failed', 'cancelled', 'queued')",
+        "state IN ('draft', 'ready', 'active', 'blocked', 'review_required', 'completed', 'failed', 'cancelled')",
         name="ck_tasks_state",
     ),
 )
