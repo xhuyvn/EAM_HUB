@@ -4,8 +4,8 @@
 - **Work Package**: P1a-WP6 (Logging and redaction per `STATUS.md`, `docs/IMPLEMENTATION_PLAN.md` §6 P1a-WP6, `docs/02_RUNTIME_AND_SECURITY.md`, and SC-04).
 - **Target State**: `ready_for_review`
 - **Branch**: `wp/P1a-WP6` (branched from `main` at `81fc436`)
-- **Code Commit under Review**: `706e784`
-- **GitHub Actions CI Run**: `https://github.com/xhuyvn/EAM_HUB/actions/runs/42388151035` (Conclusion: `success`, 1m35s)
+- **Code Commit under Review**: `a45edbf` (addressing W6-1 and W6-2 changes_requested)
+- **GitHub Actions CI Run**: `https://github.com/xhuyvn/EAM_HUB/actions/runs/42391307605` (Conclusion: `success`, 1m26s)
 - **Base Commit**: `81fc436` ("accept P1a-WP4: dispatcher, mock provider, recovery, cancel")
 - **Parallel Work Package Isolation**:
   - No parallel platform session this round.
