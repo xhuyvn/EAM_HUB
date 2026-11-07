@@ -14,6 +14,7 @@ from .progress import (
     calculate_validity,
     calculate_verification,
 )
+from .rollup import RollupProgress, RollupResult, rollup_portfolio
 from .supersession import extract_update_id, resolve_supersession
 from .trust import is_evidence_ttl_expired, is_verifying_trust_class, parse_datetime
 from .types import (
@@ -34,7 +35,7 @@ from .types import (
     Verification,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
     "AcceptanceReadiness",
     "AssessmentResult",
@@ -48,6 +49,8 @@ __all__ = [
     "ProgressResult",
     "ReasonCode",
     "ReportedStatus",
+    "RollupProgress",
+    "RollupResult",
     "TrustClass",
     "Validity",
     "Verification",
@@ -66,4 +69,5 @@ __all__ = [
     "is_verifying_trust_class",
     "parse_datetime",
     "resolve_supersession",
+    "rollup_portfolio",
 ]
