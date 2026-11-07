@@ -19,7 +19,7 @@ Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_
 | P0-WP2 | Contract models | P0-WP1 | not_started | | | |
 | P0-WP7 | Decision record DG-1/DG-2 | P0-WP2 | not_started | | | ends at `P0 ready_for_owner_review` |
 | DG-1, DG-2 | Owner signature | P0-WP7 | not_started | | | owner action; gates P1a-WP1 |
-| PPM-M0-WP1 | Fixture corpus | P0-WP1 | not_started | | | |
+| PPM-M0-WP1 | Fixture corpus | P0-WP1 | ready_for_review | `wp/PPM-M0-WP1` (code commit `5fa4eca`) | `check_fixtures.py` PASS (14 fixtures, 3 rollup), `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, `pytest` PASS (9 passed), `npm run build` PASS | owner sign-off needed for s01, s21, s19 |
 | PPM-M0-WP2 | Criterion reducer | PPM-M0-WP1 | not_started | | | |
 | PPM-M0-WP3 | Findings and progress | PPM-M0-WP2 | not_started | | | |
 | PPM-M0-WP4 | Rollup rules | PPM-M0-WP2 | not_started | | | |
@@ -38,6 +38,7 @@ The remaining WPs to D1-fixture (P2a-WP5…WP9, P1a-WP4…WP7, P3a-WP1…WP4, D1
 ## Session log (newest first)
 | Date | WP | Agent/session | Result | Commit |
 |---|---|---|---|---|
+| 2026-11-07 | PPM-M0-WP1 | coding agent (implementation lead) | ready_for_review; 14 deterministic fixtures, 3 rollups, internal schemas, check_fixtures.py, all shared checks pass | `wp/PPM-M0-WP1` (5fa4eca) |
 | 2026-11-07 | P0-WP1 | owner | accepted after re-review (R1–R9 verified; follow-ups: import-boundary hardening in PPM-M0-WP2, cross-platform checksum tool); merged into main | `a1b6b62` |
 | 2026-11-07 | P0-WP1 | coding agent (implementation lead) | ready_for_review; R1–R9 changes_requested fixes applied (SecretStr canary redaction, .env.example ordering, alembic config, raw validation evidence, import boundary hardening, HUD error handling, CI pinning); all checks pass; CI 42318570673 success | `wp/P0-WP1` (59e1135) |
 | 2026-11-06 | P0-WP1 | coding agent (implementation lead) | ready_for_review; modular monolith skeleton, uv workspace, Vite+React HUD shell, compose & alembic SC-06 verified, all tests pass | `wp/P0-WP1` (f1a9557) |
