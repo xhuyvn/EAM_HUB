@@ -1,0 +1,62 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s02b-001",
+  "project_id": "proj-beta",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-beta-r2"
+  ],
+  "validity": "current",
+  "verification": "contradicted",
+  "acceptance_readiness": "not_ready",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "deliverable_id": "DEL-AUTH-001",
+      "owner_project_id": "proj-beta",
+      "weight": 1.0,
+      "required": true,
+      "status": "contradicted",
+      "reason_code": "evidence_refuted",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [
+        "ev-verifier-current"
+      ],
+      "missing_evidence": [],
+      "explanation": "Test test_auth_login passed at earlier revision rev-beta-001, but verifier execution at current assessed revision rev-beta-002 failed, refuting the criterion.",
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "claim-upd-002"
+      ],
+      "evidence_revision": "rev-beta-002",
+      "covered_test_ids": [
+        "test_auth_login"
+      ],
+      "previous_status": "verified",
+      "evidence_trust": "verifier_observed",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 0.0,
+    "total_weight": 1.0,
+    "criteria_total": 1,
+    "criteria_with_current_evidence": 1
+  },
+  "reported_progress_percent": 100.0,
+  "evidence_refs": [
+    "ev-verifier-current",
+    "ev-verifier-old"
+  ],
+  "missing_evidence": [],
+  "as_of": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:40:00Z",
+  "assessed_revision": "rev-beta-002",
+  "previous_assessment_id": "asmt-beta-001",
+  "snapshot_seq": 2,
+  "analysis_status": "complete",
+  "basis_seq": 2,
+  "trigger": "snapshot"
+}

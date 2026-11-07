@@ -1,0 +1,29 @@
+{
+  "portfolio_id": "port-shared-ecosystem",
+  "as_of": "2026-11-05T12:00:00Z",
+  "partial": false,
+  "authorized_project_ids": [
+    "proj-consumer-a",
+    "proj-consumer-b",
+    "proj-shared-gw"
+  ],
+  "distinct_deliverables_count": 5,
+  "distinct_deliverable_ids": [
+    "DEL-A-001",
+    "DEL-A-002",
+    "DEL-B-001",
+    "DEL-B-002",
+    "DEL-GW-001"
+  ],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 5.0,
+    "total_weight": 8.0,
+    "percent": 62.5,
+    "criteria_total": 5,
+    "criteria_verified": 2
+  },
+  "cost_state": "known",
+  "cost_usd": 15000.0,
+  "budget_usd": 18000.0
+}

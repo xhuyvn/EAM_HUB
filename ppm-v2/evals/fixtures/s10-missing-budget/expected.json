@@ -1,0 +1,61 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s10-001",
+  "project_id": "proj-core-engine",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-core-r1"
+  ],
+  "validity": "current",
+  "verification": "verified",
+  "acceptance_readiness": "ready_for_review",
+  "criteria": [
+    {
+      "criterion_id": "AC-CORE-001",
+      "deliverable_id": "DEL-CORE-001",
+      "owner_project_id": "proj-core-engine",
+      "weight": 4.0,
+      "required": true,
+      "status": "verified",
+      "reason_code": "evidence_current_pass",
+      "supporting_evidence_refs": [
+        "ev-verifier-core-001"
+      ],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [],
+      "explanation": "Verifier observed mapped test test_engine_pipeline passed at assessed revision rev-core-001.",
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "claim-upd-core-001"
+      ],
+      "evidence_revision": "rev-core-001",
+      "covered_test_ids": [
+        "test_engine_pipeline"
+      ],
+      "previous_status": null,
+      "evidence_trust": "verifier_observed",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 4.0,
+    "total_weight": 4.0,
+    "criteria_total": 1,
+    "criteria_with_current_evidence": 1
+  },
+  "reported_progress_percent": 100.0,
+  "evidence_refs": [
+    "ev-verifier-core-001"
+  ],
+  "missing_evidence": [],
+  "as_of": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "assessed_revision": "rev-core-001",
+  "previous_assessment_id": null,
+  "snapshot_seq": 1,
+  "analysis_status": "complete",
+  "basis_seq": 1,
+  "trigger": "snapshot"
+}

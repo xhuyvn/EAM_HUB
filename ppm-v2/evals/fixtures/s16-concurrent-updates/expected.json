@@ -1,0 +1,60 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s16-001",
+  "project_id": "proj-sync",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-sync-r1"
+  ],
+  "validity": "current",
+  "verification": "claimed",
+  "acceptance_readiness": "not_ready",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "deliverable_id": "DEL-SYNC-001",
+      "owner_project_id": "proj-sync",
+      "weight": 1.0,
+      "required": true,
+      "status": "unverified",
+      "reason_code": "claim_only",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [
+        "Verifier execution of test_sync_engine at rev-sync-001"
+      ],
+      "explanation": "Concurrent updates upd-101 and upd-102 submitted conflicting claims (claimed_done vs claimed_blocked). Both claims are preserved and finding conflicting_claims is recorded; in the absence of independent verifier evidence, status is unverified.",
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "claim-upd-101",
+        "claim-upd-102"
+      ],
+      "evidence_revision": null,
+      "covered_test_ids": [],
+      "previous_status": null,
+      "evidence_trust": "none",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 0.0,
+    "total_weight": 1.0,
+    "criteria_total": 1,
+    "criteria_with_current_evidence": 0
+  },
+  "reported_progress_percent": 50.0,
+  "evidence_refs": [],
+  "missing_evidence": [
+    "Verifier execution of test_sync_engine at rev-sync-001"
+  ],
+  "as_of": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "assessed_revision": "rev-sync-001",
+  "previous_assessment_id": null,
+  "snapshot_seq": 1,
+  "analysis_status": "complete",
+  "basis_seq": 1,
+  "trigger": "snapshot"
+}

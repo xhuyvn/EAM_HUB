@@ -10,6 +10,9 @@ uv run python tools/validate_package.py
 Write-Host "==> 2. Running PPM v2 negative cases..."
 uv run python ppm-v2/tools/run_negative_cases.py
 
+Write-Host "==> 2b. Checking PPM v2 fixture corpus..."
+uv run python ppm-v2/tools/check_fixtures.py
+
 Write-Host "==> 3. Checking translation provenance and staleness (SC-08)..."
 uv run python tools/check_translation.py
 

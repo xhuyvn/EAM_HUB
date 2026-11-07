@@ -1,0 +1,63 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s06-001",
+  "project_id": "proj-delta",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-delta-r2"
+  ],
+  "validity": "stale",
+  "verification": "stale",
+  "acceptance_readiness": "not_ready",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "deliverable_id": "DEL-INVOICE-001",
+      "owner_project_id": "proj-delta",
+      "weight": 2.0,
+      "required": true,
+      "status": "stale",
+      "reason_code": "evidence_stale_revision",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [
+        "Mapped test test_invoice_pdf not resolved at rev-delta-002"
+      ],
+      "explanation": "Evidence reference at rev-delta-001 cannot be resolved at rev-delta-002 due to file renaming or refactoring. Criterion does not retain verified status and transitions to stale.",
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "claim-upd-002"
+      ],
+      "evidence_revision": "rev-delta-001",
+      "covered_test_ids": [
+        "test_invoice_pdf"
+      ],
+      "previous_status": "verified",
+      "evidence_trust": "verifier_observed",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 0.0,
+    "total_weight": 2.0,
+    "criteria_total": 1,
+    "criteria_with_current_evidence": 0
+  },
+  "reported_progress_percent": 100.0,
+  "evidence_refs": [
+    "ev-old-001"
+  ],
+  "missing_evidence": [
+    "Mapped test test_invoice_pdf not resolved at rev-delta-002"
+  ],
+  "as_of": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:45:00Z",
+  "assessed_revision": "rev-delta-002",
+  "previous_assessment_id": "asmt-delta-001",
+  "snapshot_seq": 2,
+  "analysis_status": "complete",
+  "basis_seq": 2,
+  "trigger": "snapshot"
+}

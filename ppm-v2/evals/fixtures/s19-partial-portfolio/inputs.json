@@ -1,0 +1,136 @@
+{
+  "fixture_id": "s19-partial-portfolio",
+  "project_id": "proj-public-frontend",
+  "snapshot_refs": [
+    "snap-fe-r1"
+  ],
+  "snapshot_seq": 1,
+  "basis_seq": 1,
+  "previous_assessment_id": null,
+  "assessed_revision": "rev-fe-001",
+  "now": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "evidence_ttl_days": 7,
+  "baseline": {
+    "baseline_revision": 1,
+    "criteria": [
+      {
+        "criterion_id": "AC-FE-001",
+        "deliverable_id": "DEL-FE-001",
+        "owner_project_id": "proj-public-frontend",
+        "weight": 2.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_frontend_render"
+          }
+        ],
+        "previous_status": null
+      }
+    ]
+  },
+  "claims": [
+    {
+      "claim_id": "claim-upd-fe-001",
+      "source_file": ".ppm/updates/upd-001.yaml",
+      "criterion_ids": [
+        "AC-FE-001"
+      ],
+      "test_ids": [
+        "test_frontend_render"
+      ],
+      "reported_status": "claimed_done",
+      "evidence_path": null,
+      "working_tree_state": "clean",
+      "recorded_at": "2026-11-05T11:45:00Z",
+      "summary": "Completed frontend UI components."
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "ev-verifier-fe-001",
+      "trust_class": "verifier_observed",
+      "revision": "rev-fe-001",
+      "observed_at": "2026-11-05T11:55:00Z",
+      "test_id": "test_frontend_render",
+      "covered_test_ids": [
+        "test_frontend_render"
+      ],
+      "result": "passed",
+      "artifact_path": null
+    }
+  ],
+  "waivers": [],
+  "context": {
+    "hidden_project_ids": [
+      "proj-secret-analytics",
+      "proj-classified-ml"
+    ],
+    "viewer_authorized_project_ids": [
+      "proj-public-api",
+      "proj-public-frontend"
+    ],
+    "portfolio": {
+      "portfolio_id": "port-enterprise",
+      "projects": [
+        {
+          "project_id": "proj-public-frontend",
+          "owner": "Team Frontend",
+          "deliverables": [
+            {
+              "deliverable_id": "DEL-FE-001",
+              "weight": 2.0,
+              "verified": true
+            }
+          ],
+          "budget_usd": 6000.0,
+          "cost_usd": 5000.0,
+          "cost_state": "known"
+        },
+        {
+          "project_id": "proj-public-api",
+          "owner": "Team API",
+          "deliverables": [
+            {
+              "deliverable_id": "DEL-API-001",
+              "weight": 3.0,
+              "verified": true
+            }
+          ],
+          "budget_usd": 9000.0,
+          "cost_usd": 7000.0,
+          "cost_state": "known"
+        },
+        {
+          "project_id": "proj-secret-analytics",
+          "owner": "Team Internal Intel",
+          "deliverables": [
+            {
+              "deliverable_id": "DEL-SEC-001",
+              "weight": 5.0,
+              "verified": true
+            }
+          ],
+          "budget_usd": 20000.0,
+          "cost_usd": 18000.0,
+          "cost_state": "known"
+        },
+        {
+          "project_id": "proj-classified-ml",
+          "owner": "Team AI Research",
+          "deliverables": [
+            {
+              "deliverable_id": "DEL-ML-001",
+              "weight": 8.0,
+              "verified": false
+            }
+          ],
+          "budget_usd": 50000.0,
+          "cost_usd": 40000.0,
+          "cost_state": "known"
+        }
+      ]
+    }
+  }
+}

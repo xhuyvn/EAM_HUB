@@ -1,0 +1,17 @@
+[
+  {
+    "kind": "architecture_drift",
+    "severity": "review_required",
+    "target_ref": "component:payment_service",
+    "criterion_ids": [
+      "AC-001"
+    ],
+    "details": {
+      "component": "payment_service",
+      "implemented_pattern": "direct_sql_query",
+      "prescribed_pattern": "repository_gateway_pattern",
+      "has_approved_adr": false,
+      "message": "Direct SQL access observed without approved Architecture Decision Record."
+    }
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+    "kind": "relationship_proposed",
+    "severity": "info",
+    "target_ref": "deliverable:DEL-INV-001",
+    "criterion_ids": [
+      "AC-001"
+    ],
+    "details": {
+      "source_project_id": "proj-epsilon",
+      "target_project_id": "proj-shared-inventory",
+      "target_deliverable_id": "DEL-INV-001",
+      "relation_type": "uses_component",
+      "status": "proposed",
+      "message": "Inferred component dependency awaiting owner approval."
+    }
+  }
+]

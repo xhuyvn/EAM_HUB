@@ -1,0 +1,62 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s21-001",
+  "project_id": "proj-suspicious",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-suspicious-r1"
+  ],
+  "validity": "current",
+  "verification": "claimed",
+  "acceptance_readiness": "not_ready",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "deliverable_id": "DEL-SAN-001",
+      "owner_project_id": "proj-suspicious",
+      "weight": 2.0,
+      "required": true,
+      "status": "unverified",
+      "reason_code": "reported_artifact_only",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [
+        "Independent verifier execution or CI attestation of test_security_sanitizer at rev-suspicious-001"
+      ],
+      "explanation": "Update claims done and references reports/junit-security.xml, but that artifact was authored by the producer in the repository. In-repo reports belong to trust_class reported_artifact and cannot verify a criterion.",
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "claim-upd-suspicious-001",
+        "artifact:repo/reports/junit-security.xml"
+      ],
+      "evidence_revision": null,
+      "covered_test_ids": [],
+      "previous_status": null,
+      "evidence_trust": "reported_artifact",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 0.0,
+    "total_weight": 2.0,
+    "criteria_total": 1,
+    "criteria_with_current_evidence": 0
+  },
+  "reported_progress_percent": 100.0,
+  "evidence_refs": [
+    "ev-inrepo-report-001"
+  ],
+  "missing_evidence": [
+    "Independent verifier execution or CI attestation of test_security_sanitizer at rev-suspicious-001"
+  ],
+  "as_of": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "assessed_revision": "rev-suspicious-001",
+  "previous_assessment_id": null,
+  "snapshot_seq": 1,
+  "analysis_status": "complete",
+  "basis_seq": 1,
+  "trigger": "snapshot"
+}

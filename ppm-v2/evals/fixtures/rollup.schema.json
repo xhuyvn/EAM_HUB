@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ppm-rollup-result",
+  "description": "Internal M0 schema for portfolio/program rollup result",
+  "type": "object",
+  "properties": {
+    "portfolio_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "partial": {
+      "type": "boolean",
+      "description": "True if the viewer lacks permission on one or more projects in the portfolio; hidden projects are excluded prior to aggregation without leaking counts or names."
+    },
+    "authorized_project_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "distinct_deliverables_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "distinct_deliverable_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "progress": {
+      "type": "object",
+      "properties": {
+        "basis": {
+          "enum": [
+            "baseline_weighted",
+            "none"
+          ]
+        },
+        "verified_weight": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "total_weight": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "percent": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "criteria_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "criteria_verified": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "basis",
+        "verified_weight",
+        "total_weight",
+        "percent",
+        "criteria_total",
+        "criteria_verified"
+      ],
+      "additionalProperties": false
+    },
+    "cost_state": {
+      "enum": [
+        "known",
+        "unknown"
+      ],
+      "description": "known if all authorized projects have known cost; unknown if budget/cost data is missing or incomplete (never defaults to 0)."
+    },
+    "cost_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "description": "Total cost in USD if cost_state=known; null if cost_state=unknown."
+    },
+    "budget_usd": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    }
+  },
+  "required": [
+    "portfolio_id",
+    "as_of",
+    "partial",
+    "authorized_project_ids",
+    "distinct_deliverables_count",
+    "distinct_deliverable_ids",
+    "progress",
+    "cost_state",
+    "cost_usd"
+  ],
+  "additionalProperties": false
+}

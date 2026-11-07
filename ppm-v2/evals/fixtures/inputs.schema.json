@@ -1,0 +1,546 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ppm-fixture-inputs",
+  "description": "Internal M0 schema for fixture inputs feeding the PPM deterministic reducer",
+  "type": "object",
+  "properties": {
+    "fixture_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "snapshot_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "snapshot_seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "basis_seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "previous_assessment_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "assessed_revision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "now": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "source_as_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "evidence_ttl_days": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "baseline": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "baseline_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "criterion_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "deliverable_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "owner_project_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "weight": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "verification_refs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "test_id",
+                        "probe_id",
+                        "artifact_path",
+                        "manual_review"
+                      ]
+                    },
+                    "ref": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "ref"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "previous_status": {
+                "enum": [
+                  "verified",
+                  "unverified",
+                  "contradicted",
+                  "stale",
+                  "unknown",
+                  "waived",
+                  null
+                ]
+              }
+            },
+            "required": [
+              "criterion_id",
+              "deliverable_id",
+              "owner_project_id",
+              "weight",
+              "required",
+              "verification_refs"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "baseline_revision",
+        "criteria"
+      ],
+      "additionalProperties": false
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "criterion_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "test_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "reported_status": {
+            "enum": [
+              "claimed_done",
+              "claimed_in_progress",
+              "claimed_blocked",
+              "none"
+            ]
+          },
+          "evidence_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "working_tree_state": {
+            "enum": [
+              "clean",
+              "dirty",
+              "untracked_only"
+            ]
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "supersedes_update_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_id",
+          "source_file",
+          "criterion_ids",
+          "reported_status"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "trust_class": {
+            "enum": [
+              "verifier_observed",
+              "ci_attested",
+              "reported_artifact",
+              "none"
+            ]
+          },
+          "revision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "test_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "covered_test_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "result": {
+            "enum": [
+              "passed",
+              "failed",
+              "inconclusive",
+              "not_run"
+            ]
+          },
+          "artifact_path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "evidence_id",
+          "trust_class",
+          "revision",
+          "observed_at",
+          "result"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "waivers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "waiver_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "criterion_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approved_by": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approved_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+          }
+        },
+        "required": [
+          "waiver_id",
+          "criterion_id",
+          "approved_by",
+          "approved_at",
+          "expires_at"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "dependency_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "deliverable_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owner_project_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "observed_status": {
+            "enum": [
+              "verified",
+              "unverified",
+              "contradicted",
+              "stale",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "deliverable_id",
+          "owner_project_id",
+          "observed_status"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "context": {
+      "type": "object",
+      "description": "Optional scenario-specific context for findings and rollup",
+      "properties": {
+        "architecture_drift": {
+          "type": "object",
+          "properties": {
+            "component": {
+              "type": "string"
+            },
+            "implemented_pattern": {
+              "type": "string"
+            },
+            "prescribed_pattern": {
+              "type": "string"
+            },
+            "has_approved_adr": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "has_approved_adr"
+          ],
+          "additionalProperties": false
+        },
+        "relationship_proposals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source_project_id": {
+                "type": "string"
+              },
+              "target_project_id": {
+                "type": "string"
+              },
+              "target_deliverable_id": {
+                "type": "string"
+              },
+              "relation_type": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "proposed",
+                  "confirmed",
+                  "rejected"
+                ]
+              }
+            },
+            "required": [
+              "source_project_id",
+              "target_project_id",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "repo_identity": {
+          "type": "object",
+          "properties": {
+            "registered": {
+              "type": "string"
+            },
+            "observed": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "registered",
+            "observed"
+          ],
+          "additionalProperties": false
+        },
+        "portfolio": {
+          "type": "object",
+          "properties": {
+            "portfolio_id": {
+              "type": "string"
+            },
+            "projects": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "project_id": {
+                    "type": "string"
+                  },
+                  "owner": {
+                    "type": "string"
+                  },
+                  "deliverables": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "deliverable_id": {
+                          "type": "string"
+                        },
+                        "weight": {
+                          "type": "number"
+                        },
+                        "verified": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "deliverable_id",
+                        "weight",
+                        "verified"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "budget_usd": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "cost_usd": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "cost_state": {
+                    "enum": [
+                      "known",
+                      "unknown"
+                    ]
+                  }
+                },
+                "required": [
+                  "project_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "portfolio_id",
+            "projects"
+          ],
+          "additionalProperties": false
+        },
+        "hidden_project_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "viewer_authorized_project_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "fixture_id",
+    "project_id",
+    "snapshot_refs",
+    "snapshot_seq",
+    "basis_seq",
+    "previous_assessment_id",
+    "assessed_revision",
+    "now",
+    "baseline",
+    "claims",
+    "evidence",
+    "waivers"
+  ],
+  "additionalProperties": false
+}

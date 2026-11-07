@@ -1,0 +1,89 @@
+{
+  "fixture_id": "s25-active-waiver",
+  "project_id": "proj-waiver-active",
+  "snapshot_refs": [
+    "snap-waiver-r1"
+  ],
+  "snapshot_seq": 1,
+  "basis_seq": 1,
+  "previous_assessment_id": null,
+  "assessed_revision": "rev-waiver-001",
+  "now": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "evidence_ttl_days": 7,
+  "baseline": {
+    "baseline_revision": 1,
+    "criteria": [
+      {
+        "criterion_id": "AC-001",
+        "deliverable_id": "DEL-CORE-001",
+        "owner_project_id": "proj-waiver-active",
+        "weight": 2.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_core_service"
+          }
+        ],
+        "previous_status": null
+      },
+      {
+        "criterion_id": "AC-002",
+        "deliverable_id": "DEL-ANALYTICS-001",
+        "owner_project_id": "proj-waiver-active",
+        "weight": 1.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_analytics_telemetry"
+          }
+        ],
+        "previous_status": null
+      }
+    ]
+  },
+  "claims": [
+    {
+      "claim_id": "claim-upd-waiver-001",
+      "source_file": ".ppm/updates/upd-001.yaml",
+      "criterion_ids": [
+        "AC-001"
+      ],
+      "test_ids": [
+        "test_core_service"
+      ],
+      "reported_status": "claimed_done",
+      "evidence_path": null,
+      "working_tree_state": "clean",
+      "recorded_at": "2026-11-05T11:45:00Z",
+      "summary": "Core service delivered; analytics covered by approved waiver."
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "ev-verifier-waiver-001",
+      "trust_class": "verifier_observed",
+      "revision": "rev-waiver-001",
+      "observed_at": "2026-11-05T11:55:00Z",
+      "test_id": "test_core_service",
+      "covered_test_ids": [
+        "test_core_service"
+      ],
+      "result": "passed",
+      "artifact_path": null
+    }
+  ],
+  "waivers": [
+    {
+      "waiver_id": "waiver-act-001",
+      "criterion_id": "AC-002",
+      "scope": "Telemetry pipeline deferral until cloud endpoint ready",
+      "rationale": "Enterprise gateway endpoint maintenance window",
+      "approved_by": "qa-director-01",
+      "approved_at": "2026-11-01T00:00:00Z",
+      "expires_at": "2026-12-01T00:00:00Z"
+    }
+  ]
+}

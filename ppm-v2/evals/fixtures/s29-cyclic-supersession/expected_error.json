@@ -1,0 +1,4 @@
+{
+  "error": "InputRejected",
+  "reason": "supersession_cycle"
+}
