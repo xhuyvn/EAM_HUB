@@ -7,8 +7,9 @@ Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_
 ## Current position
 - Phase: **P0 closed** (DG-1, DG-2 signed by owner 2026-11-07 with conditions DG1-C1…C5, DG2-C1).
 - Next WP (platform, critical path): **P1a-WP1 Schema and migrations**.
-- Can run in parallel: **PPM-M0-WP3 Findings and progress**, **PPM-M0-WP4 Rollup rules** (after WP3 or in a separate session), spike **P0-WP4 LangGraph replay** (before P1a-WP2).
+- In review (changes requested 2026-11-07): **P1a-WP1** (tenant-scoped composite FKs, CI skip guard) and **PPM-M0-WP3** (all-waived output, invalid weight). Next after they merge: **P1a-WP2**, **P1a-WP3**, **PPM-M0-WP4**.
 - Every P1a/P2a WP that touches a DG condition must show that condition's evidence in its packet.
+- D-01 decided (owner, 2026-11-07): option (b) — LangGraph inside a single attempt only, no resume for side-effect workflows; retries via Run Service + DG-1 (`docs/01`, `docs/spikes/P0-WP4.md`). Resume gate: closed for side-effect workflows.
 
 ## Work packages to D0-thin-slice
 
@@ -20,7 +21,7 @@ Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_
 | P0-WP7 | Decision record DG-1/DG-2 | P0-WP2 | accepted | `wp/P0-WP7` (code commit `33c09c0`; merged `1e61e8e`) | DG-1 (strict rejection, vectors), DG-2, sequences, draft DDL (W7-3 scope cardinality), test_dg1_vectors PASS (23), test_draft_ddl PASS (8), 77 pytest PASS, SC-01 PASS, ruff & mypy clean, sha256sum PASS | ends at `P0 ready_for_owner_review` |
 | DG-1, DG-2 | Owner signature | P0-WP7 | accepted | signed 2026-11-07 by owner | `docs/adr/DG-1.md` §0, `docs/adr/DG-2.md` §0 | conditions DG1-C1…C5, DG2-C1 bind P1a/P2a/PPM-M0/P5 WPs |
 | P0-WP3 | Spike: Windows path containment | — | not_started | | | gates DG-3; run before P2a-WP2 (collector `safe_open`) |
-| P0-WP4 | Spike: LangGraph replay (pinned) | — | ready_for_review | `wp/P0-WP4` | `docs/spikes/P0-WP4.md`: pinned langgraph 1.2.20; 20/20 in-node crashes re-executed; durability comparison (sync/async/exit); keying by (run_id, attempt) proven; DG-1 wrapping produces 20/20 exactly-1 vs raw 20/20 duplicate; recommendation (b) for D-01 | gates resume / D-01; run before P1a-WP2 |
+| P0-WP4 | Spike: LangGraph replay (pinned) | — | accepted | `wp/P0-WP4` (commit `940841d`; merged `5125cbd`) | `docs/spikes/P0-WP4.md`: pinned langgraph 1.2.20; 20/20 in-node crashes re-executed; durability comparison (sync/async/exit); keying by (run_id, attempt) proven; DG-1 wrapping produces 20/20 exactly-1 vs raw 20/20 duplicate; recommendation (b) for D-01 | gates resume / D-01; run before P1a-WP2 |
 | P0-WP5 | Spike: vendor lookup/cancel | — | not_started | | | gates DG-4; before P4-WP2; needs owner's target provider |
 | P0-WP6 | Spike: Ollama throughput | — | not_started | | | gates DG-3; needs pilot GPU + owner model choice |
 | PPM-M0-WP1 | Fixture corpus | P0-WP1 | accepted | `wp/PPM-M0-WP1` (code commit `ec98866`; packet `2b0aced`; merged `bd98352`) | `check_fixtures.py` PASS (19 fixtures, 3 rollup), `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, `pytest` PASS (9 passed), `npm run build` PASS | s01, s21, s19 signed by owner 2026-11-07 |
@@ -42,6 +43,7 @@ The remaining WPs to D1-fixture (P2a-WP5…WP9, P1a-WP4…WP7, P3a-WP1…WP4, D1
 ## Session log (newest first)
 | Date | WP | Agent/session | Result | Commit |
 |---|---|---|---|---|
+| 2026-11-07 | P0-WP4, D-01 | owner | P0-WP4 accepted after re-review (pinned versions verified on PyPI; Q2 20/20 duplicates and Q5 20/20 exactly-once re-run); D-01 = option (b); spike issue renumbered ISS-017 → ISS-018 (numbering clash with P1a-WP1) | `5125cbd` |
 | 2026-11-07 | P0-WP4 | coding agent (spike lead) | ready_for_review; LangGraph replay spike complete; pinned langgraph 1.2.20; 5/5 questions answered with empirical data; recommendation option (b) for D-01 | (this commit) |
 | 2026-11-07 | DG-1, DG-2 | owner | signed: DG-1.1–1.4 and DG-2.1–2.5 approved with conditions DG1-C1…C5, DG2-C1; **P0 closed**; P1a-WP7 relay threshold ≥ 200 events/s | (this commit) |
 | 2026-11-07 | P0-WP7, PPM-M0-WP2 | owner | accepted after re-review (P0-WP7: 9/9 vectors recomputed, strict key rejection probed, DDL parsed independently, W7-1..3 fixed; PPM-M0-WP2: off-corpus decision-table probes, M2-1..3 fixed); ISS-015..016 registered; spike rows P0-WP3..WP6 added | `1e61e8e`, `9a31182` |
