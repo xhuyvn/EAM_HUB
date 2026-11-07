@@ -48,7 +48,7 @@ EXPECTED_NAMED_CONSTRAINTS = {
     "artifacts": ["uq_artifacts_tenant_artifact"],
     "usage_ledger": ["uq_usage_ledger_provider_id"],
     "sources": ["uq_sources_tenant_canonical_root", "uq_sources_tenant_repo_identity"],
-    "project_scopes": ["uq_project_scopes_source_metadata", "uq_project_scopes_tenant_project"],
+    "project_scopes": ["uq_project_scopes_source_metadata"],
     "ppm_scan_schedules": ["uq_ppm_scan_schedules_source"],
 }
 
@@ -170,3 +170,19 @@ def test_event_log_has_stream_offset() -> None:
         if hasattr(elt, "colname")
     ]
     assert "ingest_offset" in columns, "event_log table must have 'ingest_offset' column"
+
+
+def test_project_scopes_allows_multiple_scopes_per_project() -> None:
+    """W7-3: Owner decision: a project may have multiple scopes; each scope belongs to exactly one project."""
+    tables = _get_table_defs()
+    stmt = tables["project_scopes"]
+    table_constraints = [
+        elt.conname
+        for elt in stmt.tableElts
+        if hasattr(elt, "conname") and elt.conname
+    ]
+    assert "uq_project_scopes_tenant_project" not in table_constraints, (
+        "project_scopes must not restrict project_id to a single scope"
+    )
+    assert "uq_project_scopes_source_metadata" in table_constraints
+

@@ -25,7 +25,8 @@
    - `operation_key = sha256(tenant_id + "|" + task_id + "|" + action_slot)`
    - `dispatch_idempotency_key = sha256(binding_id + "|" + run_id + "|" + operation)` (default operation `"submit"`)
    - `payload_hash = sha256(tool_id + "|" + arguments_sha256 + "|" + resource_ref)`
-   - Standardized canonical UTF-8 encoding with ASCII pipe delimiter (`|`, 0x7C), NFC normalization, whitespace trimming, lowercase hexadecimal strings, and empty string representation for null/omitted fields. Verified with 9 canonical test vectors in `DG-1.md`.
+   - Standardized canonical UTF-8 encoding with ASCII pipe delimiter (`|`, 0x7C), NFC normalization, lowercase hexadecimal strings, and empty string representation for null/omitted fields. Verified with 9 canonical positive vectors and 10 negative rejection vectors in `DG-1.md`.
+   - **Strict canonical validation (W7-1)**: Key derivation strictly rejects (`KeyDerivationError`) any input component containing delimiter `|`, leading or trailing whitespace, or non-NFC Unicode. Silent trimming or normalization is strictly forbidden. Enforced centrally in `src/eap/contracts/keys.py` across Task Service and Action Service.
 2. **`action_slot` Authority and Lifecycle (C29b)**:
    - Authority belongs to the platform (Action Service / Workflow Orchestrator), not autonomous agents.
    - Slot excludes dynamic targets/arguments; persists in `task_intents` prior to initial tool call in the same transaction as execution intent.
@@ -38,9 +39,10 @@
    - Business transactions insert events into `outbox` table with **no offset column**.
    - Single relay per tenant stream holds an advisory lock (`pg_advisory_xact_lock(tenant_stream_hash)`).
    - Relay assigns contiguous, strictly monotonic `ingest_offset` in commit order post-commit in dedicated transactions. Eliminates gap races during SSE client replay.
-5. **ADR-022 Physical Source vs Project Scope Decoupling (C32)**:
+5. **ADR-022 Physical Source vs Project Scope Decoupling (C32, W7-3)**:
    - One physical directory/repo = one `sources` record (`source_id`).
    - Project scope mapped via `project_scopes` with constraint `UNIQUE (tenant_id, source_id, metadata_root)`.
+   - **Owner Decision (W7-3)**: A project may have multiple scopes; each scope belongs to exactly one project (`UNIQUE (tenant_id, project_id)` omitted).
    - Supports monorepos with multiple projects; shared components referenced via `dependency_refs` and counted once in portfolio aggregations without double-counting. Scope hash comparisons allow unchanged projects to bypass reassessment.
 
 ### DG-2 Decisions
@@ -72,16 +74,21 @@
 
 ---
 
-## 4. Open Questions for Owner Before Signing DG-1/DG-2
-1. **External Trusted Adapters without Client Tokens (ISS-014)**: For third-party CLI or webhook adapters lacking client request token support (no idempotency key support), should the platform mandate host-level execution lease locks (preventing concurrent invocations), or treat any unknown outcome as permanently requiring audited human manual retry?
-2. **Scheduler Baseline Interval**: Confirm whether the default 300-second (5 minute) interval and 5-second debounce window meet expected interactive pilot responsiveness, or if an aggressive 60-second interval is preferred for small test repositories.
-3. **Evidence TTL Granularity**: Default evidence TTL is set to 7 days (D-03). Does the owner require a granular policy allowing specific critical evidence categories (e.g. security vulnerability scans) to enforce shorter TTLs (e.g. 24 hours)?
+## 4. Owner Answers and Decisions
+1. **Q1 (ISS-014 - External Trusted Adapters lacking client tokens)**:
+   - **Owner Decision**: **Both**. Mandate host-level execution lease locks to prevent concurrent invocations, AND enforce that an unknown outcome is **never auto-retried** (per C38). If lookup is unsupported, the run remains in `unknown` state and requires audited operator manual retry/intervention. (ISS-014 resolved).
+2. **Q2 (Scheduler Baseline Interval & Debounce)**:
+   - **Owner Decision**: Default `interval_seconds = 300` (5 minutes), per-source override permitted down to minimum `60s`, `debounce_seconds = 5`. Revisit baseline after measurement in P1a-WP7 and DG-5.
+3. **Q3 (Evidence TTL Granularity)**:
+   - **Owner Decision**: Architecture supports per-category TTL structures; MVP uses default 7 days only (`D-03`). Tied to `ISS-012` for future contract reason code additions (`evidence_stale_ttl`).
+4. **Q4 (Project Scope Cardinality - W7-3)**:
+   - **Owner Decision**: **Multiple scopes per project allowed**. A project may have multiple registered scopes across directories or components; each scope belongs to exactly one project (`UNIQUE (tenant_id, source_id, metadata_root)`). Constraint `UNIQUE (tenant_id, project_id)` dropped from draft DDL accordingly.
 
 ---
 
-## 5. Issues Opened
-- **ISS-013**: Align `action-proposal.schema.json` description from `intent_key` to `action_slot` in contract 1.2 to match DG-1 standard.
-- **ISS-014**: Policy for external_trusted adapters lacking client token support: whether to mandate host-level execution lease locks or require audited manual retry.
+## 5. Issues Status
+- **ISS-013**: Align `action-proposal.schema.json` description from `intent_key` to `action_slot` in contract 1.2 to match DG-1 standard. (Open).
+- **ISS-014**: Policy for external_trusted adapters lacking client token support: whether to mandate host-level execution lease locks or require audited manual retry. (Resolved by owner answer to Q1).
 
 ---
 

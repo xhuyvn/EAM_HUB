@@ -262,10 +262,9 @@ CREATE TABLE project_scopes (
     status VARCHAR(32) NOT NULL DEFAULT 'active',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    -- Enforces ADR-019 & C32: (source_id, metadata_root) is unique within a tenant
-    CONSTRAINT uq_project_scopes_source_metadata UNIQUE (tenant_id, source_id, metadata_root),
-    -- Enforces one project per metadata root
-    CONSTRAINT uq_project_scopes_tenant_project UNIQUE (tenant_id, project_id)
+    -- Enforces ADR-019 & C32: (source_id, metadata_root) is unique within a tenant.
+    -- Owner decision: a project may have multiple scopes; each scope belongs to exactly one project.
+    CONSTRAINT uq_project_scopes_source_metadata UNIQUE (tenant_id, source_id, metadata_root)
 );
 
 -- ============================================================================

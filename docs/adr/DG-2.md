@@ -219,4 +219,4 @@ flowchart TD
 
 ## 7. Sequence Diagrams
 
-All sequence diagrams for C34 and C39 are documented in [`docs/adr/sequences.md`](file:///C:/Users/xhuy/.gemini/antigravity/worktrees/EAM_HUB/decision_records_dg1_dg2/docs/adr/sequences.md).
+All sequence diagrams for C34 and C39 are documented in [`sequences.md`](sequences.md).
