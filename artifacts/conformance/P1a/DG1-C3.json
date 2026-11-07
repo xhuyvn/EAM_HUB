@@ -1,0 +1,15 @@
+{
+  "condition_id": "DG1-C3",
+  "milestone": "P1a",
+  "work_package": "P1a-WP1",
+  "status": "passed",
+  "observed_outcome": "Retry or duplicate insert with the same operation_key under the same tenant is rejected by PostgreSQL unique constraint uq_action_executions_key with IntegrityError. The database rejects key collisions; isolation across tenants preserved.",
+  "counts": {
+    "passed_tests": 2,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/db/test_action_executions.py::test_dg1_c3_duplicate_operation_key_rejected",
+    "tests/db/test_action_executions.py::test_dg1_c3_same_operation_key_different_tenant_allowed"
+  ]
+}

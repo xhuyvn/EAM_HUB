@@ -1,0 +1,16 @@
+{
+  "case_id": "C32",
+  "milestone": "P1a",
+  "work_package": "P1a-WP1",
+  "status": "passed",
+  "observed_outcome": "project_scopes enforces UNIQUE(tenant_id, source_id, metadata_root) via uq_project_scopes_source_metadata; allows multiple scopes per physical source; allows multiple scopes per project (W7-3); duplicate (source, metadata_root) rejected with IntegrityError.",
+  "counts": {
+    "passed_tests": 3,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/db/test_project_scopes.py::test_c32_w7_3_monorepo_scopes_and_cardinality",
+    "tests/db/test_project_scopes.py::test_c32_duplicate_source_metadata_root_rejected",
+    "tests/db/test_project_scopes.py::test_project_scopes_status_check_constraint"
+  ]
+}

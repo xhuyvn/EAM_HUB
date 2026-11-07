@@ -6,7 +6,7 @@ Fields: ID · opened · by · labels (`decision`, `contract`, `risk`, `bug`, `hu
 
 | ID | Opened | By | Labels | Blocks | Status | Summary | Resolution |
 |---|---|---|---|---|---|---|---|
-| ISS-001 | 2026-11-06 | review | decision | P1a-WP1 | open | Owner signs DG-1 and DG-2 after P0-WP7 | |
+| ISS-001 | 2026-11-06 | review | decision | P1a-WP1 | resolved | Owner signs DG-1 and DG-2 after P0-WP7 | Owner signed DG-1 and DG-2 on 2026-11-07; P0 closed |
 | ISS-002 | 2026-11-06 | review | decision | Local-pilot | open | D-07: sandbox mechanism for the verifier on real repositories | |
 | ISS-003 | 2026-11-06 | review | decision | PPM-C1 | open | PPM-D4: program/portfolio/benefit scope for the shared pilot | |
 | ISS-004 | 2026-11-06 | review | decision | PPM-M0-WP2 (default exists) | open | D-03 evidence TTL and PPM-D2 waiver approver/max duration; defaults 7 days and owner-only ≤ 30 days | |
@@ -22,3 +22,4 @@ Fields: ID · opened · by · labels (`decision`, `contract`, `risk`, `bug`, `hu
 | ISS-014 | 2026-11-07 | P0-WP7 | decision | P1a-WP4 | resolved | Policy for external_trusted adapters lacking client token support | Owner decided both: mandate host-level lease lock to prevent concurrent dispatch, and enforce that unknown outcome is never auto-retried (C38); requires audited operator intervention if lookup is unsupported. |
 | ISS-015 | 2026-11-07 | PPM-M0-WP2 | fixtures | PPM-M0-WP5 | open | Reducer behaviour added in M0-WP2 review is covered by unit tests only: inactive waiver (missing/empty `approved_by`, null or future `approved_at`, `expires_at == now`), `evidence_from_future`, `missing_assessed_revision` (was ISS-NEW-3..5) | Author fixtures s30–s32 in an M0-WP1 amendment before M0-WP5 packaging |
 | ISS-016 | 2026-11-07 | review | security | P1a-WP2 | open | Key derivation rejects `|`, edge whitespace, non-NFC and empty values, but accepts control characters (newline, NUL) inside identifiers | Define an identifier charset allowlist (e.g. `[A-Za-z0-9._:#/-]`) in `eap.contracts.keys` and API validation in P1a-WP2 |
+| ISS-017 | 2026-11-07 | P1a-WP1 | contract | P1a-WP2 | open | Align tasks.state CHECK constraint and draft DDL default ('queued') with contracts/hud-projection.schema.json task_state enum | Supported 'queued' alongside 'draft', 'ready', 'active', 'blocked', 'review_required', 'completed', 'failed', 'cancelled'; unify in contract 1.2 / P1a-WP2 lifecycle |

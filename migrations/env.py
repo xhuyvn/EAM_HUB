@@ -4,6 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from eap.config import get_settings
+from eap.db import metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -13,17 +14,18 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-settings = get_settings()
-if settings.database_url is None:
-    raise RuntimeError(
-        "DATABASE_URL is not set. Copy .env.example to .env and set POSTGRES_PASSWORD, "
-        "or export DATABASE_URL before running alembic."
-    )
-db_url = settings.database_url.get_secret_value()
-# configparser treats '%' as interpolation; escape so passwords containing '%' work
-config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
+if not config.get_main_option("sqlalchemy.url"):
+    settings = get_settings()
+    if settings.database_url is None:
+        raise RuntimeError(
+            "DATABASE_URL is not set. Copy .env.example to .env and set POSTGRES_PASSWORD, "
+            "or export DATABASE_URL before running alembic."
+        )
+    db_url = settings.database_url.get_secret_value()
+    # configparser treats '%' as interpolation; escape so passwords containing '%' work
+    config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
-target_metadata = None
+target_metadata = metadata
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
@@ -33,6 +35,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
@@ -56,6 +60,8 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
         )
 
         with context.begin_transaction():
