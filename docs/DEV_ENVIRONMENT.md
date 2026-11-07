@@ -117,6 +117,15 @@ Only the platform reads `.env`; the reducer, validator, and test code of verifie
 # .env.example — commit this file, never commit actual .env
 EAP_ENV=dev
 EAP_BIND=127.0.0.1:8000
+# Local authentication (token hashes only; sha256 hex; tokens/hashes never logged, SC-04)
+# Generate token: openssl rand -hex 32
+# Generate hash:  python -c "import hashlib; print(hashlib.sha256(b'<token>').hexdigest())"
+EAP_OWNER_TENANT_ID=tenant-owner
+EAP_OWNER_PRINCIPAL_ID=principal-owner
+EAP_OWNER_TOKEN_HASH=
+EAP_SECOND_TENANT_ID=tenant-second
+EAP_SECOND_PRINCIPAL_ID=principal-second
+EAP_SECOND_TOKEN_HASH=
 DATABASE_URL=postgresql+psycopg://eap:${POSTGRES_PASSWORD}@127.0.0.1:5432/eap_dev
 TEST_DATABASE_URL=postgresql+psycopg://eap:${POSTGRES_PASSWORD}@127.0.0.1:5432/eap_test
 POSTGRES_PASSWORD=
@@ -130,9 +139,15 @@ EAP_TELEMETRY=local_only
 EAP_SECRET_CANARY=     # generated randomly per machine, used for SC-04
 ```
 
+- **Local identity and authentication (P1a-WP5 / ISS-020)**:
+  - Local authentication operates strictly without database user tables. Local principals (at least an owner and a second principal) are defined in configuration with bearer tokens.
+  - Plaintext tokens are **never** stored in `.env` or settings. Only their SHA-256 hex digests (e.g. `sha256:<hex>` or raw `<hex>`) are stored in `EAP_OWNER_TOKEN_HASH` and `EAP_SECOND_TOKEN_HASH` (or `EAP_PRINCIPALS_JSON`) as `SecretStr`.
+  - Clients provide tokens in `Authorization: Bearer <token>`. Identity is resolved via constant-time comparison against configured hashes. Missing, malformed, unknown, or wrong tokens return HTTP 401 with identical `"detail": "Unauthorized"` responses.
+  - Tenant identity always comes from the resolved principal record; client-declared tenant/principal headers, queries, or body fields are strictly rejected with HTTP 422.
+  - **Loopback-only restriction**: Server startup refuses non-loopback `EAP_BIND` addresses (e.g. `0.0.0.0`, `192.168.x.x`, `::`), permitting only `127.0.0.1`, `::1`, or `localhost`.
 - New environment variables require updating `.env.example` in the identical commit; configs loaded via `pydantic-settings`, halting startup if required variables are missing.
 - Tests utilize `.env.test` generated from fixtures; coding agents must never read real `.env`.
-- Logs, traces, and events omit values of any `*_PASSWORD`, `*_KEY`, or `EAP_SECRET_CANARY` variable (SC-04 grep canary).
+- Logs, traces, and events omit values of any `*_PASSWORD`, `*_KEY`, `*_TOKEN_HASH`, or `EAP_SECRET_CANARY` variable (SC-04 grep canary).
 - **Verifier (P2a-WP9)** launches tests in empty environments with allowlisted variables (`PATH`, temporary `HOME`, `LANG`, `PYTHONHASHSEED`), without network, in temporary workspaces. Mandatory test: fixture test printing full environment; output must omit `EAP_SECRET_CANARY`.
 
 ## P0-WP1 Checklist and open points

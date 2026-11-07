@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from eap.api.routes import router
-from eap.config import Settings, get_settings
+from eap.config import Settings, get_settings, validate_loopback_bind
 from eap.run.service import (
     IllegalRunTransitionError,
     LateTerminalEventError,
@@ -19,6 +19,8 @@ from eap.task.service import TaskNotFoundError
 def create_app(settings: Settings | None = None) -> FastAPI:
     if settings is None:
         settings = get_settings()
+
+    validate_loopback_bind(settings.eap_bind)
 
     app = FastAPI(
         title="Enterprise Agent Platform",

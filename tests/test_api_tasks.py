@@ -42,6 +42,10 @@ def client(db_engine: Engine):
             session.close()
 
     app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_principal] = lambda: Principal(
+        tenant_id="tenant-default",
+        principal_id="principal-default",
+    )
     transport = ASGITransport(app=app)
     try:
         yield AsyncClient(transport=transport, base_url="http://testserver")
@@ -228,7 +232,7 @@ def test_api_no_request_headers_access_in_api() -> None:
     py_files = sorted(api_dir.glob("*.py"))
     assert len(py_files) > 0
 
-    allowed_functions = {"check_forbidden_headers_and_query", "check_forbidden_body_fields"}
+    allowed_functions = {"check_forbidden_headers_and_query", "check_forbidden_body_fields", "get_principal"}
 
     for py_file in py_files:
         tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
