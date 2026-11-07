@@ -3,6 +3,8 @@
 ## 1. Milestone and Scope
 - **Work Package**: P0-WP7 (Decision record DG-1/DG-2 per `STATUS.md`, `docs/IMPLEMENTATION_PLAN.md` §3, §5, §6 P0-WP7).
 - **Target State**: `P0 ready_for_owner_review` (gates owner signature of DG-1 and DG-2 before P1a-WP1).
+- **Branch**: `wp/P0-WP7`
+- **Code Commit**: `db61cf7`
 - **Scope**:
   - Deliver `docs/adr/DG-1.md` covering key derivations, canonical byte encoding, test vectors, `action_slot` lifecycle & persistence, conflict handling, ADR-020 single-relay commit-order offsets, ADR-022 source/scope decoupling, and conformance case enforcement mapping table.
   - Deliver `docs/adr/DG-2.md` covering scan scheduler policies (interval, debounce, catch-up, concurrency lease), the five independent reassessment triggers, input locking at creation time, ADR-021 rev. 2 `basis_seq` Compare-and-Set (CAS) current-assessment pointer rule, and D1-fixture demonstration scenario.
