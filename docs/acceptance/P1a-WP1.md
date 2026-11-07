@@ -4,7 +4,7 @@
 - **Work Package**: P1a-WP1 (Schema and migrations per `STATUS.md`, `docs/IMPLEMENTATION_PLAN.md` §5 SC-02/SC-04/SC-06 and §6 P1a-WP1, and `docs/DEV_ENVIRONMENT.md`).
 - **Target State**: `ready_for_review`
 - **Branch**: `wp/P1a-WP1` (branched from `main` at `fab6cd3`)
-- **Code Commit under Review**: `f43f75e`
+- **Code Commit under Review**: `215e8d8`
 - **Base Commit**: `fab6cd3` ("sign DG-1 and DG-2: owner approval with conditions DG1-C1..C5, DG2-C1; P0 closed")
 - **Scope**:
   - `migrations/versions/0001_core.py` (down_revision `0000_init`): Implements all 16 core platform tables and constraints from `migrations/draft/0001_core.sql` exactly as signed by the owner in DG-1 and DG-2.
