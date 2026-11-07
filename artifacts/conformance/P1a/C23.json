@@ -1,0 +1,14 @@
+{
+  "case_id": "C23",
+  "milestone": "P1a",
+  "work_package": "P1a-WP3",
+  "status": "passed",
+  "observed_outcome": "Producer event with tenant_id differing from authoritative binding is quarantined in event_quarantine with reason tenant_mismatch, security event emitted in security_events, event_log remains unmodified, and projection hash remains unchanged.",
+  "counts": {
+    "passed_tests": 1,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/events/test_c02_c23_ingestion_security.py::test_c23_tenant_mismatch_quarantine_and_security_event"
+  ]
+}
