@@ -29,7 +29,7 @@ Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_
 | PPM-M0-WP3 | Findings and progress | PPM-M0-WP2 | not_started | | | |
 | PPM-M0-WP4 | Rollup rules | PPM-M0-WP2 | not_started | | | |
 | PPM-M0-WP5 | Runner and packaging | PPM-M0-WP3, WP4 | not_started | | | |
-| P1a-WP1 | Schema and migrations | DG-1, DG-2 | not_started | | | |
+| P1a-WP1 | Schema and migrations | DG-1, DG-2 | ready_for_review | `wp/P1a-WP1` (code commit `a5a3c4b`) | P1-1 composite FK tenant isolation (7 FKs, unique parent keys, catalog test + 7 cross-tenant rejection tests), P1-2 CI collection failure enforcement, SC-06 PASS (empty up/down/up + seeded down/up), 38 constraint tests PASS against PostgreSQL 18.6 (DG1-C3, C02, C15, C29, C32/W7-3, C33, P1-1), autogenerate diff empty, draft-vs-migration parity PASS; `pytest -q` 160 passed; ruff & mypy clean; GitHub Actions CI 42353502611 PASS; `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_fixtures.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, HUD build PASS | Conformance: C02, C15, C29, C32, C33, DG1-C3; ISS-017 opened; ISS-001 resolved |
 | P1a-WP2 | Task/Run service | P1a-WP1 | not_started | | | |
 | P1a-WP3 | Outbox relay, ingestion, projection | P1a-WP1 | not_started | | | |
 | P2a-WP1 | Sources and project scopes | P1a-WP1 | not_started | | | |
@@ -45,6 +45,8 @@ The remaining WPs to D1-fixture (P2a-WP5…WP9, P1a-WP4…WP7, P3a-WP1…WP4, D1
 |---|---|---|---|---|
 | 2026-11-07 | P0-WP4, D-01 | owner | P0-WP4 accepted after re-review (pinned versions verified on PyPI; Q2 20/20 duplicates and Q5 20/20 exactly-once re-run); D-01 = option (b); spike issue renumbered ISS-017 → ISS-018 (numbering clash with P1a-WP1) | `5125cbd` |
 | 2026-11-07 | P0-WP4 | coding agent (spike lead) | ready_for_review; LangGraph replay spike complete; pinned langgraph 1.2.20; 5/5 questions answered with empirical data; recommendation option (b) for D-01 | (this commit) |
+| 2026-11-07 | P1a-WP1 | coding agent (implementation lead) | ready_for_review; addressed changes_requested (P1-1: composite FK tenant isolation across 7 FKs, UNIQUE (tenant_id, id/source_id) on parents, catalog test + 7 cross-tenant tests, Amendment A1 in DG-1/docs/01/draft DDL; P1-2: CI collection failure enforcement if TEST_DATABASE_URL unset); SC-06 empty & seeded cycles pass, autogenerate diff empty, draft parity pass; 160 pytest pass, ruff & mypy clean, CI 42353502611 pass | `a5a3c4b` |
+| 2026-11-07 | P1a-WP1 | coding agent (implementation lead) | ready_for_review; 0001_core migration + SQLAlchemy Core metadata, 16 tables, state CHECK constraints, SC-06 empty & fixture DB cycles pass, 30 constraint tests pass against PG 18.6 (DG1-C3, C02, C15, C29, C32, C33), autogenerate diff empty, draft parity pass; 152 pytest pass, ruff & mypy clean, CI 42350572193 pass | `6cfe452` |
 | 2026-11-07 | DG-1, DG-2 | owner | signed: DG-1.1–1.4 and DG-2.1–2.5 approved with conditions DG1-C1…C5, DG2-C1; **P0 closed**; P1a-WP7 relay threshold ≥ 200 events/s | (this commit) |
 | 2026-11-07 | P0-WP7, PPM-M0-WP2 | owner | accepted after re-review (P0-WP7: 9/9 vectors recomputed, strict key rejection probed, DDL parsed independently, W7-1..3 fixed; PPM-M0-WP2: off-corpus decision-table probes, M2-1..3 fixed); ISS-015..016 registered; spike rows P0-WP3..WP6 added | `1e61e8e`, `9a31182` |
 | 2026-11-07 | P0-WP7 | coding agent (implementation lead) | ready_for_review; DG-1 & DG-2 decision records, draft DDL, C29/C29b/C33/C34/C39 sequence diagrams, 65 tests pass, DDL parsed via pglast, ruff & mypy clean | `db61cf7` |

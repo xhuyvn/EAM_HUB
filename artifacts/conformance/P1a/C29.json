@@ -1,0 +1,16 @@
+{
+  "case_id": "C29",
+  "milestone": "P1a",
+  "work_package": "P1a-WP1",
+  "status": "passed",
+  "observed_outcome": "Two action_executions with the same (tenant_id, operation_key) are rejected by PostgreSQL 18.6 with IntegrityError uq_action_executions_key; differing tenant with same key is permitted; state transitions guarded by ck_action_executions_state.",
+  "counts": {
+    "passed_tests": 3,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/db/test_action_executions.py::test_dg1_c3_duplicate_operation_key_rejected",
+    "tests/db/test_action_executions.py::test_dg1_c3_same_operation_key_different_tenant_allowed",
+    "tests/db/test_action_executions.py::test_action_executions_state_check_constraint"
+  ]
+}

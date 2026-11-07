@@ -47,6 +47,13 @@ print('SHA256SUMS: OK')
 "
 }
 
+Write-Host "==> 4b. Running database migration up/down/up cycles (SC-06)..."
+if (-not $env:TEST_DATABASE_URL) {
+    $pgPass = if ($env:POSTGRES_PASSWORD) { $env:POSTGRES_PASSWORD } else { "postgres_dev_secret" }
+    $env:TEST_DATABASE_URL = "postgresql+psycopg://eap:${pgPass}@127.0.0.1:5432/eap_test"
+}
+uv run python tools/run_sc06.py
+
 Write-Host "==> 5. Running Python test suite (SC-02)..."
 uv run pytest -q
 

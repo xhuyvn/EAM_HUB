@@ -1,0 +1,16 @@
+{
+  "case_id": "C02",
+  "milestone": "P1a",
+  "work_package": "P1a-WP1",
+  "status": "passed",
+  "observed_outcome": "event_log table rejects duplicate event_id within the same tenant with IntegrityError uq_event_log_event_id; rejects duplicate (stream_id, ingest_offset) with uq_event_log_stream_offset; permits identical event_id and offsets across different tenants.",
+  "counts": {
+    "passed_tests": 3,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/db/test_event_log.py::test_c02_duplicate_event_id_rejected",
+    "tests/db/test_event_log.py::test_c33_duplicate_stream_offset_rejected",
+    "tests/db/test_event_log.py::test_event_log_different_tenant_isolation"
+  ]
+}

@@ -22,7 +22,9 @@ CREATE TABLE tasks (
     -- Enforces C01: Unique task intent key prevents duplicate task creation across attempts
     CONSTRAINT uq_tasks_tenant_task_intent_key UNIQUE (tenant_id, task_intent_key),
     -- Enforces client-level admission idempotency per tenant
-    CONSTRAINT uq_tasks_tenant_client_key UNIQUE (tenant_id, client_idempotency_key)
+    CONSTRAINT uq_tasks_tenant_client_key UNIQUE (tenant_id, client_idempotency_key),
+    -- Enforces Amendment A1: Composite unique key for tenant-scoped foreign key references
+    CONSTRAINT uq_tasks_tenant_id UNIQUE (tenant_id, id)
 );
 
 -- ============================================================================
@@ -32,7 +34,7 @@ CREATE TABLE tasks (
 CREATE TABLE runs (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL,
-    task_id VARCHAR(64) NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+    task_id VARCHAR(64) NOT NULL,
     run_id VARCHAR(64) NOT NULL,
     attempt INTEGER NOT NULL DEFAULT 1,
     binding_id VARCHAR(64) NOT NULL,
@@ -41,6 +43,7 @@ CREATE TABLE runs (
     lease_fencing_token BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_runs_tenant_task FOREIGN KEY (tenant_id, task_id) REFERENCES tasks (tenant_id, id) ON DELETE RESTRICT,
     CONSTRAINT uq_runs_tenant_run_id UNIQUE (tenant_id, run_id),
     CONSTRAINT uq_runs_tenant_task_attempt UNIQUE (tenant_id, task_id, attempt)
 );
@@ -52,13 +55,14 @@ CREATE TABLE runs (
 CREATE TABLE run_attempt_history (
     id BIGSERIAL PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL,
-    task_id VARCHAR(64) NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+    task_id VARCHAR(64) NOT NULL,
     run_id VARCHAR(64) NOT NULL,
     attempt INTEGER NOT NULL,
     from_state VARCHAR(32) NOT NULL,
     to_state VARCHAR(32) NOT NULL,
     reason TEXT,
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_run_attempt_history_tenant_task FOREIGN KEY (tenant_id, task_id) REFERENCES tasks (tenant_id, id) ON DELETE RESTRICT
 );
 
 -- ============================================================================
@@ -69,12 +73,13 @@ CREATE TABLE run_attempt_history (
 CREATE TABLE task_intents (
     id BIGSERIAL PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL,
-    task_id VARCHAR(64) NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+    task_id VARCHAR(64) NOT NULL,
     action_slot VARCHAR(64) NOT NULL,
     tool_id VARCHAR(128) NOT NULL,
     workflow_step VARCHAR(64) NOT NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'declared',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_task_intents_tenant_task FOREIGN KEY (tenant_id, task_id) REFERENCES tasks (tenant_id, id) ON DELETE RESTRICT,
     -- Enforces C29b: One unique action slot per task, preventing duplicate slot allocation
     CONSTRAINT uq_task_intents_slot UNIQUE (tenant_id, task_id, action_slot)
 );
@@ -146,13 +151,14 @@ CREATE TABLE leases (
 CREATE TABLE commands (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL,
-    task_id VARCHAR(64) NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+    task_id VARCHAR(64) NOT NULL,
     run_id VARCHAR(64) NOT NULL,
     command_type VARCHAR(32) NOT NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'accepted',
     payload JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_commands_tenant_task FOREIGN KEY (tenant_id, task_id) REFERENCES tasks (tenant_id, id) ON DELETE RESTRICT
 );
 
 -- ============================================================================
@@ -201,13 +207,14 @@ CREATE TABLE artifacts (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL,
     artifact_id VARCHAR(64) NOT NULL,
-    task_id VARCHAR(64) NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+    task_id VARCHAR(64) NOT NULL,
     run_id VARCHAR(64) NOT NULL,
     content_hash VARCHAR(64) NOT NULL,
     content_type VARCHAR(128) NOT NULL,
     size_bytes BIGINT NOT NULL,
     storage_uri TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_artifacts_tenant_task FOREIGN KEY (tenant_id, task_id) REFERENCES tasks (tenant_id, id) ON DELETE RESTRICT,
     CONSTRAINT uq_artifacts_tenant_artifact UNIQUE (tenant_id, artifact_id)
 );
 
@@ -244,7 +251,9 @@ CREATE TABLE sources (
     -- Enforces ADR-022: Physical path is unique per tenant
     CONSTRAINT uq_sources_tenant_canonical_root UNIQUE (tenant_id, canonical_root),
     -- Enforces C42: Repo identity is unique per tenant to prevent cloned repository aliasing
-    CONSTRAINT uq_sources_tenant_repo_identity UNIQUE (tenant_id, repo_identity)
+    CONSTRAINT uq_sources_tenant_repo_identity UNIQUE (tenant_id, repo_identity),
+    -- Enforces Amendment A1: Composite unique key for tenant-scoped foreign key references
+    CONSTRAINT uq_sources_tenant_source_id UNIQUE (tenant_id, source_id)
 );
 
 -- ============================================================================
@@ -255,13 +264,14 @@ CREATE TABLE sources (
 CREATE TABLE project_scopes (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL,
-    source_id VARCHAR(64) NOT NULL REFERENCES sources(source_id) ON DELETE RESTRICT,
+    source_id VARCHAR(64) NOT NULL,
     project_id VARCHAR(64) NOT NULL,
     metadata_root TEXT NOT NULL,
     scan_scope TEXT,
     status VARCHAR(32) NOT NULL DEFAULT 'active',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_project_scopes_tenant_source FOREIGN KEY (tenant_id, source_id) REFERENCES sources (tenant_id, source_id) ON DELETE RESTRICT,
     -- Enforces ADR-019 & C32: (source_id, metadata_root) is unique within a tenant.
     -- Owner decision: a project may have multiple scopes; each scope belongs to exactly one project.
     CONSTRAINT uq_project_scopes_source_metadata UNIQUE (tenant_id, source_id, metadata_root)
@@ -274,7 +284,7 @@ CREATE TABLE project_scopes (
 CREATE TABLE ppm_scan_schedules (
     id VARCHAR(64) PRIMARY KEY,
     tenant_id VARCHAR(64) NOT NULL,
-    source_id VARCHAR(64) NOT NULL REFERENCES sources(source_id) ON DELETE RESTRICT,
+    source_id VARCHAR(64) NOT NULL,
     interval_seconds INTEGER NOT NULL DEFAULT 300,
     debounce_seconds INTEGER NOT NULL DEFAULT 5,
     last_scan_at TIMESTAMPTZ,
@@ -284,6 +294,7 @@ CREATE TABLE ppm_scan_schedules (
     fencing_token BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ppm_scan_schedules_tenant_source FOREIGN KEY (tenant_id, source_id) REFERENCES sources (tenant_id, source_id) ON DELETE RESTRICT,
     -- Enforces DG-2: One schedule definition per source per tenant
     CONSTRAINT uq_ppm_scan_schedules_source UNIQUE (tenant_id, source_id)
 );
