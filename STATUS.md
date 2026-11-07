@@ -20,7 +20,7 @@ Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_
 | P0-WP7 | Decision record DG-1/DG-2 | P0-WP2 | not_started | | | ends at `P0 ready_for_owner_review` |
 | DG-1, DG-2 | Owner signature | P0-WP7 | not_started | | | owner action; gates P1a-WP1 |
 | PPM-M0-WP1 | Fixture corpus | P0-WP1 | accepted | `wp/PPM-M0-WP1` (code commit `ec98866`; packet `2b0aced`; merged `bd98352`) | `check_fixtures.py` PASS (19 fixtures, 3 rollup), `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, `pytest` PASS (9 passed), `npm run build` PASS | s01, s21, s19 signed by owner 2026-11-07 |
-| PPM-M0-WP2 | Criterion reducer | PPM-M0-WP1 | not_started | | | |
+| PPM-M0-WP2 | Criterion reducer | PPM-M0-WP1 | ready_for_review | `wp/PPM-M0-WP2` (packet `docs/acceptance/PPM-M0-WP2.md`) | 18/18 fixtures match post-JCS, s29 InputRejected, determinism hash identical, audit hook clean (0 events), allowlist probe fails; `pytest` PASS (88 passed: 53 platform + 35 reducer), ruff & mypy clean, `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, `npm run build` PASS | Pure reducer: DAG supersession, trust classes, TTL boundary second, waivers, claims conflict |
 | PPM-M0-WP3 | Findings and progress | PPM-M0-WP2 | not_started | | | |
 | PPM-M0-WP4 | Rollup rules | PPM-M0-WP2 | not_started | | | |
 | PPM-M0-WP5 | Runner and packaging | PPM-M0-WP3, WP4 | not_started | | | |
@@ -38,6 +38,7 @@ The remaining WPs to D1-fixture (P2a-WP5…WP9, P1a-WP4…WP7, P3a-WP1…WP4, D1
 ## Session log (newest first)
 | Date | WP | Agent/session | Result | Commit |
 |---|---|---|---|---|
+| 2026-11-07 | PPM-M0-WP2 | coding agent (implementation lead) | ready_for_review; pure deterministic criterion reducer (`assess_criteria`), 18/18 fixtures match post-JCS, s29 InputRejected, determinism verified, import boundary allowlist hardened + runtime audit hook, 88 tests pass, ruff & mypy clean | `wp/PPM-M0-WP2` |
 | 2026-11-07 | P0-WP2, PPM-M0-WP1 | owner | accepted after re-review (P0-WP2: differential 5089 mutations / 0 model_looser; PPM-M0-WP1: 19 fixtures, cross-checks, s01/s21/s19 signed); ISS-010..012 registered | `3ae4eb8`, `bd98352` |
 | 2026-11-07 | P0-WP2 | coding agent (implementation lead) | ready_for_review; addressed changes_requested (W2-1 strict models, constraint parity, 5003 differential mutations / 0 violations; W2-2 validator negative helpers import); 46 tests pass, ruff & mypy clean | `wp/P0-WP2` (code commit `2d5c112`) |
 | 2026-11-07 | P0-WP2 | coding agent (implementation lead) | ready_for_review; 16 Pydantic v2 contract models, rules.py invariant port, RFC 8785 JCS digest, 44 tests pass (16/16 schema parity, 50/50 negative parity, template digest verified), ruff & mypy clean | `wp/P0-WP2` (code commit `c176ba7`) |
