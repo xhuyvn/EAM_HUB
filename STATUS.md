@@ -15,7 +15,7 @@ Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_
 | WP | Title | Prereqs | Status | Branch / commit | Acceptance evidence | Notes |
 |---|---|---|---|---|---|---|
 | P0-WP0 | English canonical docs | — | accepted | `wp/P0-WP0` (a36d44e) | `check_translation.py` (--compare: 38 pairs 0 diff, --fixture: PASS, --links: 0 broken, --tokens: 20.7% reduction, default: 38 up-to-date), `validate_package.py` PASS, `run_negative_cases.py` PASS, `sha256sum` PASS | ADR-025, ISS-007 resolved; accepted by owner |
-| P0-WP1 | Skeleton, CI, environment | P0-WP0 | ready_for_review | `wp/P0-WP1` (code under review; packet commit recorded by owner at merge) | R1–R9 resolved; `uv sync --locked` PASS, `pytest -q` PASS (9 tests), `npm run build` PASS, docker compose (pg 18.6 healthy, redis/qdrant optional) PASS, alembic SC-06 PASS, standalone PPM PASS, `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_translation.py` PASS, `sha256sum` PASS | `docs/DEV_ENVIRONMENT.md` checklist satisfied |
+| P0-WP1 | Skeleton, CI, environment | P0-WP0 | ready_for_review | `wp/P0-WP1` (code commit `59e1135`; packet commit recorded by owner at merge) | R1–R9 resolved; `uv sync --locked` PASS, `pytest -q` PASS (9 tests), `npm run build` PASS, docker compose (pg 18.6 healthy, redis/qdrant optional) PASS, alembic SC-06 PASS, standalone PPM PASS, `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, GitHub Actions CI 42318570673 PASS | `docs/DEV_ENVIRONMENT.md` checklist satisfied |
 | P0-WP2 | Contract models | P0-WP1 | not_started | | | |
 | P0-WP7 | Decision record DG-1/DG-2 | P0-WP2 | not_started | | | ends at `P0 ready_for_owner_review` |
 | DG-1, DG-2 | Owner signature | P0-WP7 | not_started | | | owner action; gates P1a-WP1 |
@@ -38,7 +38,7 @@ The remaining WPs to D1-fixture (P2a-WP5…WP9, P1a-WP4…WP7, P3a-WP1…WP4, D1
 ## Session log (newest first)
 | Date | WP | Agent/session | Result | Commit |
 |---|---|---|---|---|
-| 2026-11-07 | P0-WP1 | coding agent (implementation lead) | ready_for_review; R1–R9 changes_requested fixes applied (SecretStr canary redaction, .env.example ordering, alembic config, raw validation evidence, import boundary hardening, HUD error handling, CI pinning); all checks pass | `wp/P0-WP1` |
+| 2026-11-07 | P0-WP1 | coding agent (implementation lead) | ready_for_review; R1–R9 changes_requested fixes applied (SecretStr canary redaction, .env.example ordering, alembic config, raw validation evidence, import boundary hardening, HUD error handling, CI pinning); all checks pass; CI 42318570673 success | `wp/P0-WP1` (59e1135) |
 | 2026-11-06 | P0-WP1 | coding agent (implementation lead) | ready_for_review; modular monolith skeleton, uv workspace, Vite+React HUD shell, compose & alembic SC-06 verified, all tests pass | `wp/P0-WP1` (f1a9557) |
 | 2026-11-06 | P0-WP0 | owner | accepted; merged wp/P0-WP0 into main | (owner action) |
 | 2026-11-06 | P0-WP0 | coding agent (implementation lead) | ready_for_review; 38 docs translated, tools/check_translation.py created, ISS-007 resolved (-20.7% tokens), all shared checks pass | `wp/P0-WP0` (a36d44e) |

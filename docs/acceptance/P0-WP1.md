@@ -19,7 +19,7 @@
 ## 2. Source Commit and Traceability
 - **Base Commit**: `3cce1cb6b9de754be1c14407e75b3e4ba4c84400` (on `main`)
 - **Branch**: `wp/P0-WP1`
-- **Code Commit under Review**: `91f9294` (and successor fix commit on branch `wp/P0-WP1`)
+- **Code Commit under Review**: `59e1135` (pushed on branch `wp/P0-WP1`, CI run `42318570673` passed)
   *(Note: The acceptance packet commit on `main` is recorded by the owner upon merge)*
 - **Environment**:
   - Python: 3.12.13 (via `uv 0.11.21`)
