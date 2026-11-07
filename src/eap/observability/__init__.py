@@ -2,6 +2,7 @@
 
 from eap.observability.logging import (
     JsonFormatter,
+    RedactedLastResortHandler,
     RedactionFilter,
     apply_redaction_filter,
     clear_log_context,
@@ -28,6 +29,7 @@ from eap.observability.telemetry import (
 __all__ = [
     "InsecureTelemetryError",
     "JsonFormatter",
+    "RedactedLastResortHandler",
     "RedactionFilter",
     "RequestLoggingMiddleware",
     "apply_redaction_filter",

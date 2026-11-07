@@ -45,7 +45,7 @@
 
 ---
 
-## 2. Issues Resolution (ISS-023)
+## 2. Issues Resolution (ISS-023) and Review Findings (W6-1, W6-2)
 
 ### Summary for ISS-023 (Alembic fileConfig logger disable pitfall)
 - **Problem**: When Alembic migrations ran (`alembic.ini` via `migrations/env.py`), standard library `logging.config.fileConfig(config.config_file_name)` defaulted to `disable_existing_loggers=True`. This disabled existing runtime loggers that were imported prior to migration execution (specifically `eap.api.request`).
@@ -53,6 +53,21 @@
   - In `migrations/env.py`, set `fileConfig(config.config_file_name, disable_existing_loggers=False)`.
   - In `src/eap/observability/logging.py`, `configure_logging()` iterates over `logging.root.manager.loggerDict` and re-enables any existing loggers (`l.disabled = False`).
   - Recorded in `docs/ISSUES.md` with status `resolved`.
+
+### Summary for W6-1 (Pre-existing handlers and uvicorn access logging query strings)
+- **Problem**: When uvicorn starts via `uvicorn eap.api.app:app`, `dictConfig(uvicorn.config.LOGGING_CONFIG)` executes before the app is imported. This attaches handlers directly to `uvicorn` and `uvicorn.access` (both configured with `propagate=False`). Pre-existing handlers on non-root loggers were bypassed because `configure_logging()` only inspected `root.handlers`. Furthermore, uvicorn's access logger printed URL query strings carrying credentials or canaries (e.g. `?token=<canary>`).
+- **Resolution**:
+  - In `src/eap/observability/logging.py`, `configure_logging()` iterates over `logging.root.manager.loggerDict.values()`, re-enables any disabled loggers, and invokes `apply_redaction_filter` on every logger and on every existing handler on each logger (including `propagate=False` loggers).
+  - Maintained `logging.Logger.addHandler` patching so any handlers attached subsequently automatically receive `apply_redaction_filter`.
+  - Patched `uvicorn.logging.AccessFormatter.formatMessage` and added special-case logic in `RedactionFilter.filter()` for `uvicorn.access` to drop query strings (`?` and all following characters) from `record.args[2]` (`full_path`), preventing token/credential leakage in access logs while preserving the 5-element tuple expected by `AccessFormatter`.
+  - Documented the recommended server command in `docs/DEV_ENVIRONMENT.md`: `uv run uvicorn eap.api.app:app --host 127.0.0.1 --port 8000 --no-access-log` (relying on `RequestLoggingMiddleware` for structured JSON request logs without query strings or headers/bodies).
+
+### Summary for W6-2 (Orphan logger fallback to logging.lastResort)
+- **Problem**: Unhandled log records on orphan loggers (loggers with no handlers and `propagate=False`) fall back to `logging.lastResort` in Python standard library, emitting directly to `sys.stderr` without redaction.
+- **Resolution**:
+  - Created `RedactedLastResortHandler(logging.StreamHandler)` with `apply_redaction_filter(self)` attached.
+  - In `configure_logging()`, `apply_redaction_filter(logging.lastResort)` is called if `lastResort` exists; otherwise `logging.lastResort` is set to `RedactedLastResortHandler()`.
+  - Any orphan logger record falling back to `lastResort` has all canaries, bearer tokens, passwords, and secrets sanitized before emission to stderr.
 
 ---
 
@@ -68,6 +83,10 @@
 | **Structured JSON Format** | Standard keys: timestamp, level, logger, message, tenant_id, principal_id, run_id, task_id, request_id | PASS | `tests/test_observability.py::test_json_formatter_keys_and_correlation`: Formatter produces valid JSON containing all correlation fields; `test_log_context_manager` verifies scoping and context restoration. |
 | **Request Logging Middleware** | Logs method, path, status, duration, request_id; never bodies or headers | PASS | `tests/test_observability.py::test_request_logging_middleware_invariants`: GET /healthz logs `record.method="GET"`, `record.path="/healthz"`, `record.status=200`, `duration_ms`, `request_id`; headers and response body absent from logs. |
 | **Telemetry local_only** | Local loopback permitted; any off-host exporter raises InsecureTelemetryError | PASS | `tests/test_observability.py::test_telemetry_validation_local_only`: `http://127.0.0.1:4318` passes; `https://api.honeycomb.io` and exporter `zipkin` raise `InsecureTelemetryError`. |
+| **W6-1: Pre-existing uvicorn handlers & access redaction** | `dictConfig(uvicorn.config.LOGGING_CONFIG)` before `create_app()`; log canary, bearer token, DSN password through uvicorn.error and uvicorn.access (?token=<canary>); assert none appears in output | PASS | `tests/test_logging_sc04.py::test_w6_1_uvicorn_dictconfig_preexisting_handlers_and_access_redaction`: Canary, bearer token, token hash, DSN pass completely absent from `uvicorn.error` and `uvicorn.access` streams; query string dropped from path. |
+| **W6-1: Pre-existing handler on propagate=False child** | Pre-existing StreamHandler attached to child logger before `configure_logging()` receives redaction filter | PASS | `tests/test_logging_sc04.py::test_w6_1_preexisting_handler_on_child_logger_with_propagate_false`: Pre-existing handler output sanitized (`canary=***`, `secret=***`, `postgresql://user:***@localhost/db`). |
+| **W6-2: Orphan logger lastResort redaction** | Orphan logger (no handlers, propagate=False) emits warning to stderr with secrets redacted via lastResort | PASS | `tests/test_logging_sc04.py::test_w6_2_orphan_logger_fallback_to_last_resort_redacted`: `logging.lastResort` filters canary, token, and DSN password (`***`). |
+| **W6-1: Uvicorn subprocess E2E** | Subprocess running uvicorn on 127.0.0.1 handles error request carrying ?token=<canary>; output clean of secrets | PASS | `tests/test_logging_sc04.py::test_w6_1_uvicorn_subprocess_e2e_redaction`: Process started on loopback, handled `/trigger-error?token=...`; canary and password absent from stdout and stderr; path logged without query string. |
 
 ---
 
@@ -81,7 +100,7 @@ uv run pytest -q
 ```
 Real Output:
 ```
-426 passed, 1 warning in 50.33s
+430 passed, 1 warning in 46.72s
 ```
 
 ### 4.2 Ruff Check

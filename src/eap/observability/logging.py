@@ -258,21 +258,36 @@ class RedactionFilter(logging.Filter):
 
         try:
             # 1. Format and redact record message and args
-            if record.args:
-                try:
-                    formatted = record.msg % record.args
-                    record.msg = redact_text(formatted)
-                    record.args = ()
-                except (TypeError, ValueError):
+            if record.name == "uvicorn.access":
+                if isinstance(record.args, tuple) and len(record.args) >= 3:
+                    args_list = list(record.args)
+                    full_path = args_list[2]
+                    if isinstance(full_path, str) and "?" in full_path:
+                        # Drop query string from path
+                        args_list[2] = full_path.split("?", 1)[0]
+                    record.args = tuple(redact_structure(a) for a in args_list)
+                elif isinstance(record.args, tuple):
+                    record.args = tuple(redact_structure(a) for a in record.args)
+                elif isinstance(record.args, dict):
+                    record.args = redact_structure(record.args)
+                if isinstance(record.msg, str):
+                    record.msg = redact_text(record.msg)
+            else:
+                if record.args:
+                    try:
+                        formatted = record.msg % record.args
+                        record.msg = redact_text(formatted)
+                        record.args = ()
+                    except (TypeError, ValueError):
+                        record.msg = redact_text(str(record.msg))
+                        if isinstance(record.args, tuple):
+                            record.args = tuple(redact_structure(a) for a in record.args)
+                        elif isinstance(record.args, dict):
+                            record.args = redact_structure(record.args)
+                elif isinstance(record.msg, str):
+                    record.msg = redact_text(record.msg)
+                elif isinstance(record.msg, Exception):
                     record.msg = redact_text(str(record.msg))
-                    if isinstance(record.args, tuple):
-                        record.args = tuple(redact_structure(a) for a in record.args)
-                    elif isinstance(record.args, dict):
-                        record.args = redact_structure(record.args)
-            elif isinstance(record.msg, str):
-                record.msg = redact_text(record.msg)
-            elif isinstance(record.msg, Exception):
-                record.msg = redact_text(str(record.msg))
 
             # 2. Redact exceptions and tracebacks
             if record.exc_info:
@@ -370,6 +385,15 @@ _PATCH_APPLIED = False
 _CONFIGURE_LOCK = threading.Lock()
 
 
+class RedactedLastResortHandler(logging.StreamHandler):
+    """Fallback handler for orphan loggers with redaction filter attached."""
+
+    def __init__(self) -> None:
+        super().__init__(sys.stderr)
+        self.setLevel(logging.WARNING)
+        apply_redaction_filter(self)
+
+
 def apply_redaction_filter(target: logging.Handler | logging.Logger) -> None:
     """Attach the redaction filter to a logger or handler if not already present."""
     for f in target.filters:
@@ -393,6 +417,54 @@ def _patch_logger_add_handler() -> None:
     _PATCH_APPLIED = True
 
 
+def _patch_uvicorn_access_formatter() -> None:
+    """Ensure uvicorn's AccessFormatter drops query strings if active."""
+    try:
+        import uvicorn.logging
+
+        if hasattr(uvicorn.logging, "AccessFormatter"):
+            orig_format_message = uvicorn.logging.AccessFormatter.formatMessage
+
+            if getattr(orig_format_message, "_is_redacted", False):
+                return
+
+            def safe_format_message(self: Any, record: logging.LogRecord) -> str:
+                if hasattr(record, "args") and isinstance(record.args, tuple) and len(record.args) >= 3:
+                    args_list = list(record.args)
+                    if isinstance(args_list[2], str) and "?" in args_list[2]:
+                        args_list[2] = args_list[2].split("?", 1)[0]
+                    record.args = tuple(args_list)
+                return orig_format_message(self, record)
+
+            safe_format_message._is_redacted = True  # type: ignore[attr-defined]
+            uvicorn.logging.AccessFormatter.formatMessage = safe_format_message  # type: ignore[assignment]
+    except ImportError:
+        pass
+
+
+def _apply_redaction_to_all_loggers_and_handlers() -> None:
+    """Attach RedactionFilter to every existing logger, handler, and lastResort in the runtime."""
+    # 1. Root logger and root handlers
+    root = logging.getLogger()
+    apply_redaction_filter(root)
+    for h in root.handlers:
+        apply_redaction_filter(h)
+
+    # 2. Every existing logger in loggerDict and every handler on them
+    for logger_obj in list(logging.root.manager.loggerDict.values()):
+        if isinstance(logger_obj, logging.Logger):
+            logger_obj.disabled = False
+            apply_redaction_filter(logger_obj)
+            for h in logger_obj.handlers:
+                apply_redaction_filter(h)
+
+    # 3. logging.lastResort (W6-2)
+    if logging.lastResort is not None:
+        apply_redaction_filter(logging.lastResort)
+    else:
+        logging.lastResort = RedactedLastResortHandler()
+
+
 def configure_logging(
     settings: Any = None,
     level: int = logging.INFO,
@@ -401,28 +473,20 @@ def configure_logging(
     """Configure structured JSON logging and redaction once at startup.
 
     - Registers secrets from settings into the redaction filter.
-    - Applies RedactionFilter to every handler.
+    - Applies RedactionFilter to every handler across all loggers (root, child, lastResort).
     - Sets JsonFormatter on default StreamHandler.
+    - Ensures uvicorn access formatter drops query strings.
     """
     with _CONFIGURE_LOCK:
         if settings is not None:
             register_settings_secrets(settings)
 
         _patch_logger_add_handler()
+        _patch_uvicorn_access_formatter()
 
         root = logging.getLogger()
         root.setLevel(level)
         root.disabled = False
-        apply_redaction_filter(root)
-
-        # Ensure existing loggers are not disabled by external fileConfig calls
-        for l in logging.root.manager.loggerDict.values():
-            if isinstance(l, logging.Logger):
-                l.disabled = False
-
-        # Apply to all existing handlers on root and child loggers
-        for h in root.handlers:
-            apply_redaction_filter(h)
 
         if not root.handlers:
             default_handler = handler or logging.StreamHandler(sys.stdout)
@@ -430,7 +494,6 @@ def configure_logging(
             default_handler.setLevel(level)
             apply_redaction_filter(default_handler)
             root.addHandler(default_handler)
-        else:
-            # Ensure existing handlers have the filter
-            for h in root.handlers:
-                apply_redaction_filter(h)
+
+        # Apply RedactionFilter to ALL existing loggers, handlers, and lastResort
+        _apply_redaction_to_all_loggers_and_handlers()
