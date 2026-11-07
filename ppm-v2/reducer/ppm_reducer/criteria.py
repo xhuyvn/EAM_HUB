@@ -104,10 +104,23 @@ def assess_criteria(
     results: list[CriterionResult] = []
 
     for criterion in baseline["criteria"]:
+        # M3-2: Reject invalid baseline weight (missing, non-numeric, or <= 0)
+        w_raw = criterion.get("weight")
+        if (
+            w_raw is None
+            or isinstance(w_raw, bool)
+            or not isinstance(w_raw, (int, float))
+            or not (w_raw > 0)
+        ):
+            raise InputRejected(
+                reason="invalid_weight",
+                message=f"Criterion '{criterion.get('criterion_id')}' has invalid weight: {w_raw}",
+            )
+
         cid = str(criterion["criterion_id"])
         deliv_id = str(criterion["deliverable_id"])
         owner_proj_id = str(criterion["owner_project_id"])
-        weight = float(criterion["weight"])
+        weight = float(w_raw)
         required = bool(criterion.get("required", True))
         prev_status = criterion.get("previous_status")
 

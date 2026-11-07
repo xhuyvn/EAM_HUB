@@ -102,3 +102,140 @@ class CriterionResult:
         if include_explanation:
             data["explanation"] = self.explanation
         return data
+
+
+class FindingKind(enum.StrEnum):
+    ARCHITECTURE_DRIFT = "architecture_drift"
+    RELATIONSHIP_PROPOSED = "relationship_proposed"
+    IDENTITY_CONFLICT = "identity_conflict"
+    CONFLICTING_CLAIMS = "conflicting_claims"
+
+
+class FindingSeverity(enum.StrEnum):
+    INFO = "info"
+    WARNING = "warning"
+    REVIEW_REQUIRED = "review_required"
+    BLOCKER = "blocker"
+
+
+class ProgressBasis(enum.StrEnum):
+    BASELINE_WEIGHTED = "baseline_weighted"
+    NONE = "none"
+
+
+class AcceptanceReadiness(enum.StrEnum):
+    NOT_READY = "not_ready"
+    READY_FOR_REVIEW = "ready_for_review"
+
+
+class Validity(enum.StrEnum):
+    CURRENT = "current"
+    STALE = "stale"
+    UNKNOWN = "unknown"
+    CONFLICTED = "conflicted"
+
+
+class Verification(enum.StrEnum):
+    UNKNOWN = "unknown"
+    CLAIMED = "claimed"
+    PARTIALLY_VERIFIED = "partially_verified"
+    VERIFIED = "verified"
+    CONTRADICTED = "contradicted"
+    STALE = "stale"
+
+
+@dataclasses.dataclass(frozen=True)
+class ProgressResult:
+    """Progress ratio and criterion counts adhering to contracts/ppm-output.schema.json."""
+
+    basis: str
+    verified_weight: float | None
+    total_weight: float | None
+    criteria_total: int
+    criteria_with_current_evidence: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "basis": self.basis,
+            "verified_weight": self.verified_weight,
+            "total_weight": self.total_weight,
+            "criteria_total": self.criteria_total,
+            "criteria_with_current_evidence": self.criteria_with_current_evidence,
+        }
+
+
+@dataclasses.dataclass(frozen=True)
+class FindingResult:
+    """Domain finding emitted by the reducer (conforms to findings.schema.json)."""
+
+    kind: str
+    severity: str
+    target_ref: str
+    criterion_ids: list[str]
+    details: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "severity": self.severity,
+            "target_ref": self.target_ref,
+            "criterion_ids": list(self.criterion_ids),
+            "details": dict(self.details),
+        }
+
+
+@dataclasses.dataclass(frozen=True)
+class AssessmentResult:
+    """Full single-project assessment proposal produced by the PPM reducer."""
+
+    contract_version: str
+    assessment_id: str
+    project_id: str
+    baseline_revision: int | None
+    snapshot_refs: list[str]
+    validity: str
+    verification: str
+    acceptance_readiness: str
+    criteria: list[CriterionResult]
+    dependency_refs: list[dict[str, Any]]
+    progress: ProgressResult
+    reported_progress_percent: float | None
+    evidence_refs: list[str]
+    missing_evidence: list[str]
+    as_of: str
+    source_as_of: str | None
+    assessed_revision: str | None
+    previous_assessment_id: str | None
+    snapshot_seq: int
+    analysis_status: str
+    basis_seq: int
+    trigger: str
+    findings: list[FindingResult] = dataclasses.field(default_factory=list)
+
+    def to_dict(self, include_explanation: bool = True) -> dict[str, Any]:
+        """Convert to dict conforming strictly to contracts/ppm-output.schema.json."""
+        return {
+            "contract_version": self.contract_version,
+            "assessment_id": self.assessment_id,
+            "project_id": self.project_id,
+            "baseline_revision": self.baseline_revision,
+            "snapshot_refs": list(self.snapshot_refs),
+            "validity": self.validity,
+            "verification": self.verification,
+            "acceptance_readiness": self.acceptance_readiness,
+            "criteria": [c.to_dict(include_explanation=include_explanation) for c in self.criteria],
+            "dependency_refs": [dict(d) for d in self.dependency_refs],
+            "progress": self.progress.to_dict(),
+            "reported_progress_percent": self.reported_progress_percent,
+            "evidence_refs": list(self.evidence_refs),
+            "missing_evidence": list(self.missing_evidence),
+            "as_of": self.as_of,
+            "source_as_of": self.source_as_of,
+            "assessed_revision": self.assessed_revision,
+            "previous_assessment_id": self.previous_assessment_id,
+            "snapshot_seq": self.snapshot_seq,
+            "analysis_status": self.analysis_status,
+            "basis_seq": self.basis_seq,
+            "trigger": self.trigger,
+        }
+
