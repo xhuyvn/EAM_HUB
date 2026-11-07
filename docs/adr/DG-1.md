@@ -1,6 +1,32 @@
 # DG-1: Action Keys, Idempotency, Outbox Offsets, and Source Scoping
 
-- **Status**: `ready_for_owner_review`
+- **Status**: `signed` (owner decision 2026-11-07)
+
+## 0. Owner Decision Record
+
+- **Signed by**: xhuyvn (Huynn), project owner
+- **Date**: 2026-11-07
+- **Effect**: DG-1 closed together with DG-2 → **`P0 closed`**; P1a-WP1 migration may start.
+
+| Decision | Scope | Owner decision |
+|---|---|---|
+| DG-1.1 | Key derivation and idempotency (§2, §4) | approve |
+| DG-1.2 | Action slot authority (§3, C29b) | approve |
+| DG-1.3 | Outbox relay offset assignment (§5, ADR-020) | approve |
+| DG-1.4 | Physical source and project scope (§6, ADR-022) | approve |
+
+### 0.1 Binding conditions
+
+Each condition is an acceptance requirement of the listed work package. A WP that implements the area cannot be accepted without the listed evidence.
+
+| ID | Condition | Enforced by | Required evidence (observable) |
+|---|---|---|---|
+| DG1-C1 | No automatic retry while a remote outcome is `unknown` and not reconciled. | P1a-WP2, P1a-WP4 (C21, C29, C38) | Retry request → 409 `REMOTE_OUTCOME_UNKNOWN`; mock provider fresh submissions = 0 until reconciliation; attempt history preserved. |
+| DG1-C2 | Adapter without lookup support keeps the run `unknown` and requires operator intervention. | P1a-WP4 (C38), P3a-WP3 (HUD) | `lookup_supported=false` → run stays `unknown`, retry rejected, attention item rendered for the operator; no auto-resolution. |
+| DG1-C3 | Retry with the same `operation_key` but a different target or arguments is rejected. | P1a-WP1 (constraint), P1a-WP4 (C29) | Same key + different `payload_hash` (`resource_ref` or `arguments_sha256`) → 409 `OPERATION_KEY_CONFLICT`; mock provider 0 calls. |
+| DG1-C4 | Outbox relay sustains at least **200 events/s**. | P1a-WP7 (now thresholded) | 200 events/s × 10 min: 0 lost, 0 duplicated, offsets strictly increasing in commit order; report p50/p95 ingest→projection (SC-07). Below 200 events/s → WP7 not accepted. |
+| DG1-C5 | A shared component is counted once and does not inflate the progress denominator of consuming projects. | PPM-M0-WP4 (s08), P2a-WP1 (C32), P4-WP1 (C24) | Rollup counts each deliverable once (owner project only); consumer project progress `total_weight` excludes the shared component's criteria. |
+
 - **Date**: 2026-11-07
 - **Authority**: Plan §3 (DG-1), §6 (P0-WP7, P1a-WP1..WP4), `docs/01_DECISIONS_AND_SOURCE_RECONCILIATION.md` (ADR-011, ADR-014, ADR-017 rev. 2, ADR-020, ADR-022), `docs/02_RUNTIME_AND_SECURITY.md`.
 - **Enforces Conformance Cases**: C01, C02, C05, C06, C15, C19, C21, C23, C29, C29b, C32, C33, C38.

@@ -1,6 +1,27 @@
 # DG-2: Scan Scheduling Policy, Reassessment Triggers, and Basis Sequence CAS
 
-- **Status**: `ready_for_owner_review`
+- **Status**: `signed` (owner decision 2026-11-07)
+
+## 0. Owner Decision Record
+
+- **Signed by**: xhuyvn (Huynn), project owner
+- **Date**: 2026-11-07
+- **Effect**: DG-2 closed together with DG-1 → **`P0 closed`**.
+
+| Decision | Scope | Owner decision |
+|---|---|---|
+| DG-2.1 | Scheduler architecture (§2) | approve |
+| DG-2.2 | Assessment ordering: ADR-021 rev 2 `basis_seq` CAS (§4) | approve |
+| DG-2.3 | Scheduler operating policy: default 300 s, per-source override ≥ 60 s, debounce 5 s (§2.1) | approve |
+| DG-2.4 | Reassessment triggers independent of file scanning (§3) | approve |
+| DG-2.5 | Assessment input locking at task creation (§3.2) | approve |
+
+### 0.1 Binding condition
+
+| ID | Condition | Enforced by | Required evidence |
+|---|---|---|---|
+| DG2-C1 | Benchmark and test concurrency, lease/fencing and CAS **before any production deployment**. | P1a-WP3 (C33), P1a-WP4 (lease + fencing, C15), P2a-WP5 (C35), P2a-WP6 (C34, C39), P1a-WP7 / DG-5 (benchmark); production gate P5 | Concurrency tests with real parallel connections (not mocks of the DB); stale fencing token rejected; CAS loser recorded as history, current pointer never regresses; SC-07 benchmark report. No production deployment while any item lacks evidence. |
+
 - **Date**: 2026-11-07
 - **Authority**: Plan §3 (DG-2), §6 (P0-WP7, P2a-WP5..WP6, D1-fixture), `docs/01_DECISIONS_AND_SOURCE_RECONCILIATION.md` (ADR-021 rev. 2), `docs/04_PPM_INTEGRATION.md` (Round 3 & Round 4).
 - **Enforces Conformance Cases**: C34, C35, C36, C39, C41, C44.

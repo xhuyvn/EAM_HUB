@@ -197,7 +197,7 @@ P0 has two states: **`P0 ready_for_owner_review`** when coders complete WP1, WP2
 
 **P1a-WP5 Bootstrap identity** — 1 day: loopback-only; owner principal + second principal for local C30; requests with trusted fields → 422; binding 0.0.0.0 rejected.
 **P1a-WP6 Logging/redaction** — 0.5–1 day: SC-04; local_only traces.
-**P1a-WP7 Ingest baseline (measurement, unthresholded)** — 0.5–1 day: 200 events/s × 10 min; p50/p95 ingest→projection; actual bytes/event (`pg_total_relation_size` pre/post), WAL (`pg_current_wal_lsn` diff), relay throughput. SC-07 report.
+**P1a-WP7 Ingest baseline (measurement; relay threshold per DG1-C4)** — 0.5–1 day: 200 events/s × 10 min, acceptance requires sustained ≥ 200 events/s with 0 lost/duplicated events (owner condition DG1-C4, 07/11/2026; other metrics remain unthresholded until DG-5); p50/p95 ingest→projection; actual bytes/event (`pg_total_relation_size` pre/post), WAL (`pg_current_wal_lsn` diff), relay throughput. SC-07 report.
 
 ### P2a — PPM sources, collector, verifier, scheduler, reducer, orchestrator (15–22 days; reducer core in PPM-M0)
 **P2a-WP1 Sources and project scopes** — 2–2.5 days
