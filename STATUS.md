@@ -5,9 +5,9 @@ Last updated: 2026-11-06 by architecture review (plan rev 1.5). Coding agents up
 Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_requested` · `blocked` · `accepted` (owner only).
 
 ## Current position
-- Current position: P0 ready_for_owner_review (owner signs DG-1, DG-2).
-- Waiting on owner: sign DG-1/DG-2 after P0-WP7 (`docs/IMPLEMENTATION_PLAN.md` §3).
-- PPM-M0 continues in parallel (prompt: `ppm-v2/prompts/START_NEXT_MILESTONE.md`).
+- Phase: **P0 ready_for_owner_review**. P0-WP7 and PPM-M0-WP2 accepted and merged (`9a31182`).
+- Waiting on owner: sign DG-1 and DG-2 (`docs/adr/DG-1.md`, `docs/adr/DG-2.md`; open questions answered in `docs/acceptance/P0-WP7.md` §4). P1a-WP1 starts only after signature (`P0 closed`).
+- Can run now, in parallel: **PPM-M0-WP3 Findings and progress**, **PPM-M0-WP4 Rollup rules**, spike **P0-WP4 LangGraph replay**.
 
 ## Work packages to D0-thin-slice
 
@@ -16,10 +16,14 @@ Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_
 | P0-WP0 | English canonical docs | — | accepted | `wp/P0-WP0` (a36d44e) | `check_translation.py` (--compare: 38 pairs 0 diff, --fixture: PASS, --links: 0 broken, --tokens: 20.7% reduction, default: 38 up-to-date), `validate_package.py` PASS, `run_negative_cases.py` PASS, `sha256sum` PASS | ADR-025, ISS-007 resolved; accepted by owner |
 | P0-WP1 | Skeleton, CI, environment | P0-WP0 | accepted | `wp/P0-WP1` (code commit `59e1135`; packet `de3b8cc`; merged `a1b6b62`) | R1–R9 resolved; `uv sync --locked` PASS, `pytest -q` PASS (9 tests), `npm run build` PASS, docker compose (pg 18.6 healthy, redis/qdrant optional) PASS, alembic SC-06 PASS, standalone PPM PASS, `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, GitHub Actions CI 42318570673 PASS | `docs/DEV_ENVIRONMENT.md` checklist satisfied |
 | P0-WP2 | Contract models | P0-WP1 | accepted | `wp/P0-WP2` (code commit `2d5c112`; packet `d1b5934`; merged `3ae4eb8`) | SC-01 PASS, SC-02 PASS (46 tests), 16/16 schema parity PASS, 50/50 negative parity PASS, differential 5003 mutations / 0 violations, template digest 76580e7c...a436 PASS, ruff & mypy clean, `sha256sum` PASS | ISS-009 resolved; W2-1, W2-2 resolved |
-| P0-WP7 | Decision record DG-1/DG-2 | P0-WP2 | ready_for_review | `wp/P0-WP7` | DG-1 (strict rejection, vectors), DG-2, sequences, draft DDL (W7-3 scope cardinality), test_dg1_vectors PASS (23), test_draft_ddl PASS (8), 77 pytest PASS, SC-01 PASS, ruff & mypy clean, sha256sum PASS | ends at `P0 ready_for_owner_review` |
-| DG-1, DG-2 | Owner signature | P0-WP7 | not_started | | | owner action; gates P1a-WP1 |
+| P0-WP7 | Decision record DG-1/DG-2 | P0-WP2 | accepted | `wp/P0-WP7` (code commit `33c09c0`; merged `1e61e8e`) | DG-1 (strict rejection, vectors), DG-2, sequences, draft DDL (W7-3 scope cardinality), test_dg1_vectors PASS (23), test_draft_ddl PASS (8), 77 pytest PASS, SC-01 PASS, ruff & mypy clean, sha256sum PASS | ends at `P0 ready_for_owner_review` |
+| DG-1, DG-2 | Owner signature | P0-WP7 | ready_for_owner_signature | | | owner action; gates P1a-WP1 |
+| P0-WP3 | Spike: Windows path containment | — | not_started | | | gates DG-3; run before P2a-WP2 (collector `safe_open`) |
+| P0-WP4 | Spike: LangGraph replay (pinned) | — | not_started | | | resume gate / D-01; run during DG-1/DG-2 review, before P1a-WP2 |
+| P0-WP5 | Spike: vendor lookup/cancel | — | not_started | | | gates DG-4; before P4-WP2; needs owner's target provider |
+| P0-WP6 | Spike: Ollama throughput | — | not_started | | | gates DG-3; needs pilot GPU + owner model choice |
 | PPM-M0-WP1 | Fixture corpus | P0-WP1 | accepted | `wp/PPM-M0-WP1` (code commit `ec98866`; packet `2b0aced`; merged `bd98352`) | `check_fixtures.py` PASS (19 fixtures, 3 rollup), `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, `pytest` PASS (9 passed), `npm run build` PASS | s01, s21, s19 signed by owner 2026-11-07 |
-| PPM-M0-WP2 | Criterion reducer | PPM-M0-WP1 | ready_for_review | `wp/PPM-M0-WP2` (packet `docs/acceptance/PPM-M0-WP2.md`) | 18/18 fixtures match post-JCS, s29 InputRejected, determinism hash identical, audit hook clean (0 events), allowlist probe fails; `pytest` PASS (91 passed: 53 platform + 38 reducer), ruff & mypy clean, `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, `npm run build` PASS | Pure reducer: DAG supersession, trust classes, TTL boundary second, waivers, claims conflict; M2-1..M2-3 resolved |
+| PPM-M0-WP2 | Criterion reducer | PPM-M0-WP1 | accepted | `wp/PPM-M0-WP2` (code commit `d9c0964`; merged `9a31182`) | 18/18 fixtures match post-JCS, s29 InputRejected, determinism hash identical, audit hook clean (0 events), allowlist probe fails; `pytest` PASS (91 passed: 53 platform + 38 reducer), ruff & mypy clean, `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, `npm run build` PASS | Pure reducer: DAG supersession, trust classes, TTL boundary second, waivers, claims conflict; M2-1..M2-3 resolved |
 | PPM-M0-WP3 | Findings and progress | PPM-M0-WP2 | not_started | | | |
 | PPM-M0-WP4 | Rollup rules | PPM-M0-WP2 | not_started | | | |
 | PPM-M0-WP5 | Runner and packaging | PPM-M0-WP3, WP4 | not_started | | | |
@@ -37,6 +41,7 @@ The remaining WPs to D1-fixture (P2a-WP5…WP9, P1a-WP4…WP7, P3a-WP1…WP4, D1
 ## Session log (newest first)
 | Date | WP | Agent/session | Result | Commit |
 |---|---|---|---|---|
+| 2026-11-07 | P0-WP7, PPM-M0-WP2 | owner | accepted after re-review (P0-WP7: 9/9 vectors recomputed, strict key rejection probed, DDL parsed independently, W7-1..3 fixed; PPM-M0-WP2: off-corpus decision-table probes, M2-1..3 fixed); ISS-015..016 registered; spike rows P0-WP3..WP6 added | `1e61e8e`, `9a31182` |
 | 2026-11-07 | P0-WP7 | coding agent (implementation lead) | ready_for_review; DG-1 & DG-2 decision records, draft DDL, C29/C29b/C33/C34/C39 sequence diagrams, 65 tests pass, DDL parsed via pglast, ruff & mypy clean | `db61cf7` |
 | 2026-11-07 | PPM-M0-WP2 | coding agent (implementation lead) | ready_for_review; addressed changes_requested (M2-1 waiver active validation, M2-2 future evidence rejection, M2-3 missing revision rejection); 91 tests pass, ruff & mypy clean | `wp/PPM-M0-WP2` |
 | 2026-11-07 | PPM-M0-WP2 | coding agent (implementation lead) | ready_for_review; pure deterministic criterion reducer (`assess_criteria`), 18/18 fixtures match post-JCS, s29 InputRejected, determinism verified, import boundary allowlist hardened + runtime audit hook, 88 tests pass, ruff & mypy clean | `wp/PPM-M0-WP2` (`76640fd`) |
