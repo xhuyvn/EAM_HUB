@@ -1,0 +1,69 @@
+{
+  "fixture_id": "s33-all-waived",
+  "project_id": "proj-all-waived",
+  "snapshot_refs": [
+    "snap-s33-1"
+  ],
+  "snapshot_seq": 1,
+  "basis_seq": 1,
+  "previous_assessment_id": null,
+  "assessed_revision": "rev-s33-001",
+  "now": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "evidence_ttl_days": 7.0,
+  "baseline": {
+    "baseline_revision": 1,
+    "criteria": [
+      {
+        "criterion_id": "AC-001",
+        "deliverable_id": "DEL-001",
+        "owner_project_id": "proj-all-waived",
+        "weight": 2.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_core"
+          }
+        ],
+        "previous_status": null
+      },
+      {
+        "criterion_id": "AC-002",
+        "deliverable_id": "DEL-002",
+        "owner_project_id": "proj-all-waived",
+        "weight": 3.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_perf"
+          }
+        ],
+        "previous_status": null
+      }
+    ]
+  },
+  "claims": [],
+  "evidence": [],
+  "waivers": [
+    {
+      "waiver_id": "waiver-all-001",
+      "criterion_id": "AC-001",
+      "scope": "Core scope deferred",
+      "rationale": "Hardware environment delay",
+      "approved_by": "lead-reviewer",
+      "approved_at": "2026-11-01T00:00:00Z",
+      "expires_at": "2026-11-20T00:00:00Z"
+    },
+    {
+      "waiver_id": "waiver-all-002",
+      "criterion_id": "AC-002",
+      "scope": "Performance test scope deferred",
+      "rationale": "Staging environment undergoing maintenance",
+      "approved_by": "lead-reviewer",
+      "approved_at": "2026-11-01T00:00:00Z",
+      "expires_at": "2026-11-20T00:00:00Z"
+    }
+  ]
+}

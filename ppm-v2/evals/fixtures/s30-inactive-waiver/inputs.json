@@ -1,0 +1,139 @@
+{
+  "fixture_id": "s30-inactive-waiver",
+  "project_id": "proj-inactive-waiver",
+  "snapshot_refs": [
+    "snap-s30-1"
+  ],
+  "snapshot_seq": 1,
+  "basis_seq": 1,
+  "previous_assessment_id": null,
+  "assessed_revision": "rev-s30-001",
+  "now": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "evidence_ttl_days": 7.0,
+  "baseline": {
+    "baseline_revision": 1,
+    "criteria": [
+      {
+        "criterion_id": "AC-001",
+        "deliverable_id": "DEL-001",
+        "owner_project_id": "proj-inactive-waiver",
+        "weight": 1.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_alpha"
+          }
+        ],
+        "previous_status": null
+      },
+      {
+        "criterion_id": "AC-002",
+        "deliverable_id": "DEL-002",
+        "owner_project_id": "proj-inactive-waiver",
+        "weight": 1.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_beta"
+          }
+        ],
+        "previous_status": null
+      },
+      {
+        "criterion_id": "AC-003",
+        "deliverable_id": "DEL-003",
+        "owner_project_id": "proj-inactive-waiver",
+        "weight": 1.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_gamma"
+          }
+        ],
+        "previous_status": null
+      },
+      {
+        "criterion_id": "AC-004",
+        "deliverable_id": "DEL-004",
+        "owner_project_id": "proj-inactive-waiver",
+        "weight": 1.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_delta"
+          }
+        ],
+        "previous_status": null
+      }
+    ]
+  },
+  "claims": [],
+  "evidence": [
+    {
+      "evidence_id": "ev-alpha-001",
+      "trust_class": "verifier_observed",
+      "revision": "rev-s30-001",
+      "observed_at": "2026-11-05T11:00:00Z",
+      "test_id": "test_alpha",
+      "covered_test_ids": [
+        "test_alpha"
+      ],
+      "result": "passed",
+      "artifact_path": null
+    },
+    {
+      "evidence_id": "ev-beta-001",
+      "trust_class": "verifier_observed",
+      "revision": "rev-s30-001",
+      "observed_at": "2026-11-05T11:05:00Z",
+      "test_id": "test_beta",
+      "covered_test_ids": [
+        "test_beta"
+      ],
+      "result": "failed",
+      "artifact_path": null
+    }
+  ],
+  "waivers": [
+    {
+      "waiver_id": "waiver-inact-001",
+      "criterion_id": "AC-001",
+      "scope": "Missing approved_by",
+      "rationale": "Pending reviewer signature",
+      "approved_at": "2026-11-01T00:00:00Z",
+      "expires_at": "2026-11-20T00:00:00Z"
+    },
+    {
+      "waiver_id": "waiver-inact-002",
+      "criterion_id": "AC-002",
+      "scope": "Null approved_at",
+      "rationale": "Timestamp missing in audit log",
+      "approved_by": "lead-architect",
+      "approved_at": null,
+      "expires_at": "2026-11-20T00:00:00Z"
+    },
+    {
+      "waiver_id": "waiver-inact-003",
+      "criterion_id": "AC-003",
+      "scope": "Future approved_at",
+      "rationale": "Approved for future cycle",
+      "approved_by": "lead-architect",
+      "approved_at": "2026-11-06T00:00:00Z",
+      "expires_at": "2026-11-20T00:00:00Z"
+    },
+    {
+      "waiver_id": "waiver-inact-004",
+      "criterion_id": "AC-004",
+      "scope": "Expires at now boundary",
+      "rationale": "Expired at evaluation instant",
+      "approved_by": "lead-architect",
+      "approved_at": "2026-11-01T00:00:00Z",
+      "expires_at": "2026-11-05T12:00:00Z"
+    }
+  ]
+}

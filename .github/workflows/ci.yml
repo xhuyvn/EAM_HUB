@@ -59,6 +59,9 @@ jobs:
       - name: Check PPM v2 fixture corpus
         run: uv run python ppm-v2/tools/check_fixtures.py
 
+      - name: Run PPM v2 reducer fixture corpus
+        run: uv run python ppm-v2/tools/run_reducer_fixtures.py
+
       - name: Check translation staleness (SC-08)
         run: uv run python tools/check_translation.py
 

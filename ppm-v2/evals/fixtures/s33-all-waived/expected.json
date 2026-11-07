@@ -1,0 +1,73 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s33-001",
+  "project_id": "proj-all-waived",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-s33-1"
+  ],
+  "validity": "current",
+  "verification": "unknown",
+  "acceptance_readiness": "not_ready",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "deliverable_id": "DEL-001",
+      "owner_project_id": "proj-all-waived",
+      "weight": 2.0,
+      "required": true,
+      "status": "waived",
+      "reason_code": "waiver_approved",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [],
+      "explanation": "Criterion waived under approved waiver waiver-all-001.",
+      "reported_status": "none",
+      "reported_claim_refs": [],
+      "evidence_revision": null,
+      "covered_test_ids": [],
+      "previous_status": null,
+      "evidence_trust": "none",
+      "waiver_ref": "waiver-all-001"
+    },
+    {
+      "criterion_id": "AC-002",
+      "deliverable_id": "DEL-002",
+      "owner_project_id": "proj-all-waived",
+      "weight": 3.0,
+      "required": true,
+      "status": "waived",
+      "reason_code": "waiver_approved",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [],
+      "explanation": "Criterion waived under approved waiver waiver-all-002.",
+      "reported_status": "none",
+      "reported_claim_refs": [],
+      "evidence_revision": null,
+      "covered_test_ids": [],
+      "previous_status": null,
+      "evidence_trust": "none",
+      "waiver_ref": "waiver-all-002"
+    }
+  ],
+  "dependency_refs": [],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": null,
+    "total_weight": null,
+    "criteria_total": 2,
+    "criteria_with_current_evidence": 0
+  },
+  "reported_progress_percent": 0.0,
+  "evidence_refs": [],
+  "missing_evidence": [],
+  "as_of": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "assessed_revision": "rev-s33-001",
+  "previous_assessment_id": null,
+  "snapshot_seq": 1,
+  "analysis_status": "complete",
+  "basis_seq": 1,
+  "trigger": "snapshot"
+}
