@@ -150,6 +150,11 @@
           "cost_state": "known"
         }
       ]
-    }
+    },
+    "viewer_authorized_project_ids": [
+      "proj-consumer-a",
+      "proj-consumer-b",
+      "proj-shared-gw"
+    ]
   }
 }

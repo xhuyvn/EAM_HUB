@@ -90,22 +90,8 @@ def rollup_validator() -> jsonschema.Draft202012Validator:
 @pytest.mark.parametrize(
     "fixture",
     [
-        pytest.param(
-            "s08-shared-component",
-            marks=pytest.mark.xfail(
-                reason="ISS-NEW-1: fixture inputs.json lacks context.viewer_authorized_project_ids required by M4-1 fail-closed authorization",
-                raises=InputRejected,
-                strict=True,
-            ),
-        ),
-        pytest.param(
-            "s10-missing-budget",
-            marks=pytest.mark.xfail(
-                reason="ISS-NEW-1: fixture inputs.json lacks context.viewer_authorized_project_ids required by M4-1 fail-closed authorization",
-                raises=InputRejected,
-                strict=True,
-            ),
-        ),
+        "s08-shared-component",
+        "s10-missing-budget",
         "s19-partial-portfolio",
     ],
 )

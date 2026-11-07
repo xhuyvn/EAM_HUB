@@ -95,6 +95,10 @@
           "cost_state": "known"
         }
       ]
-    }
+    },
+    "viewer_authorized_project_ids": [
+      "proj-core-engine",
+      "proj-ui-app"
+    ]
   }
 }
