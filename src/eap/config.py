@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     qdrant_api_key: SecretStr | None = Field(default=None, alias="QDRANT_API_KEY")
 
     ollama_base_url: str = Field(default="http://127.0.0.1:11434", alias="OLLAMA_BASE_URL")
+    relay_enabled: bool = Field(default=True, alias="RELAY_ENABLED")
     eap_egress_default: str = Field(default="local_only", alias="EAP_EGRESS_DEFAULT")
     eap_telemetry: str = Field(default="local_only", alias="EAP_TELEMETRY")
     eap_secret_canary: SecretStr | None = Field(default=None, alias="EAP_SECRET_CANARY")

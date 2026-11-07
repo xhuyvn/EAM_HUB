@@ -1,5 +1,12 @@
 """EAP database connection, session handling, and schema definitions."""
 
+from eap.db.event_tables import (
+    event_quarantine,
+    outbox_relay_marks,
+    projection_checkpoints,
+    security_events,
+    stream_heads,
+)
 from eap.db.session import get_engine, get_session_factory
 from eap.db.tables import (
     action_executions,
@@ -27,17 +34,22 @@ __all__ = [
     "commands",
     "dispatch_intents",
     "event_log",
+    "event_quarantine",
     "get_engine",
     "get_session_factory",
     "leases",
     "metadata",
     "outbox",
+    "outbox_relay_marks",
     "ppm_scan_schedules",
     "project_current_assessment",
     "project_scopes",
+    "projection_checkpoints",
     "run_attempt_history",
     "runs",
+    "security_events",
     "sources",
+    "stream_heads",
     "task_intents",
     "tasks",
     "usage_ledger",
