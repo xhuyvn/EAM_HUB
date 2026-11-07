@@ -5,11 +5,12 @@ Last updated: 2026-11-06 by architecture review (plan rev 1.5). Coding agents up
 Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_requested` · `blocked` · `accepted` (owner only).
 
 ## Current position
-- Phase: **P0 closed**; P1a in progress. Accepted 2026-11-07: P1a-WP1 (schema + migrations, tenant-scoped FKs per DG-1 Amendment A1), PPM-M0-WP3 (findings + progress), P0-WP4 (D-01 = option b).
-- Next WP (platform, critical path): **P1a-WP2 Task/Run service** (must deliver DG1-C1, ISS-016 identifier allowlist, ISS-017 task state alignment, ISS-019 platform rule fix).
-- Can run in parallel: **P1a-WP3 Outbox relay, ingestion, projection**, **PPM-M0-WP4 Rollup rules** (DG1-C5).
+- Phase: **P0 closed**; P1a in progress. Accepted: P1a-WP1, P1a-WP3 (relay, ingestion, projection; migration `0002_events`), PPM-M0-WP1..WP3, P0-WP4 (D-01 = option b).
+- In review, changes requested 2026-11-07: **P1a-WP2** (tenant must not come from client headers) and **PPM-M0-WP4** (authorization must fail closed).
+- Merge note: P1a-WP2's `0002_task_run` must be re-chained to `down_revision = "0002_events"` at merge (owner action), then SC-06 re-run.
+- Next after P1a-WP2: **P1a-WP4 Dispatcher, mock provider, recovery, cancel** (C21, C29, C29b, C38; DG1-C1..C3).
 - Every P1a/P2a WP that touches a DG condition must show that condition's evidence in its packet.
-- D-01 decided (owner, 2026-11-07): option (b) — LangGraph inside a single attempt only, no resume for side-effect workflows; retries via Run Service + DG-1 (`docs/01`, `docs/spikes/P0-WP4.md`).
+- D-01 decided (owner, 2026-11-07): option (b) — LangGraph inside a single attempt only, no resume for side-effect workflows; retries via Run Service + DG-1.
 
 ## Work packages to D0-thin-slice
 
@@ -31,7 +32,7 @@ Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_
 | PPM-M0-WP5 | Runner and packaging | PPM-M0-WP3, WP4 | not_started | | | |
 | P1a-WP1 | Schema and migrations | DG-1, DG-2 | accepted | `wp/P1a-WP1` (code commit `a5a3c4b`; merged `0668292`) | P1-1 composite FK tenant isolation (7 FKs, unique parent keys, catalog test + 7 cross-tenant rejection tests), P1-2 CI collection failure enforcement, SC-06 PASS (empty up/down/up + seeded down/up), 38 constraint tests PASS against PostgreSQL 18.6 (DG1-C3, C02, C15, C29, C32/W7-3, C33, P1-1), autogenerate diff empty, draft-vs-migration parity PASS; `pytest -q` 160 passed; ruff & mypy clean; GitHub Actions CI 42353502611 PASS; `validate_package.py` PASS, `run_negative_cases.py` PASS, `check_fixtures.py` PASS, `check_translation.py` PASS, `sha256sum` PASS, HUD build PASS | Conformance: C02, C15, C29, C32, C33, DG1-C3; ISS-017 opened; ISS-001 resolved |
 | P1a-WP2 | Task/Run service | P1a-WP1 | not_started | | | |
-| P1a-WP3 | Outbox relay, ingestion, projection | P1a-WP1 | ready_for_review | `wp/P1a-WP3` (af1739c) | C33 relay commit order, C02 conflict quarantine & idempotent duplicate, C23 tenant mismatch quarantine & security event, concurrent relays advisory lock, crash recovery, hypothesis property replay, throughput smoke 280.1 events/s; SC-06 PASS, 222 pytest PASS, ruff & mypy clean, HUD build PASS | Rollback: relay.enabled=false |
+| P1a-WP3 | Outbox relay, ingestion, projection | P1a-WP1 | accepted | `wp/P1a-WP3` (code commit `ee62f50`; merged `f7b640a`) | C33 relay commit order, C02 conflict quarantine & idempotent duplicate, C23 tenant mismatch quarantine & security event, concurrent relays advisory lock, crash recovery, hypothesis property replay, throughput smoke 280.1 events/s; SC-06 PASS, 222 pytest PASS, ruff & mypy clean, HUD build PASS | Rollback: relay.enabled=false |
 | P2a-WP1 | Sources and project scopes | P1a-WP1 | not_started | | | |
 | P2a-WP2 | Collector (read-only) | P2a-WP1 | not_started | | | |
 | P2a-WP3 | Ingest `.ppm` and notes | P2a-WP2 | not_started | | | |
@@ -43,6 +44,7 @@ The remaining WPs to D1-fixture (P2a-WP5…WP9, P1a-WP4…WP7, P3a-WP1…WP4, D1
 ## Session log (newest first)
 | Date | WP | Agent/session | Result | Commit |
 |---|---|---|---|---|
+| 2026-11-07 | P1a-WP3 | owner | accepted after re-review (C33 test uses two real connections; owner stress test: 6 writers with random commit order + 3 concurrent relays -> 240/240 events, offsets 1..240 contiguous, 0 duplicates, 0 errors; DB tests + SC-06 on real PostgreSQL) | `f7b640a` |
 | 2026-11-07 | P1a-WP3 | coding agent (implementation lead) | ready_for_review; 0002_events migration + outbox relay, ingestion, and HUD run projection pipeline; pg_advisory_xact_lock serialized concurrency; C33 commit-order offsets verified with 2 connections + barrier, C02 content conflict & duplicate idempotency, C23 tenant mismatch quarantine & security events, crash recovery atomicity, Hypothesis property-based replay matches fresh snapshot across all cursors; SC-06 empty & seeded cycles pass; 222 pytest pass, ruff & mypy clean, HUD build pass, throughput smoke 280.1 events/s; rollback: relay.enabled=false | `af1739c` |
 | 2026-11-07 | P1a-WP1, PPM-M0-WP3 | owner | accepted after re-review (P1a-WP1: cross-tenant FK attack now rejected on real PostgreSQL, 38/38 DB tests, SC-06, CI skip guard verified; PPM-M0-WP3: invalid weights rejected, all-waived output per owner decision); fixed 3 mypy errors in reducer tests at merge (CI scope); ISS-019 registered | `0668292`, `3e1da91` |
 | 2026-11-07 | P0-WP4, D-01 | owner | P0-WP4 accepted after re-review (pinned versions verified on PyPI; Q2 20/20 duplicates and Q5 20/20 exactly-once re-run); D-01 = option (b); spike issue renumbered ISS-017 → ISS-018 (numbering clash with P1a-WP1) | `5125cbd` |
