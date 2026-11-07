@@ -36,7 +36,7 @@
 ## 2. Environment and Dependencies
 - **Base Commit**: `70ea3bd9a106fc00c6e83d918a0f25bba39ff2a4` (main)
 - **Branch**: `wp/PPM-M0-WP1`
-- **Corpus Code Commit**: `5fa4eca` (initial corpus), updated in `changes_requested` round
+- **Corpus Code Commit**: `ec98866` (updates `5fa4eca` with M1-1..M1-4 changes_requested resolutions)
 - **Python**: 3.12.13 (CPython via `uv`)
 - **Node.js**: 26 / npm 11.2.0
 - **Dependencies**: `jsonschema>=4.23,<5`, `PyYAML>=6.0.2,<7` (pinned via `ppm-v2/tools/requirements.txt`)
