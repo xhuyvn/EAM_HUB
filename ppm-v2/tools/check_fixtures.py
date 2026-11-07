@@ -3,16 +3,22 @@
 
 Checks:
 - inputs.json against inputs.schema.json
-- expected.json against contracts/ppm-output.schema.json
+- expected.json against contracts/ppm-output.schema.json (or expected_error.json)
+- expected_findings.json against findings.schema.json
 - expected_rollup.json against rollup.schema.json
 - Cross-reference between MAPPING.md and fixture directories on disk
 - Confidentiality check: s19 outputs contain zero hidden project IDs
+- Cross-checks inputs <-> expected:
+  * every criterion's evidence_trust equals the trust_class of a referenced input evidence (or none)
+  * verified requires verifier_observed|ci_attested passing evidence at assessed_revision
+  * waived requires an unexpired waiver at now
 - Hard rule invariants: explicit denominators, cost_state=unknown has cost_usd=null, single deliverable counting
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import re
 import sys
@@ -22,9 +28,13 @@ from typing import Any, cast
 import jsonschema  # type: ignore[import-untyped]
 
 
-def load_json(path: Path) -> dict[str, Any]:
+def load_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as f:
-        return cast(dict[str, Any], json.load(f))
+        return json.load(f)
+
+
+def parse_iso(ts_str: str) -> dt.datetime:
+    return dt.datetime.fromisoformat(ts_str)
 
 
 def check_fixtures(
@@ -33,15 +43,17 @@ def check_fixtures(
     output_schema_path: Path,
     inputs_schema_path: Path,
     rollup_schema_path: Path,
+    findings_schema_path: Path,
     mapping_path: Path,
 ) -> tuple[int, int]:
     errors: list[str] = []
 
     # 1. Load schemas
     try:
-        inputs_schema = load_json(inputs_schema_path)
-        output_schema = load_json(output_schema_path)
-        rollup_schema = load_json(rollup_schema_path)
+        inputs_schema = cast(dict[str, Any], load_json(inputs_schema_path))
+        output_schema = cast(dict[str, Any], load_json(output_schema_path))
+        rollup_schema = cast(dict[str, Any], load_json(rollup_schema_path))
+        findings_schema = cast(dict[str, Any], load_json(findings_schema_path))
     except (OSError, json.JSONDecodeError) as exc:
         print(f"ERROR: Failed to load schemas: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -49,6 +61,7 @@ def check_fixtures(
     inputs_validator = jsonschema.Draft202012Validator(inputs_schema)
     output_validator = jsonschema.Draft202012Validator(output_schema)
     rollup_validator = jsonschema.Draft202012Validator(rollup_schema)
+    findings_validator = jsonschema.Draft202012Validator(findings_schema)
 
     # 2. Check MAPPING.md cross-reference if mapping_path exists
     fixtures_in_mapping: set[str] = set()
@@ -79,35 +92,128 @@ def check_fixtures(
         fixture_id = fdir.name
         inputs_path = fdir / "inputs.json"
         expected_path = fdir / "expected.json"
+        expected_err_path = fdir / "expected_error.json"
+        findings_path = fdir / "expected_findings.json"
         readme_path = fdir / "README.md"
         rollup_path = fdir / "expected_rollup.json"
 
         if not inputs_path.exists():
             errors.append(f"[{fixture_id}] Missing inputs.json")
             continue
-        if not expected_path.exists():
-            errors.append(f"[{fixture_id}] Missing expected.json")
+        if not expected_path.exists() and not expected_err_path.exists():
+            errors.append(f"[{fixture_id}] Missing expected.json or expected_error.json")
             continue
         if not readme_path.exists():
             errors.append(f"[{fixture_id}] Missing README.md")
 
         # Validate inputs.json
+        inputs_data: dict[str, Any] = {}
         try:
-            inputs_data = load_json(inputs_path)
+            inputs_data = cast(dict[str, Any], load_json(inputs_path))
             for err in inputs_validator.iter_errors(inputs_data):
                 errors.append(f"[{fixture_id}/inputs.json] Schema error at '{err.json_path}': {err.message}")
         except (OSError, json.JSONDecodeError) as exc:
             errors.append(f"[{fixture_id}/inputs.json] JSON load error: {exc}")
             continue
 
+        # Validate expected_findings.json
+        if findings_path.exists():
+            try:
+                findings_data = load_json(findings_path)
+                for err in findings_validator.iter_errors(findings_data):
+                    errors.append(f"[{fixture_id}/expected_findings.json] Schema error at '{err.json_path}': {err.message}")
+            except (OSError, json.JSONDecodeError) as exc:
+                errors.append(f"[{fixture_id}/expected_findings.json] JSON load error: {exc}")
+        else:
+            errors.append(f"[{fixture_id}] Missing expected_findings.json")
+
+        # Validate expected_error.json if present
+        if expected_err_path.exists():
+            try:
+                err_data = cast(dict[str, Any], load_json(expected_err_path))
+                if not err_data.get("error"):
+                    errors.append(f"[{fixture_id}/expected_error.json] Missing 'error' property")
+                if not err_data.get("reason"):
+                    errors.append(f"[{fixture_id}/expected_error.json] Missing 'reason' property")
+            except (OSError, json.JSONDecodeError) as exc:
+                errors.append(f"[{fixture_id}/expected_error.json] JSON load error: {exc}")
+            fixture_count += 1
+            continue
+
         # Validate expected.json
+        expected_data: dict[str, Any] = {}
         try:
-            expected_data = load_json(expected_path)
+            expected_data = cast(dict[str, Any], load_json(expected_path))
             for err in output_validator.iter_errors(expected_data):
                 errors.append(f"[{fixture_id}/expected.json] Schema error at '{err.json_path}': {err.message}")
         except (OSError, json.JSONDecodeError) as exc:
             errors.append(f"[{fixture_id}/expected.json] JSON load error: {exc}")
             continue
+
+        # Cross-checks between inputs.json and expected.json
+        now_str = inputs_data.get("now", "")
+        now_dt = parse_iso(now_str) if now_str else None
+        assessed_rev = inputs_data.get("assessed_revision")
+
+        input_evidence_list = inputs_data.get("evidence", [])
+        input_evidence_map = {ev.get("evidence_id"): ev for ev in input_evidence_list}
+        input_trust_classes = {ev.get("trust_class") for ev in input_evidence_list}
+        input_waivers = {w.get("waiver_id"): w for w in inputs_data.get("waivers", [])}
+
+        criteria = expected_data.get("criteria", [])
+        for crit in criteria:
+            cid = crit.get("criterion_id")
+            c_trust = crit.get("evidence_trust")
+            c_status = crit.get("status")
+            w_ref = crit.get("waiver_ref")
+
+            # 1. evidence_trust equals the trust_class of a referenced input evidence (or none)
+            if c_trust != "none":
+                ref_ev_ids = crit.get("supporting_evidence_refs", []) + crit.get("refuting_evidence_refs", [])
+                if ref_ev_ids:
+                    for r_id in ref_ev_ids:
+                        ref_ev = input_evidence_map.get(r_id)
+                        if ref_ev and ref_ev.get("trust_class") != c_trust:
+                            errors.append(
+                                f"[{fixture_id}] Criterion {cid} evidence_trust '{c_trust}' does not match referenced evidence {r_id} trust_class '{ref_ev.get('trust_class')}'"
+                            )
+                elif c_trust not in input_trust_classes:
+                    errors.append(
+                        f"[{fixture_id}] Criterion {cid} declares evidence_trust '{c_trust}' not present in input evidence"
+                    )
+
+            # 2. verified requires verifier_observed|ci_attested evidence at assessed_revision
+            if c_status == "verified":
+                if c_trust not in ("verifier_observed", "ci_attested"):
+                    errors.append(
+                        f"[{fixture_id}] Criterion {cid} has status 'verified' but evidence_trust is '{c_trust}' (requires verifier_observed or ci_attested)"
+                    )
+                # Check for passing evidence at assessed_revision
+                has_passing_current = any(
+                    ev.get("trust_class") in ("verifier_observed", "ci_attested")
+                    and ev.get("revision") == assessed_rev
+                    and ev.get("result") == "passed"
+                    for ev in input_evidence_list
+                )
+                if not has_passing_current:
+                    errors.append(
+                        f"[{fixture_id}] Criterion {cid} has status 'verified' but lacks verifier_observed or ci_attested passing evidence at assessed revision {assessed_rev}"
+                    )
+
+            # 3. waived requires an unexpired waiver at now
+            if c_status == "waived":
+                if not w_ref:
+                    errors.append(f"[{fixture_id}] Criterion {cid} has status 'waived' but waiver_ref is null")
+                else:
+                    waiver = input_waivers.get(w_ref)
+                    if not waiver:
+                        errors.append(f"[{fixture_id}] Criterion {cid} references nonexistent waiver '{w_ref}'")
+                    elif now_dt:
+                        expires_at = parse_iso(waiver["expires_at"])
+                        if expires_at <= now_dt:
+                            errors.append(
+                                f"[{fixture_id}] Criterion {cid} is marked 'waived' with expired waiver '{w_ref}' (expired {waiver['expires_at']} <= now {now_str})"
+                            )
 
         # Invariant: explicit denominator for progress
         progress = expected_data.get("progress", {})
@@ -120,7 +226,7 @@ def check_fixtures(
         if rollup_path.exists():
             rollup_count += 1
             try:
-                rollup_data = load_json(rollup_path)
+                rollup_data = cast(dict[str, Any], load_json(rollup_path))
                 for err in rollup_validator.iter_errors(rollup_data):
                     errors.append(f"[{fixture_id}/expected_rollup.json] Schema error at '{err.json_path}': {err.message}")
 
@@ -183,6 +289,7 @@ def main() -> None:
     output_schema_path = repo_root / "contracts" / "ppm-output.schema.json"
     inputs_schema_path = repo_root / "ppm-v2" / "evals" / "fixtures" / "inputs.schema.json"
     rollup_schema_path = repo_root / "ppm-v2" / "evals" / "fixtures" / "rollup.schema.json"
+    findings_schema_path = repo_root / "ppm-v2" / "evals" / "fixtures" / "findings.schema.json"
     mapping_path = repo_root / "ppm-v2" / "evals" / "fixtures" / "MAPPING.md"
 
     check_fixtures(
@@ -191,6 +298,7 @@ def main() -> None:
         output_schema_path=output_schema_path,
         inputs_schema_path=inputs_schema_path,
         rollup_schema_path=rollup_schema_path,
+        findings_schema_path=findings_schema_path,
         mapping_path=mapping_path,
     )
 

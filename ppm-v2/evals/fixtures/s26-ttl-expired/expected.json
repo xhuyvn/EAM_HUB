@@ -1,0 +1,63 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s26-001",
+  "project_id": "proj-ttl",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-ttl-r1"
+  ],
+  "validity": "stale",
+  "verification": "stale",
+  "acceptance_readiness": "not_ready",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "deliverable_id": "DEL-CACHE-001",
+      "owner_project_id": "proj-ttl",
+      "weight": 1.0,
+      "required": true,
+      "status": "stale",
+      "reason_code": "evidence_stale_revision",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [
+        "Fresh verifier execution of test_session_cache within 7-day TTL"
+      ],
+      "explanation": "Evidence ev-ttl-old-001 is from the assessed revision rev-ttl-001 but is 15 days old (observed 2026-11-05, evaluated 2026-11-20), exceeding the parameterized 7-day TTL.",
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "claim-upd-ttl-001"
+      ],
+      "evidence_revision": "rev-ttl-001",
+      "covered_test_ids": [
+        "test_session_cache"
+      ],
+      "previous_status": "verified",
+      "evidence_trust": "verifier_observed",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 0.0,
+    "total_weight": 1.0,
+    "criteria_total": 1,
+    "criteria_with_current_evidence": 0
+  },
+  "reported_progress_percent": 100.0,
+  "evidence_refs": [
+    "ev-ttl-old-001"
+  ],
+  "missing_evidence": [
+    "Fresh verifier execution of test_session_cache within 7-day TTL"
+  ],
+  "as_of": "2026-11-20T12:00:00Z",
+  "source_as_of": "2026-11-05T10:00:00Z",
+  "assessed_revision": "rev-ttl-001",
+  "previous_assessment_id": null,
+  "snapshot_seq": 1,
+  "analysis_status": "complete",
+  "basis_seq": 1,
+  "trigger": "evidence_ttl_expired"
+}

@@ -1,0 +1,21 @@
+[
+  {
+    "kind": "conflicting_claims",
+    "severity": "warning",
+    "target_ref": "criterion:AC-001",
+    "criterion_ids": [
+      "AC-001"
+    ],
+    "details": {
+      "conflicting_updates": [
+        "claim-upd-101",
+        "claim-upd-102"
+      ],
+      "claimed_statuses": [
+        "claimed_done",
+        "claimed_blocked"
+      ],
+      "message": "Concurrent updates within the same snapshot submit conflicting progress claims."
+    }
+  }
+]

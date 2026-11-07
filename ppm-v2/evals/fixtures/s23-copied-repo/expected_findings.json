@@ -1,0 +1,14 @@
+[
+  {
+    "kind": "identity_conflict",
+    "severity": "blocker",
+    "target_ref": "project:proj-replicated",
+    "criterion_ids": [],
+    "details": {
+      "project_id": "proj-replicated",
+      "registered_repo": "git@github.com:acme-corp/product-original.git",
+      "observed_repo": "git@github.com:acme-corp/product-fork.git",
+      "message": "Project ID encountered at a secondary repository without re-registration or clone confirmation."
+    }
+  }
+]

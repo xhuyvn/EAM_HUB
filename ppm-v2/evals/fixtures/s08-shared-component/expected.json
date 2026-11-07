@@ -35,6 +35,26 @@
       "previous_status": null,
       "evidence_trust": "verifier_observed",
       "waiver_ref": null
+    },
+    {
+      "criterion_id": "AC-A-002",
+      "deliverable_id": "DEL-A-002",
+      "owner_project_id": "proj-consumer-a",
+      "weight": 1.0,
+      "required": false,
+      "status": "waived",
+      "reason_code": "waiver_approved",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [],
+      "explanation": "Criterion AC-A-002 is covered by approved waiver waiver-cons-a-001 expiring on 2026-12-01T00:00:00Z. It is excluded from total_weight and verified_weight.",
+      "reported_status": "none",
+      "reported_claim_refs": [],
+      "evidence_revision": null,
+      "covered_test_ids": [],
+      "previous_status": null,
+      "evidence_trust": "none",
+      "waiver_ref": "waiver-cons-a-001"
     }
   ],
   "dependency_refs": [
@@ -48,7 +68,7 @@
     "basis": "baseline_weighted",
     "verified_weight": 2.0,
     "total_weight": 2.0,
-    "criteria_total": 1,
+    "criteria_total": 2,
     "criteria_with_current_evidence": 1
   },
   "reported_progress_percent": 100.0,

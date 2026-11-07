@@ -27,6 +27,20 @@
           }
         ],
         "previous_status": null
+      },
+      {
+        "criterion_id": "AC-A-002",
+        "deliverable_id": "DEL-A-002",
+        "owner_project_id": "proj-consumer-a",
+        "weight": 1.0,
+        "required": false,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_consumer_optional_telemetry"
+          }
+        ],
+        "previous_status": null
       }
     ]
   },
@@ -44,7 +58,7 @@
       "evidence_path": null,
       "working_tree_state": "clean",
       "recorded_at": "2026-11-05T11:45:00Z",
-      "summary": "Completed consumer feature A."
+      "summary": "Completed consumer feature A; telemetry waived."
     }
   ],
   "evidence": [
@@ -61,7 +75,17 @@
       "artifact_path": null
     }
   ],
-  "waivers": [],
+  "waivers": [
+    {
+      "waiver_id": "waiver-cons-a-001",
+      "criterion_id": "AC-A-002",
+      "scope": "Telemetry deferral for consumer A",
+      "rationale": "External collector undergoing upgrade",
+      "approved_by": "qa-director-01",
+      "approved_at": "2026-11-01T00:00:00Z",
+      "expires_at": "2026-12-01T00:00:00Z"
+    }
+  ],
   "dependency_refs": [
     {
       "deliverable_id": "DEL-GW-001",
@@ -95,6 +119,11 @@
               "deliverable_id": "DEL-A-001",
               "weight": 2.0,
               "verified": true
+            },
+            {
+              "deliverable_id": "DEL-A-002",
+              "weight": 1.0,
+              "verified": false
             }
           ],
           "budget_usd": 6000.0,
@@ -108,7 +137,12 @@
             {
               "deliverable_id": "DEL-B-001",
               "weight": 2.0,
-              "verified": true
+              "verified": false
+            },
+            {
+              "deliverable_id": "DEL-B-002",
+              "weight": 1.0,
+              "verified": false
             }
           ],
           "budget_usd": 6000.0,

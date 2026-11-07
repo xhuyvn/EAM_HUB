@@ -1,0 +1,62 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s27-001",
+  "project_id": "proj-inrepo-fail",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-infail-r1"
+  ],
+  "validity": "current",
+  "verification": "contradicted",
+  "acceptance_readiness": "not_ready",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "deliverable_id": "DEL-VAL-001",
+      "owner_project_id": "proj-inrepo-fail",
+      "weight": 1.0,
+      "required": true,
+      "status": "contradicted",
+      "reason_code": "evidence_refuted",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [
+        "ev-inrepo-fail-001"
+      ],
+      "missing_evidence": [],
+      "explanation": "In-repo test report reports/junit-validation.xml shows mapped test test_data_validation FAILED at assessed revision rev-fail-001. A failure in any trust class at exact revision refutes the criterion.",
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "claim-upd-infail-001",
+        "artifact:repo/reports/junit-validation.xml"
+      ],
+      "evidence_revision": "rev-fail-001",
+      "covered_test_ids": [
+        "test_data_validation"
+      ],
+      "previous_status": null,
+      "evidence_trust": "reported_artifact",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 0.0,
+    "total_weight": 1.0,
+    "criteria_total": 1,
+    "criteria_with_current_evidence": 1
+  },
+  "reported_progress_percent": 100.0,
+  "evidence_refs": [
+    "ev-inrepo-fail-001"
+  ],
+  "missing_evidence": [],
+  "as_of": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "assessed_revision": "rev-fail-001",
+  "previous_assessment_id": null,
+  "snapshot_seq": 1,
+  "analysis_status": "complete",
+  "basis_seq": 1,
+  "trigger": "snapshot"
+}

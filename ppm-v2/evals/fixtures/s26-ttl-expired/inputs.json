@@ -1,0 +1,65 @@
+{
+  "fixture_id": "s26-ttl-expired",
+  "project_id": "proj-ttl",
+  "snapshot_refs": [
+    "snap-ttl-r1"
+  ],
+  "snapshot_seq": 1,
+  "basis_seq": 1,
+  "previous_assessment_id": null,
+  "assessed_revision": "rev-ttl-001",
+  "now": "2026-11-20T12:00:00Z",
+  "source_as_of": "2026-11-05T10:00:00Z",
+  "evidence_ttl_days": 7,
+  "baseline": {
+    "baseline_revision": 1,
+    "criteria": [
+      {
+        "criterion_id": "AC-001",
+        "deliverable_id": "DEL-CACHE-001",
+        "owner_project_id": "proj-ttl",
+        "weight": 1.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_session_cache"
+          }
+        ],
+        "previous_status": "verified"
+      }
+    ]
+  },
+  "claims": [
+    {
+      "claim_id": "claim-upd-ttl-001",
+      "source_file": ".ppm/updates/upd-001.yaml",
+      "criterion_ids": [
+        "AC-001"
+      ],
+      "test_ids": [
+        "test_session_cache"
+      ],
+      "reported_status": "claimed_done",
+      "evidence_path": null,
+      "working_tree_state": "clean",
+      "recorded_at": "2026-11-05T09:50:00Z",
+      "summary": "Completed session cache layer."
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "ev-ttl-old-001",
+      "trust_class": "verifier_observed",
+      "revision": "rev-ttl-001",
+      "observed_at": "2026-11-05T10:00:00Z",
+      "test_id": "test_session_cache",
+      "covered_test_ids": [
+        "test_session_cache"
+      ],
+      "result": "passed",
+      "artifact_path": null
+    }
+  ],
+  "waivers": []
+}
