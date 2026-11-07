@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "wp/**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5.1.0
+        with:
+          enable-cache: true
+          version: "0.11.21"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Set up Node.js 26
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: "npm"
+          cache-dependency-path: web/hud/package-lock.json
+
+      - name: Sync Python workspace
+        run: uv sync --locked
+
+      - name: Validate package contracts (SC-01)
+        run: uv run python tools/validate_package.py
+
+      - name: Run PPM v2 negative cases
+        run: uv run python ppm-v2/tools/run_negative_cases.py
+
+      - name: Check translation staleness (SC-08)
+        run: uv run python tools/check_translation.py
+
+      - name: Verify SHA256 file checksums
+        run: sha256sum -c SHA256SUMS.txt
+
+      - name: Run Python test suite (SC-02)
+        run: uv run pytest -q
+
+      - name: Lint and typecheck
+        run: |
+          uv run ruff check src tests ppm-v2/reducer migrations
+          uv run mypy src tests ppm-v2/reducer
+
+      - name: Build web HUD
+        run: |
+          npm --prefix web/hud ci
+          npm --prefix web/hud run build

@@ -139,15 +139,18 @@ EAP_SECRET_CANARY=     # generated randomly per machine, used for SC-04
 
 Environment is considered complete when all items below have real output recorded in `VALIDATION_REPORT.md`.
 
-- [ ] `docker compose pull` succeeds across all three tags; record image digests in `docs/DEV_ENVIRONMENT.md`
-- [ ] `docker compose up -d` starts PostgreSQL only; healthcheck green; `--profile optional` starts Redis and Qdrant
-- [ ] `uv sync` on clean Python 3.12; `uv.lock` committed
-- [ ] `uv run python tools/validate_package.py` and `ppm-v2/tools/run_negative_cases.py` PASS on 3.12
-- [ ] `pip install -r ppm-v2/tools/requirements.txt` in clean venv → standalone PPM validator runs without platform
-- [ ] Test import-boundary: `ppm_reducer` does not import `eap`/network/subprocess
-- [ ] SC-06 migration up/down/up on PostgreSQL 18.6
-- [ ] App starts and tests pass when `REDIS_URL`, `QDRANT_URL` are empty
-- [ ] SC-04: canary does not appear in logs
+- [x] `docker compose pull` succeeds across all three tags; record image digests in `docs/DEV_ENVIRONMENT.md`:
+  - `postgres:18.6-trixie`: `sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583`
+  - `redis:8.10.1-trixie`: `sha256:8a1efc5f479551822b47424ccae982026b633f28818eab0387348120a61e10e2`
+  - `qdrant/qdrant:v1.20.0`: `sha256:9bfc89f9914fc14876a88c05270685921a55b8877b254a98bcc1cc2f0a424cd2`
+- [x] `docker compose up -d` starts PostgreSQL only; healthcheck green; `--profile optional` starts Redis and Qdrant
+- [x] `uv sync` on clean Python 3.12; `uv.lock` committed
+- [x] `uv run python tools/validate_package.py` and `ppm-v2/tools/run_negative_cases.py` PASS on 3.12
+- [x] `pip install -r ppm-v2/tools/requirements.txt` in clean venv → standalone PPM validator runs without platform
+- [x] Test import-boundary: `ppm_reducer` does not import `eap`/network/subprocess
+- [x] SC-06 migration up/down/up on PostgreSQL 18.6
+- [x] App starts and tests pass when `REDIS_URL`, `QDRANT_URL` are empty
+- [x] SC-04: canary does not appear in logs
 
 Open points:
 
