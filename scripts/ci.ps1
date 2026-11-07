@@ -1,6 +1,9 @@
 # CI script for EAM_HUB local and automated CI runs
 $ErrorActionPreference = "Stop"
 
+Write-Host "==> 0. Syncing Python workspace (--locked)..."
+uv sync --locked
+
 Write-Host "==> 1. Validating package contracts and schemas (SC-01)..."
 uv run python tools/validate_package.py
 

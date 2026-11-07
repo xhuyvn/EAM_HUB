@@ -14,11 +14,16 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 settings = get_settings()
-if settings.database_url:
-    config.set_main_option("sqlalchemy.url", settings.database_url)
+if settings.database_url is None:
+    raise RuntimeError(
+        "DATABASE_URL is not set. Copy .env.example to .env and set POSTGRES_PASSWORD, "
+        "or export DATABASE_URL before running alembic."
+    )
+db_url = settings.database_url.get_secret_value()
+# configparser treats '%' as interpolation; escape so passwords containing '%' work
+config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 
 target_metadata = None
-
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""

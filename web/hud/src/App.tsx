@@ -10,15 +10,24 @@ interface HealthResponse {
 export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
+  const [lastChecked, setLastChecked] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/healthz')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`)
+        }
+        return res.json()
+      })
       .then((data: HealthResponse) => {
         setHealth(data)
+        setLastChecked(new Date().toISOString())
         setLoading(false)
       })
       .catch(() => {
+        setHealth(null)
+        setLastChecked(new Date().toISOString())
         setLoading(false)
       })
   }, [])
@@ -31,9 +40,13 @@ export default function App() {
           {loading ? (
             <span>Connecting...</span>
           ) : health ? (
-            <span className="status-badge online">Backend: {health.status} ({health.env})</span>
+            <span className="status-badge online">
+              Backend: {health.status} ({health.env}) [checked: {lastChecked}]
+            </span>
           ) : (
-            <span className="status-badge offline">Backend Standalone</span>
+            <span className="status-badge offline">
+              Backend unreachable [last checked: {lastChecked}]
+            </span>
           )}
         </div>
       </header>

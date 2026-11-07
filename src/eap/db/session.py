@@ -1,6 +1,5 @@
 """Database engine and session management."""
 
-
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -15,9 +14,9 @@ def get_engine(db_url: str | None = None) -> Engine:
     global _engine
     if db_url is None:
         settings = get_settings()
-        if not settings.database_url:
+        if settings.database_url is None:
             raise ValueError("DATABASE_URL is not configured")
-        db_url = settings.database_url
+        db_url = settings.database_url.get_secret_value()
 
     if _engine is None:
         _engine = create_engine(db_url, pool_pre_ping=True)
