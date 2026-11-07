@@ -39,6 +39,7 @@ dev = [
     "mypy>=1.13.0",
     "types-pyyaml>=6.0.12.20240917",
     "pglast>=8.7",
+    "hypothesis>=6.115.0",
 ]
 
 [build-system]
@@ -61,7 +62,7 @@ warn_unused_configs = true
 files = ["src", "tests", "ppm-v2/reducer"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "ppm-v2/reducer/tests"]
 pythonpath = ["src", "ppm-v2/reducer"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
