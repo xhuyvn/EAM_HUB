@@ -1,0 +1,131 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s30-001",
+  "project_id": "proj-inactive-waiver",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-s30-1"
+  ],
+  "validity": "current",
+  "verification": "contradicted",
+  "acceptance_readiness": "not_ready",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "deliverable_id": "DEL-001",
+      "owner_project_id": "proj-inactive-waiver",
+      "weight": 1.0,
+      "required": true,
+      "status": "verified",
+      "reason_code": "evidence_current_pass",
+      "supporting_evidence_refs": [
+        "ev-alpha-001"
+      ],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [],
+      "explanation": "Verified by verifier_observed evidence at revision rev-s30-001.",
+      "reported_status": "none",
+      "reported_claim_refs": [],
+      "evidence_revision": "rev-s30-001",
+      "covered_test_ids": [
+        "test_alpha"
+      ],
+      "previous_status": null,
+      "evidence_trust": "verifier_observed",
+      "waiver_ref": null
+    },
+    {
+      "criterion_id": "AC-002",
+      "deliverable_id": "DEL-002",
+      "owner_project_id": "proj-inactive-waiver",
+      "weight": 1.0,
+      "required": true,
+      "status": "contradicted",
+      "reason_code": "evidence_refuted",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [
+        "ev-beta-001"
+      ],
+      "missing_evidence": [],
+      "explanation": "Active refutation: verifier/test failure observed at revision rev-s30-001.",
+      "reported_status": "none",
+      "reported_claim_refs": [],
+      "evidence_revision": "rev-s30-001",
+      "covered_test_ids": [
+        "test_beta"
+      ],
+      "previous_status": null,
+      "evidence_trust": "verifier_observed",
+      "waiver_ref": null
+    },
+    {
+      "criterion_id": "AC-003",
+      "deliverable_id": "DEL-003",
+      "owner_project_id": "proj-inactive-waiver",
+      "weight": 1.0,
+      "required": true,
+      "status": "unverified",
+      "reason_code": "evidence_missing",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [
+        "Verifier execution of test_gamma at rev-s30-001"
+      ],
+      "explanation": "No verification evidence or claims found for criterion.",
+      "reported_status": "none",
+      "reported_claim_refs": [],
+      "evidence_revision": null,
+      "covered_test_ids": [],
+      "previous_status": null,
+      "evidence_trust": "none",
+      "waiver_ref": null
+    },
+    {
+      "criterion_id": "AC-004",
+      "deliverable_id": "DEL-004",
+      "owner_project_id": "proj-inactive-waiver",
+      "weight": 1.0,
+      "required": true,
+      "status": "unverified",
+      "reason_code": "evidence_missing",
+      "supporting_evidence_refs": [],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [
+        "Verifier execution of test_delta at rev-s30-001"
+      ],
+      "explanation": "No verification evidence or claims found for criterion.",
+      "reported_status": "none",
+      "reported_claim_refs": [],
+      "evidence_revision": null,
+      "covered_test_ids": [],
+      "previous_status": null,
+      "evidence_trust": "none",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 1.0,
+    "total_weight": 4.0,
+    "criteria_total": 4,
+    "criteria_with_current_evidence": 2
+  },
+  "reported_progress_percent": 0.0,
+  "evidence_refs": [
+    "ev-beta-001",
+    "ev-alpha-001"
+  ],
+  "missing_evidence": [
+    "Verifier execution of test_gamma at rev-s30-001",
+    "Verifier execution of test_delta at rev-s30-001"
+  ],
+  "as_of": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "assessed_revision": "rev-s30-001",
+  "previous_assessment_id": null,
+  "snapshot_seq": 1,
+  "analysis_status": "complete",
+  "basis_seq": 1,
+  "trigger": "snapshot"
+}

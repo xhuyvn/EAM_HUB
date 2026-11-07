@@ -217,10 +217,13 @@ def check_fixtures(
 
         # Invariant: explicit denominator for progress
         progress = expected_data.get("progress", {})
-        if progress.get("basis") == "baseline_weighted" and (
-            progress.get("total_weight") is None or progress.get("total_weight") <= 0
-        ):
-            errors.append(f"[{fixture_id}/expected.json] Progress basis baseline_weighted requires positive total_weight")
+        if progress.get("basis") == "baseline_weighted":
+            all_waived = bool(criteria) and all(c.get("status") == "waived" for c in criteria)
+            if all_waived:
+                if progress.get("total_weight") is not None or progress.get("verified_weight") is not None:
+                    errors.append(f"[{fixture_id}/expected.json] All-waived progress requires null weights (ISS-019)")
+            elif progress.get("total_weight") is None or progress.get("total_weight") <= 0:
+                errors.append(f"[{fixture_id}/expected.json] Progress basis baseline_weighted requires positive total_weight")
 
         # Validate rollup if present
         if rollup_path.exists():

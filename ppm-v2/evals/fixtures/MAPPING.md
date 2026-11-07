@@ -25,6 +25,10 @@ This document maps each fixture in the `ppm-v2/evals/fixtures/` corpus to its co
 | `s27-in-repo-fail` | Review add | C40 (variant) | M0-WP2 | no | Producer commits in-repo report (`reported_artifact`) with FAIL at exact revision -> `contradicted`, `reason_code: evidence_refuted`. |
 | `s28-ci-attested-pass` | Review add | PPM-D1 | M0-WP2 | no | Passing test with cryptographically verified CI pipeline attestation (`ci_attested`) -> `verified`, `reason_code: evidence_current_pass`. |
 | `s29-cyclic-supersession` | Review add | PPM-05 | M0-WP2 | no | Update journals contain mutual supersession loop -> rejected with `InputRejected`, `reason: supersession_cycle`. |
+| `s30-inactive-waiver` | Review add | ISS-015 | M0-WP5 | **YES** | Inactive waiver conditions (missing approved_by, null approved_at, future approved_at, expires_at == now). Outcome: all inactive, criteria fall back to evidence rules (`verified_weight: 1.0`, `total_weight: 4.0`, `verification: "contradicted"`). |
+| `s31-evidence-from-future` | Review add | ISS-015 | M0-WP5 | **YES** | Evidence `observed_at > now`. Outcome: rejected with `InputRejected`, `reason: "evidence_from_future"`. |
+| `s32-missing-assessed-revision` | Review add | ISS-015 | M0-WP5 | **YES** | Baseline present, `assessed_revision: null`. Outcome: rejected with `InputRejected`, `reason: "missing_assessed_revision"`. |
+| `s33-all-waived` | Review add | ISS-019 | M0-WP5 | **YES** | Every criterion waived. Outcome: `verified_weight = total_weight = null`, `verification: "unknown"`, `acceptance_readiness: "not_ready"`. |
 
 ## Notes on Special Cases
 - **s02 Split**: Scenario #2 is split into `s02a` (stale without refutation) and `s02b` (contradicted with active failure at current revision) to evaluate both branches deterministically.

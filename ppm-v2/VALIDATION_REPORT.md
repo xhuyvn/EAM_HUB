@@ -22,3 +22,14 @@ Before fixes, a metadata root with a duplicate criterion_id, a supersession cycl
 - `python tools/run_negative_cases.py` → `PASS 5 templates, 20 cases`
 - `python tools/validate_contract.py templates/project/.ppm --schema schemas/contract.schema.json` → see platform review §8
 Not executed: prompts against a real coding agent, collector/verifier/reducer (no code), scenario evals in `evals/SCENARIO_MATRIX.md`.
+
+## Milestone PPM-M0 Validation — 07/11/2026 (PPM-M0-WP5 packaging & runner)
+Deterministic reducer execution against the full fixture corpus via `ppm-v2/tools/run_reducer_fixtures.py`:
+- Fixture count: 23 fixtures (20 assessment fixtures including 3 portfolio rollups, plus 3 expected input rejection error fixtures: s29 supersession_cycle, s31 evidence_from_future, s32 missing_assessed_revision)
+- All 23 fixtures: PASS (0 failures, byte-for-byte post-JCS normalization, 0 diff)
+- Execution time:
+  - Benchmark: median of 5 runs = 6.61 ms (0.00661 s) across all 23 fixtures (per-run: 6.61 ms, 8.18 ms, 6.76 ms, 5.78 ms, 6.36 ms)
+  - Average per-fixture execution time: ~0.29 ms
+- Clean-machine proof: PASS in an isolated Python 3.12 virtual environment with only `pip install -r ppm-v2/tools/requirements.txt` and `pip install -e ppm-v2/reducer`
+- Zero external I/O, zero network, zero subprocesses, pure deterministic Python standard library logic.
+

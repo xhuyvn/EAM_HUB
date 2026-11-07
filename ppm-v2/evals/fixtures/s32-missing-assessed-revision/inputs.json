@@ -1,0 +1,36 @@
+{
+  "fixture_id": "s32-missing-assessed-revision",
+  "project_id": "proj-missing-revision",
+  "snapshot_refs": [
+    "snap-s32-1"
+  ],
+  "snapshot_seq": 1,
+  "basis_seq": 1,
+  "previous_assessment_id": null,
+  "assessed_revision": null,
+  "now": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "evidence_ttl_days": 7.0,
+  "baseline": {
+    "baseline_revision": 1,
+    "criteria": [
+      {
+        "criterion_id": "AC-001",
+        "deliverable_id": "DEL-001",
+        "owner_project_id": "proj-missing-revision",
+        "weight": 1.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_service"
+          }
+        ],
+        "previous_status": null
+      }
+    ]
+  },
+  "claims": [],
+  "evidence": [],
+  "waivers": []
+}
