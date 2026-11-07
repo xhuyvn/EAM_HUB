@@ -120,10 +120,11 @@ def _filter_authorized(
 ) -> tuple[list[dict[str, Any]], bool]:
     """Return (visible_projects, partial).
 
-    Visible = listed in the portfolio, permitted by ``viewer_authorized_project_ids``
-    (all projects when that key is absent) and not named in ``hidden_project_ids``.
-    Entries without a usable string ``project_id`` cannot be authorized and are
-    withheld. Nothing about withheld entries is returned except the boolean.
+    M4-1: Authorization fails closed.
+    ``viewer_authorized_project_ids`` is required; absent or not a list raises
+    ``InputRejected(reason="missing_authorization")``.
+    Visibility = listed in portfolio AND in ``viewer_authorized_project_ids``.
+    ``hidden_project_ids`` is test metadata only and does not grant or deny anything by itself.
     """
     raw_projects = portfolio.get("projects")
     if not isinstance(raw_projects, list):
@@ -131,26 +132,38 @@ def _filter_authorized(
             reason="invalid_portfolio", message="context.portfolio.projects must be a list"
         )
 
-    hidden_raw = context.get("hidden_project_ids") or []
-    hidden = {h for h in hidden_raw if isinstance(h, str)}
+    if "viewer_authorized_project_ids" not in context:
+        raise InputRejected(
+            reason="missing_authorization",
+            message="context.viewer_authorized_project_ids is required for portfolio rollup",
+        )
     allow_raw = context.get("viewer_authorized_project_ids")
-    allow: set[str] | None = (
-        None if allow_raw is None else {a for a in allow_raw if isinstance(a, str)}
-    )
+    if not isinstance(allow_raw, list):
+        raise InputRejected(
+            reason="missing_authorization",
+            message="context.viewer_authorized_project_ids must be a list",
+        )
+
+    allow: set[str] = {a for a in allow_raw if isinstance(a, str)}
+    if not allow:
+        raise InputRejected(
+            reason="no_authorized_projects", message="Viewer is not authorized for any project"
+        )
 
     visible: list[dict[str, Any]] = []
-    withheld = bool(hidden)
+    withheld = False
     for project in raw_projects:
         pid = project.get("project_id") if isinstance(project, dict) else None
-        if (
-            not isinstance(pid, str)
-            or not pid
-            or pid in hidden
-            or (allow is not None and pid not in allow)
-        ):
+        if not isinstance(pid, str) or not pid or pid not in allow:
             withheld = True
             continue
         visible.append(project)
+
+    if not visible:
+        raise InputRejected(
+            reason="no_authorized_projects", message="Viewer is not authorized for any project"
+        )
+
     return visible, withheld
 
 
@@ -279,16 +292,16 @@ def rollup_portfolio(
 
     Args:
         inputs: Reducer input dictionary (inputs.schema.json) carrying
-            ``context.portfolio`` and optionally ``context.viewer_authorized_project_ids``
-            / ``context.hidden_project_ids``.
+            ``context.portfolio`` and required ``context.viewer_authorized_project_ids``.
         criteria_results: Optional precomputed ``assess_criteria`` output for
             ``inputs["project_id"]``. Computed on demand when omitted and the
             assessed project is visible.
 
     Raises:
-        InputRejected: missing portfolio context, no visible project, duplicate
-            visible project, a deliverable owned by two visible projects, or an
-            invalid visible weight/cost.
+        InputRejected: missing portfolio context, missing or non-list authorization
+            (reason="missing_authorization"), no visible project (reason="no_authorized_projects"),
+            duplicate visible project, a deliverable owned by two visible projects,
+            or an invalid visible weight/cost.
     """
     context = inputs.get("context")
     portfolio = context.get("portfolio") if isinstance(context, dict) else None
