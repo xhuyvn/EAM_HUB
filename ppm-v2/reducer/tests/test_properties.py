@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import jsonschema
+import jsonschema  # type: ignore[import-untyped]
 import pytest
 import rfc8785
 from hypothesis import given, settings
@@ -335,7 +335,7 @@ def valid_assessment_inputs(draw: st.DrawFn) -> dict[str, Any]:
     claims = []
 
     for idx, c in enumerate(criteria):
-        cid = c["criterion_id"]
+        cid = str(c["criterion_id"])
         tid = f"test_{cid}"
         outcome = str(draw(st.sampled_from(["verified", "contradicted", "waived", "unverified"])))
 

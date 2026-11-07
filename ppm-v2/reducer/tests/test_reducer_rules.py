@@ -685,7 +685,7 @@ def test_m3_1_all_waived_criteria(monkeypatch: pytest.MonkeyPatch) -> None:
     import json
     from pathlib import Path
 
-    import jsonschema
+    import jsonschema  # type: ignore[import-untyped]
 
     import eap.contracts.rules as eap_rules
     from eap.contracts.rules import ContractViolation, semantic_checks
