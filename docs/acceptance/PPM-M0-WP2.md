@@ -43,6 +43,7 @@
 ## 3. Environment and Pinned Dependencies
 - **Base Commit**: `fc2bd1d` (main)
 - **Branch**: `wp/PPM-M0-WP2`
+- **Code Commit under Review**: `76640fd`
 - **Python**: 3.12.13 (CPython via `uv`)
 - **Node.js**: 26.7.0 LTS / npm 11.2.0
 - **Dev Dependency Addition**:
