@@ -1,0 +1,11 @@
+[project]
+name = "p0-wp4-langgraph-spike"
+version = "0.1.0"
+description = "P0-WP4 LangGraph replay spike"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "langgraph==1.2.20",
+    "langgraph-checkpoint==4.3.1",
+    "langgraph-checkpoint-sqlite==3.1.3",
+    "langgraph-checkpoint-postgres==3.2.0",
+]

@@ -1,0 +1,842 @@
+{
+  "spike_id": "P0-WP4",
+  "title": "Spike: LangGraph replay (pinned version)",
+  "timestamp": "2026-11-07T07:23:54.313381+00:00",
+  "gate": "resume gate / D-01 (docs/IMPLEMENTATION_PLAN.md \u00a73)",
+  "environment": {
+    "python": "3.12.13 (main, Jun 11 2026, 04:05:29) [MSC v.1944 64 bit (AMD64)]",
+    "os": "nt",
+    "platform": "win32"
+  },
+  "q1_pin": {
+    "python_version": "3.12.13 (main, Jun 11 2026, 04:05:29) [MSC v.1944 64 bit (AMD64)]",
+    "packages": {
+      "langgraph": {
+        "version": "1.2.20",
+        "summary": "Building stateful, multi-actor applications with LLMs",
+        "urls": [
+          "Homepage, https://docs.langchain.com/oss/python/langgraph/overview",
+          "Documentation, https://reference.langchain.com/python/langgraph/",
+          "Source, https://github.com/langchain-ai/langgraph/tree/main/libs/langgraph",
+          "Changelog, https://github.com/langchain-ai/langgraph/releases",
+          "Twitter, https://x.com/langchain_oss",
+          "Slack, https://www.langchain.com/join-community",
+          "Reddit, https://www.reddit.com/r/LangChain/"
+        ],
+        "license": "MIT",
+        "requires_python": ">=3.10"
+      },
+      "langgraph-checkpoint": {
+        "version": "4.3.1",
+        "summary": "Library with base interfaces for LangGraph checkpoint savers.",
+        "urls": [
+          "Source, https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint",
+          "Twitter, https://x.com/langchain_oss",
+          "Slack, https://www.langchain.com/join-community",
+          "Reddit, https://www.reddit.com/r/LangChain/"
+        ],
+        "license": "MIT",
+        "requires_python": ">=3.10"
+      },
+      "langgraph-checkpoint-sqlite": {
+        "version": "3.1.3",
+        "summary": "Library with a SQLite implementation of LangGraph checkpoint saver.",
+        "urls": [
+          "Source, https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint-sqlite",
+          "Twitter, https://x.com/langchain_oss",
+          "Slack, https://www.langchain.com/join-community",
+          "Reddit, https://www.reddit.com/r/LangChain/"
+        ],
+        "license": "MIT",
+        "requires_python": ">=3.10"
+      },
+      "langgraph-checkpoint-postgres": {
+        "version": "3.2.0",
+        "summary": "Library with a Postgres implementation of LangGraph checkpoint saver.",
+        "urls": [
+          "Source, https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint-postgres",
+          "Twitter, https://x.com/langchain_oss",
+          "Slack, https://www.langchain.com/join-community",
+          "Reddit, https://www.reddit.com/r/LangChain/"
+        ],
+        "license": "MIT",
+        "requires_python": ">=3.10"
+      }
+    },
+    "official_references": {
+      "langgraph": {
+        "pypi_url": "https://pypi.org/project/langgraph/1.2.20/",
+        "github_repo": "https://github.com/langchain-ai/langgraph",
+        "changelog_url": "https://github.com/langchain-ai/langgraph/releases",
+        "docs_url": "https://docs.langchain.com/oss/python/langgraph/overview",
+        "access_date": "2026-11-07",
+        "verified": true
+      },
+      "langgraph-checkpoint": {
+        "pypi_url": "https://pypi.org/project/langgraph-checkpoint/4.3.1/",
+        "github_repo": "https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint",
+        "changelog_url": "https://github.com/langchain-ai/langgraph/releases",
+        "access_date": "2026-11-07",
+        "verified": true
+      },
+      "langgraph-checkpoint-sqlite": {
+        "pypi_url": "https://pypi.org/project/langgraph-checkpoint-sqlite/3.1.3/",
+        "github_repo": "https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint-sqlite",
+        "access_date": "2026-11-07",
+        "verified": true
+      },
+      "langgraph-checkpoint-postgres": {
+        "pypi_url": "https://pypi.org/project/langgraph-checkpoint-postgres/3.2.0/",
+        "github_repo": "https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint-postgres",
+        "access_date": "2026-11-07",
+        "verified": true
+      }
+    },
+    "assumptions": [
+      "PostgreSQL saver is production target per ADR-011 (PostgreSQL is authoritative system of record); SQLite saver is utilized for lightweight standalone testing and embedded spike experiments without external container dependencies.",
+      "All packages are MIT licensed per metadata and upstream repository declaration."
+    ]
+  },
+  "q2_in_node_crash": {
+    "total_trials": 20,
+    "re_executed_trials": 20,
+    "duplicate_side_effect_trials": 20,
+    "resume_success_count": 20,
+    "counters_after_resume": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "observed_counter_mode": 2,
+    "verdict": "RE_EXECUTED_DUPLICATE_SIDE_EFFECT",
+    "trials": [
+      {
+        "trial_idx": 1,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 2,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 3,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 4,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 5,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 6,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 7,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 8,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 9,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 10,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 11,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 12,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 13,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 14,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 15,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 16,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 17,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 18,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 19,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      },
+      {
+        "trial_idx": 20,
+        "crashed_as_expected": true,
+        "node_call_count": 2,
+        "counter_at_crash": 1,
+        "counter_after_resume": 2,
+        "next_node_at_crash": [
+          "node_side_effect"
+        ],
+        "resume_succeeded": true,
+        "final_step": 3,
+        "re_executed": true,
+        "duplicate_side_effect": true
+      }
+    ]
+  },
+  "q3_durability_modes": {
+    "total_scenarios": 9,
+    "results": [
+      {
+        "mode": "sync",
+        "kill_point": "after_node_1",
+        "exit_code": 137,
+        "signals": [
+          "invoking_graph",
+          "node_1_start",
+          "node_1_done",
+          "killing_at_after_node_1"
+        ],
+        "checkpoints_count": 2,
+        "persisted_steps": [
+          -1,
+          0
+        ],
+        "max_persisted_step": 0,
+        "lost_summary": "Node 1 was committed before node 2 started. Zero completed steps lost (step 1 preserved, step 2 not started)."
+      },
+      {
+        "mode": "sync",
+        "kill_point": "during_node_2",
+        "exit_code": 137,
+        "signals": [
+          "invoking_graph",
+          "node_1_start",
+          "node_1_done",
+          "node_2_start",
+          "killing_at_during_node_2"
+        ],
+        "checkpoints_count": 3,
+        "persisted_steps": [
+          -1,
+          0,
+          1
+        ],
+        "max_persisted_step": 1,
+        "lost_summary": "In-flight node 2 uncommitted work lost. Step 1 checkpoint preserved. On resume, node 2 must re-execute."
+      },
+      {
+        "mode": "sync",
+        "kill_point": "after_node_2",
+        "exit_code": 137,
+        "signals": [
+          "invoking_graph",
+          "node_1_start",
+          "node_1_done",
+          "node_2_start",
+          "node_2_done",
+          "killing_at_after_node_2"
+        ],
+        "checkpoints_count": 3,
+        "persisted_steps": [
+          -1,
+          0,
+          1
+        ],
+        "max_persisted_step": 1,
+        "lost_summary": "Node 2 was committed before node 3 started. Zero completed steps lost (step 2 preserved, step 3 not started)."
+      },
+      {
+        "mode": "async",
+        "kill_point": "after_node_1",
+        "exit_code": 137,
+        "signals": [
+          "invoking_graph",
+          "node_1_start",
+          "node_1_done",
+          "killing_at_after_node_1"
+        ],
+        "checkpoints_count": 2,
+        "persisted_steps": [
+          -1,
+          0
+        ],
+        "max_persisted_step": 0,
+        "lost_summary": "Asynchronous write timing race: if process killed before async task flushes checkpoint to disk, step 1 write can be lost or partially flushed."
+      },
+      {
+        "mode": "async",
+        "kill_point": "during_node_2",
+        "exit_code": 137,
+        "signals": [
+          "invoking_graph",
+          "node_1_start",
+          "node_1_done",
+          "node_2_start",
+          "killing_at_during_node_2"
+        ],
+        "checkpoints_count": 3,
+        "persisted_steps": [
+          -1,
+          0,
+          1
+        ],
+        "max_persisted_step": 1,
+        "lost_summary": "In-flight node 2 lost; step 1 preserved if async loop finished write prior to kill."
+      },
+      {
+        "mode": "async",
+        "kill_point": "after_node_2",
+        "exit_code": 137,
+        "signals": [
+          "invoking_graph",
+          "node_1_start",
+          "node_1_done",
+          "node_2_start",
+          "node_2_done",
+          "killing_at_after_node_2"
+        ],
+        "checkpoints_count": 3,
+        "persisted_steps": [
+          -1,
+          0,
+          1
+        ],
+        "max_persisted_step": 1,
+        "lost_summary": "Node 2 async write may be dropped if kill happens before background saver task executes."
+      },
+      {
+        "mode": "exit",
+        "kill_point": "after_node_1",
+        "exit_code": 137,
+        "signals": [
+          "invoking_graph",
+          "node_1_start",
+          "node_1_done",
+          "killing_at_after_node_1"
+        ],
+        "checkpoints_count": 0,
+        "persisted_steps": [],
+        "max_persisted_step": -1,
+        "lost_summary": "ALL intermediate step checkpoints lost. Database has 0 or only initial step (if any), because exit mode only writes upon clean graph termination."
+      },
+      {
+        "mode": "exit",
+        "kill_point": "during_node_2",
+        "exit_code": 137,
+        "signals": [
+          "invoking_graph",
+          "node_1_start",
+          "node_1_done",
+          "node_2_start",
+          "killing_at_during_node_2"
+        ],
+        "checkpoints_count": 0,
+        "persisted_steps": [],
+        "max_persisted_step": -1,
+        "lost_summary": "ALL intermediate step checkpoints lost. Database has 0 or only initial step (if any), because exit mode only writes upon clean graph termination."
+      },
+      {
+        "mode": "exit",
+        "kill_point": "after_node_2",
+        "exit_code": 137,
+        "signals": [
+          "invoking_graph",
+          "node_1_start",
+          "node_1_done",
+          "node_2_start",
+          "node_2_done",
+          "killing_at_after_node_2"
+        ],
+        "checkpoints_count": 0,
+        "persisted_steps": [],
+        "max_persisted_step": -1,
+        "lost_summary": "ALL intermediate step checkpoints lost. Database has 0 or only initial step (if any), because exit mode only writes upon clean graph termination."
+      }
+    ]
+  },
+  "q4_checkpoint_keying": {
+    "naive_pattern": {
+      "pattern": "naive_thread_id_equals_run_id",
+      "attempt_1_crashed": true,
+      "state_after_att1_next": [
+        "node_work"
+      ],
+      "attempt_2_inherited_attempt_1_checkpoint": true,
+      "attempt_2_visited_nodes": [
+        "crashed_resuming_att1: Attempt 1 crashed during node_work!"
+      ],
+      "isolation_preserved": false,
+      "hazard": "Attempt 2 re-executed Attempt 1's uncoordinated checkpoint"
+    },
+    "dg1_composite_thread_id": {
+      "pattern": "dg1_thread_id_run_id_colon_attempt",
+      "attempt_1_crashed": true,
+      "state_att1_persisted": true,
+      "state_att1_next": [
+        "node_work"
+      ],
+      "attempt_2_state_before_was_empty": true,
+      "attempt_2_visited_nodes": [
+        "start_att2",
+        "node_init",
+        "node_work",
+        "node_finalize"
+      ],
+      "attempt_1_state_unaltered_by_attempt_2": true,
+      "isolation_preserved": true
+    },
+    "probe_checkpoint_ns": {
+      "pattern": "probe_checkpoint_ns_for_attempts",
+      "invoke_error": "RuntimeError: Attempt 1 crashed during node_work!",
+      "get_state_error": "ValueError: Subgraph attempt_1 not found",
+      "supported": false,
+      "reason": "LangGraph interprets checkpoint_ns as subgraph hierarchy path; get_state with arbitrary attempt names fails with 'ValueError: Subgraph ... not found'."
+    },
+    "distinct_checkpoints_keys": [
+      [
+        "run-dg1-201:1",
+        ""
+      ],
+      [
+        "run-dg1-201:2",
+        ""
+      ],
+      [
+        "run-naive-101",
+        ""
+      ],
+      [
+        "run-ns-301",
+        ""
+      ]
+    ],
+    "verdict": {
+      "can_key_by_run_and_attempt": true,
+      "recommended_mechanism": "thread_id = f'{run_id}:{attempt}'",
+      "checkpoint_ns_usable_for_attempts": false,
+      "prevents_cross_attempt_replay": true
+    }
+  },
+  "q5_dg1_interaction": {
+    "total_trials": 20,
+    "raw_duplicate_trials": 20,
+    "raw_counts": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "dg1_exactly_one_trials": 20,
+    "dg1_counts": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "verdict": {
+      "raw_langgraph_side_effect_safe": false,
+      "dg1_wrapped_side_effect_safe": true,
+      "conclusion": "Raw LangGraph replay unconditionally re-executes in-node side effects on resume, yielding duplicate side effects (count=2). DG-1 platform wrapping (action_slot + operation_key deduplication) guarantees exactly one side effect across crash/resume (count=1)."
+    },
+    "trials": [
+      {
+        "trial_idx": 1,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 2,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 3,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 4,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 5,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 6,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 7,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 8,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 9,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 10,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 11,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 12,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 13,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 14,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 15,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 16,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 17,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 18,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 19,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      },
+      {
+        "trial_idx": 20,
+        "raw_langgraph_final_count": 2,
+        "dg1_wrapped_final_count": 1,
+        "raw_has_duplicate": true,
+        "dg1_has_exactly_one": true
+      }
+    ]
+  }
+}
