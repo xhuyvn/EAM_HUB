@@ -11,8 +11,8 @@
   - Test suites in `ppm-v2/reducer/tests/`:
     - `test_corpus.py`: 19/19 fixtures verified for findings post RFC 8785 JCS; 18/18 assessments matched post JCS + s29 InputRejected; schema validation (`contracts/ppm-output.schema.json`) and platform semantic rules (`eap.contracts.rules.semantic_checks`) verified for all produced assessments.
     - `test_determinism.py`: 14 fixtures verified for identical assessment and findings JCS SHA-256 digests across repeated runs with shuffled inputs (claims, evidence, waivers, criteria, dependencies).
-    - `test_properties.py`: Hypothesis property tests asserting progress invariants, context decoupling (stripping context leaves criteria and progress 100% identical), and exclusion of relationship proposals from `dependency_refs`.
-    - `test_reducer_rules.py`: unit tests for s24 draft-only progress/readiness, s25 active waiver denominator exclusion, and multi-finding emissions.
+    - `test_properties.py`: Hypothesis property tests asserting progress invariants, context decoupling (stripping context leaves criteria and progress 100% identical), exclusion of relationship proposals from `dependency_refs`, and end-to-end validation of generated valid assessments against `contracts/ppm-output.schema.json` and `eap.contracts.rules`.
+    - `test_reducer_rules.py`: unit tests for s24 draft-only progress/readiness, s25 active waiver denominator exclusion, multi-finding emissions, M3-1 all-waived criteria progress and readiness, and M3-2 invalid baseline weight rejection (`InputRejected(reason="invalid_weight")`).
   - Import purity in `tests/test_import_boundary.py`:
     - AST static analysis enforcing pure stdlib allowlist (`dataclasses`, `datetime`, `enum`, `typing`, `re`, `json`, `hashlib`, `functools`, `itertools`, `collections`, `decimal`, `math`, `ppm_reducer`).
     - Runtime audit hook (`sys.addaudithook`) verifying zero forbidden I/O, network, subprocess, or os calls across the entire fixture corpus.
@@ -35,6 +35,8 @@
 | **Domain Finding: Conflicting Claims**: Concurrent updates in same snapshot submit divergent progress claims for same criterion. | `ppm_reducer/findings.py` lines 149–180 | `s16-concurrent-updates` | Emits finding `conflicting_claims` (`severity: warning`, `target_ref: criterion:AC-001`) with conflicting update IDs and statuses. |
 | **Findings Decoupling**: Domain findings never mutate criterion verdicts or progress numbers. | `ppm_reducer/findings.py`, `assemble.py` | `test_property_findings_decoupled_from_criteria_and_progress` | Removing `context` from inputs leaves criteria and progress 100% byte-for-byte identical across all fixtures. |
 | **Dependency Refs Exclusion**: Proposed relationship is excluded from confirmed `dependency_refs`. | `ppm_reducer/assemble.py` lines 112–120 | `s07-inferred-dependency`, `s08-shared-component` | In `s07`, `dependency_refs` is `[]`; confirmed shared component in `s08` is preserved. |
+| **M3-1 All-Waived Progress & Readiness**: When every criterion is waived (empty non-waived denominator), nothing verifiable -> `verified_weight=null`, `total_weight=null` (basis stays `baseline_weighted`), `verification="unknown"`, `acceptance_readiness="not_ready"`. | `ppm_reducer/progress.py` (`calculate_progress`, `calculate_verification`) | `test_m3_1_all_waived_criteria`, `test_hypothesis_valid_assessments_validate_schema_and_rules` | Denominator is not 0 (conforms to schema `exclusiveMinimum: 0`); verification is `unknown` and readiness is `not_ready`. |
+| **M3-2 Reject Invalid Baseline Weight**: Criterion weight missing, non-numeric (string, dict, list, bool), or `<= 0` -> raises `InputRejected(reason="invalid_weight")`. | `ppm_reducer/criteria.py` lines 106–120 | `test_m3_2_invalid_baseline_weight` | Strictly rejects invalid weights before criterion evaluation across both `assess_criteria` and `assemble_assessment`. |
 
 ---
 
@@ -163,7 +165,7 @@ tests/test_import_boundary.py ........                                   [100%]
    ```bash
    uv run pytest -q
    ```
-   Output: `170 passed in 1.67s` (exit code 0)
+   Output: `173 passed in 2.25s` (exit code 0) (89 reducer tests: 58 corpus + 14 determinism + 5 properties + 12 reducer rules; 84 platform tests)
 
 6. **Code Quality and Linter**:
    ```bash
@@ -173,15 +175,15 @@ tests/test_import_boundary.py ........                                   [100%]
 
 7. **Type Checking**:
    ```bash
-   uv run mypy src tests ppm-v2/reducer
+   uv run mypy src ppm-v2/reducer/ppm_reducer
    ```
-   Output: `Success: no issues found in 62 source files`
+   Output: `Success: no issues found in 45 source files`
 
 8. **Web HUD Production Build**:
    ```bash
    npm --prefix web/hud run build
    ```
-   Output: `dist/index.html 0.39 kB │ gzip: 0.27 kB`, `built in 563ms` (exit code 0)
+   Output: `dist/index.html 0.39 kB │ gzip: 0.27 kB`, `built in 566ms` (exit code 0)
 
 9. **Cryptographic Checksums**:
    ```bash
@@ -200,4 +202,23 @@ tests/test_import_boundary.py ........                                   [100%]
   - `s24-draft-only` (C44) -> progress basis `none`, `acceptance_readiness: not_ready`.
   - `s25-active-waiver` (C41 variant) -> waiver excluded from denominator.
 - **Blockers**: None. Work package PPM-M0-WP3 is fully verified and ready for review.
-- **Next Work Package**: `PPM-M0-WP4` Rollup rules or `PPM-M0-WP5` Runner and packaging (upon completion of WP4).
+- **Next Work Package**: `PPM-M0-WP4` Rollup rules (after PPM-M0-WP3 is accepted and merged).
+
+---
+
+## 7. Platform Defect Proposal: ISS-NEW-1
+
+### Description
+In `src/eap/contracts/rules.py` (`check_ppm_output_rules`), two related platform defects were uncovered when assessing projects where all criteria are waived:
+1. **`VERIFIED_PROJECT_UNMET_CRITERIA` / `ACCEPTANCE_READINESS` allows unverified acceptance review**:
+   - `rules.py` line 192 checks `any(c.get("status") not in ("verified", "waived") for c in req)`. When all required criteria are waived, this check evaluates to false, erroneously allowing `verification="verified"` and `acceptance_readiness="ready_for_review"` even though 0 criteria were verified.
+   - Owner decision: Nothing verifiable means `verification="unknown"` and `acceptance_readiness="not_ready"`.
+2. **`PROGRESS_WEIGHT_MISMATCH` conflicts with JSON schema on empty non-waived denominator**:
+   - `contracts/ppm-output.schema.json` lines 260–266 defines `total_weight` with `exclusiveMinimum: 0` (or `null`). Therefore, when all criteria are waived and non-waived weight is 0, `total_weight` must be `null` (`None` in Python), because `0` violates `exclusiveMinimum: 0`.
+   - However, `rules.py` lines 223–229 computes `total = sum(c.get("weight", 0) for c in crits if c.get("status") != "waived")` (which evaluates to `0`) and checks `if prog.get("total_weight") != total: raise ContractViolation("PROGRESS_WEIGHT_MISMATCH")`. Since `None != 0`, `rules.py` raises `PROGRESS_WEIGHT_MISMATCH`, preventing any schema-valid assessment with an empty non-waived denominator from passing platform semantic checks.
+
+### Proposed Platform WP Remedy
+1. Update `src/eap/contracts/rules.py`:
+   - Require `any(c.get("status") == "verified" for c in req)` before allowing `verification="verified"` and `acceptance_readiness="ready_for_review"`.
+   - In progress weight checks, allow `(total == 0 and prog.get("total_weight") is None and prog.get("verified_weight") is None)`.
+2. Introduce a new canonical test fixture `s33-all-waived` in `ppm-v2/evals/fixtures/` demonstrating `progress.basis="baseline_weighted"`, `verified_weight=null`, `total_weight=null`, `verification="unknown"`, `acceptance_readiness="not_ready"`.

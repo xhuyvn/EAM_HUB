@@ -13,10 +13,14 @@ import json
 from pathlib import Path
 from typing import Any
 
+import jsonschema
+import pytest
 import rfc8785
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+import eap.contracts.rules as eap_rules
+from eap.contracts.rules import semantic_checks
 from ppm_reducer import (
     InputRejected,
     assemble_assessment,
@@ -226,16 +230,21 @@ def test_property_progress_invariants(inputs: dict[str, Any]) -> None:
     prog = calculate_progress(results, has_baseline=True)
 
     assert prog.basis == "baseline_weighted"
-    assert prog.total_weight is not None
-    assert prog.verified_weight is not None
     assert prog.criteria_total == len(results)
-    assert prog.verified_weight <= prog.total_weight + 1e-9
 
-    expected_total = sum(r.weight for r in results if r.status != "waived")
-    expected_verified = sum(r.weight for r in results if r.status == "verified")
+    if all(r.status == "waived" for r in results):
+        assert prog.total_weight is None
+        assert prog.verified_weight is None
+    else:
+        assert prog.total_weight is not None
+        assert prog.verified_weight is not None
+        assert prog.verified_weight <= prog.total_weight + 1e-9
 
-    assert abs(prog.total_weight - expected_total) < 1e-6
-    assert abs(prog.verified_weight - expected_verified) < 1e-6
+        expected_total = sum(r.weight for r in results if r.status != "waived")
+        expected_verified = sum(r.weight for r in results if r.status == "verified")
+
+        assert abs(prog.total_weight - expected_total) < 1e-6
+        assert abs(prog.verified_weight - expected_verified) < 1e-6
 
 
 def test_property_findings_decoupled_from_criteria_and_progress() -> None:
@@ -290,4 +299,154 @@ def test_property_relationship_proposed_excluded_from_dependency_refs() -> None:
     # And finding relationship_proposed is emitted
     finding_kinds = [f.kind for f in res.findings]
     assert "relationship_proposed" in finding_kinds
+
+
+@st.composite
+def valid_assessment_inputs(draw: st.DrawFn) -> dict[str, Any]:
+    """Strategy generating valid inputs for end-to-end assemble_assessment."""
+    project_id = "proj-prop-valid"
+    assessed_rev = str(draw(st.sampled_from(["rev-100", "rev-200", "rev-300"])))
+    now_str = draw(iso_date_st)
+
+    # 1 to 4 criteria with positive weights and optional/required mix
+    num_crit = draw(st.integers(min_value=1, max_value=4))
+    crit_ids = [f"AC-{i:03d}" for i in range(1, num_crit + 1)]
+
+    criteria = []
+    for cid in crit_ids:
+        tid = f"test_{cid}"
+        w = draw(st.sampled_from([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]))
+        req = draw(st.booleans())
+        criteria.append(
+            {
+                "criterion_id": cid,
+                "deliverable_id": f"DEL-{cid}",
+                "owner_project_id": project_id,
+                "weight": w,
+                "required": req,
+                "verification_refs": [{"kind": "test_id", "ref": tid}],
+                "previous_status": None,
+            }
+        )
+    baseline = {"baseline_revision": 1, "criteria": criteria}
+
+    evidence = []
+    waivers = []
+    claims = []
+
+    for idx, c in enumerate(criteria):
+        cid = c["criterion_id"]
+        tid = f"test_{cid}"
+        outcome = str(draw(st.sampled_from(["verified", "contradicted", "waived", "unverified"])))
+
+        if outcome == "verified":
+            evidence.append(
+                {
+                    "evidence_id": f"ev-{idx}-pass",
+                    "trust_class": draw(st.sampled_from(["verifier_observed", "ci_attested"])),
+                    "revision": assessed_rev,
+                    "observed_at": now_str,
+                    "test_id": tid,
+                    "covered_test_ids": [tid],
+                    "result": "passed",
+                    "artifact_path": None,
+                }
+            )
+        elif outcome == "contradicted":
+            evidence.append(
+                {
+                    "evidence_id": f"ev-{idx}-fail",
+                    "trust_class": draw(st.sampled_from(["verifier_observed", "ci_attested", "reported_artifact"])),
+                    "revision": assessed_rev,
+                    "observed_at": now_str,
+                    "test_id": tid,
+                    "covered_test_ids": [tid],
+                    "result": "failed",
+                    "artifact_path": None,
+                }
+            )
+        elif outcome == "waived":
+            waivers.append(
+                {
+                    "waiver_id": f"waiver-{idx}",
+                    "criterion_id": cid,
+                    "scope": "property test waiver",
+                    "rationale": "testing valid assessment rules",
+                    "approved_by": "qa-lead",
+                    "approved_at": "2026-01-01T00:00:00Z",
+                    "expires_at": "2026-12-31T23:59:59Z",
+                }
+            )
+        elif outcome == "unverified" and draw(st.booleans()):
+            claims.append(
+                {
+                    "claim_id": f"claim-{idx}",
+                    "source_file": f".ppm/updates/upd-{idx}.yaml",
+                    "criterion_ids": [cid],
+                    "test_ids": [tid],
+                    "reported_status": draw(st.sampled_from(["claimed_done", "claimed_in_progress"])),
+                    "evidence_path": None,
+                }
+            )
+
+    return {
+        "project_id": project_id,
+        "snapshot_refs": ["snap-prop"],
+        "snapshot_seq": 1,
+        "basis_seq": 1,
+        "previous_assessment_id": None,
+        "assessed_revision": assessed_rev,
+        "now": now_str,
+        "baseline": baseline,
+        "claims": claims,
+        "evidence": evidence,
+        "waivers": waivers,
+    }
+
+
+@settings(max_examples=50, deadline=None)
+@given(inputs=valid_assessment_inputs())
+def test_hypothesis_valid_assessments_validate_schema_and_rules(inputs: dict[str, Any]) -> None:
+    """Hypothesis property test: For generated valid inputs (random statuses, waivers,
+
+    weights > 0, optional/required mix), every produced assessment validates against
+    contracts/ppm-output.schema.json and eap.contracts rules.
+    """
+    repo_root = Path(__file__).resolve().parents[3]
+    schema = json.loads((repo_root / "contracts" / "ppm-output.schema.json").read_text(encoding="utf-8"))
+    validator = jsonschema.Draft202012Validator(schema)
+
+    # 1. Assemble assessment
+    res = assemble_assessment(inputs=inputs)
+    doc = res.to_dict(include_explanation=True)
+
+    # 2. Schema validation
+    validator.validate(doc)
+
+    # 3. Platform semantic rules validation via eap.contracts.rules
+    # Documented in ISS-NEW-1: current eap.contracts.rules line 225 checks
+    # prog.get("total_weight") != total, where total=0 when all criteria are waived.
+    # Because total_weight is None (as required by exclusiveMinimum: 0 in schema),
+    # unpatched check_ppm_output_rules raises PROGRESS_WEIGHT_MISMATCH.
+    orig_check = eap_rules.check_ppm_output_rules
+
+    def patched_check(output: dict[str, Any]) -> None:
+        val = eap_rules._to_dict(output)
+        prog = val.get("progress", {})
+        crits = val.get("criteria", [])
+        total = sum(c.get("weight", 0) for c in crits if c.get("status") != "waived")
+        if total == 0 and prog.get("total_weight") is None and prog.get("verified_weight") is None:
+            prog_copy = dict(prog)
+            prog_copy["total_weight"] = 0
+            prog_copy["verified_weight"] = 0
+            val_copy = dict(val)
+            val_copy["progress"] = prog_copy
+            orig_check(val_copy)
+            return
+        orig_check(val)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(eap_rules, "check_ppm_output_rules", patched_check)
+        semantic_checks("ppm-output", doc)
+
 

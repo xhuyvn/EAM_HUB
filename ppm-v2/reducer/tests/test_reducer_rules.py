@@ -10,6 +10,7 @@ Covers:
 from __future__ import annotations
 
 import datetime as dt
+from typing import Any
 
 import pytest
 
@@ -672,5 +673,204 @@ def test_domain_findings_types_and_severities() -> None:
     assert cc.target_ref == "criterion:AC-001"
     assert cc.details["conflicting_updates"] == ["c1", "c2"]
     assert cc.details["claimed_statuses"] == ["claimed_done", "claimed_blocked"]
+
+
+def test_m3_1_all_waived_criteria(monkeypatch: pytest.MonkeyPatch) -> None:
+    """M3-1: When every criterion is waived (non-waived denominator empty),
+
+    reducer emits verified_weight=null, total_weight=null, basis='baseline_weighted',
+    verification='unknown', acceptance_readiness='not_ready'.
+    Validates against contracts/ppm-output.schema.json and eap.contracts rules.
+    """
+    import json
+    from pathlib import Path
+
+    import jsonschema
+
+    import eap.contracts.rules as eap_rules
+    from eap.contracts.rules import ContractViolation, semantic_checks
+    from ppm_reducer import assemble_assessment
+
+    repo_root = Path(__file__).resolve().parents[3]
+    schema = json.loads((repo_root / "contracts" / "ppm-output.schema.json").read_text(encoding="utf-8"))
+    validator = jsonschema.Draft202012Validator(schema)
+
+    inputs = {
+        "project_id": "proj-all-waived",
+        "snapshot_refs": ["snap-1"],
+        "snapshot_seq": 1,
+        "basis_seq": 1,
+        "previous_assessment_id": None,
+        "assessed_revision": "rev-1",
+        "now": "2026-11-05T12:00:00Z",
+        "baseline": {
+            "baseline_revision": 1,
+            "criteria": [
+                {
+                    "criterion_id": "AC-001",
+                    "deliverable_id": "DEL-1",
+                    "owner_project_id": "proj-all-waived",
+                    "weight": 2.0,
+                    "required": True,
+                    "verification_refs": [{"kind": "test_id", "ref": "t1"}],
+                    "previous_status": None,
+                },
+                {
+                    "criterion_id": "AC-002",
+                    "deliverable_id": "DEL-2",
+                    "owner_project_id": "proj-all-waived",
+                    "weight": 3.0,
+                    "required": False,
+                    "verification_refs": [{"kind": "test_id", "ref": "t2"}],
+                    "previous_status": None,
+                },
+            ],
+        },
+        "claims": [],
+        "evidence": [],
+        "waivers": [
+            {
+                "waiver_id": "w-1",
+                "criterion_id": "AC-001",
+                "scope": "test waiver 1",
+                "rationale": "hardware unavailable",
+                "approved_by": "lead",
+                "approved_at": "2026-11-01T00:00:00Z",
+                "expires_at": "2026-11-10T00:00:00Z",
+            },
+            {
+                "waiver_id": "w-2",
+                "criterion_id": "AC-002",
+                "scope": "test waiver 2",
+                "rationale": "scope postponed",
+                "approved_by": "lead",
+                "approved_at": "2026-11-01T00:00:00Z",
+                "expires_at": "2026-11-10T00:00:00Z",
+            },
+        ],
+    }
+
+    res = assemble_assessment(inputs=inputs)
+
+    # 1. Reducer contract assertions
+    assert res.progress.basis == "baseline_weighted"
+    assert res.progress.verified_weight is None
+    assert res.progress.total_weight is None
+    assert res.progress.criteria_total == 2
+    assert res.progress.criteria_with_current_evidence == 0
+    assert res.verification == "unknown"
+    assert res.acceptance_readiness == "not_ready"
+
+    # 2. Schema validation against contracts/ppm-output.schema.json
+    doc = res.to_dict(include_explanation=True)
+    validator.validate(doc)
+
+    # 3. Platform semantic rules validation:
+    # Documented in ISS-NEW-1: current eap.contracts.rules line 225 checks
+    # prog.get("total_weight") != total, where total=0 when all criteria are waived.
+    # Because total_weight is None (as required by exclusiveMinimum: 0 in schema),
+    # unpatched check_ppm_output_rules raises PROGRESS_WEIGHT_MISMATCH.
+    with pytest.raises(ContractViolation) as exc_info:
+        semantic_checks("ppm-output", doc)
+    assert exc_info.value.code == "PROGRESS_WEIGHT_MISMATCH"
+
+    # With the proposed platform rule fix for ISS-NEW-1 (allowing total_weight=None when non-waived total is 0):
+    orig_check = eap_rules.check_ppm_output_rules
+
+    def patched_check(output: dict[str, Any]) -> None:
+        val = eap_rules._to_dict(output)
+        prog = val.get("progress", {})
+        crits = val.get("criteria", [])
+        total = sum(c.get("weight", 0) for c in crits if c.get("status") != "waived")
+        if total == 0 and prog.get("total_weight") is None and prog.get("verified_weight") is None:
+            prog_copy = dict(prog)
+            prog_copy["total_weight"] = 0
+            prog_copy["verified_weight"] = 0
+            val_copy = dict(val)
+            val_copy["progress"] = prog_copy
+            orig_check(val_copy)
+            return
+        orig_check(val)
+
+    monkeypatch.setattr(eap_rules, "check_ppm_output_rules", patched_check)
+    semantic_checks("ppm-output", doc)  # Passes cleanly!
+
+
+def test_m3_2_invalid_baseline_weight() -> None:
+    """M3-2: Reject invalid baseline input: weight missing, non-numeric, or <= 0
+
+    raises InputRejected(reason="invalid_weight").
+    """
+    from ppm_reducer import assemble_assessment, assess_criteria
+
+    base_inputs = {
+        "project_id": "proj-invalid-weight",
+        "snapshot_refs": ["snap-1"],
+        "snapshot_seq": 1,
+        "basis_seq": 1,
+        "previous_assessment_id": None,
+        "assessed_revision": "rev-1",
+        "now": "2026-11-05T12:00:00Z",
+        "claims": [],
+        "evidence": [],
+        "waivers": [],
+    }
+
+    invalid_weights: list[Any] = [
+        None,            # missing / None
+        "high",          # string
+        "1.0",           # string numeric
+        True,            # boolean True
+        False,           # boolean False
+        [1.0],           # list
+        {"w": 1},        # dict
+        0,               # zero int
+        0.0,             # zero float
+        -1,              # negative int
+        -0.001,          # negative float
+        float("nan"),    # NaN
+    ]
+
+    for bad_w in invalid_weights:
+        crit: dict[str, Any] = {
+            "criterion_id": "AC-BAD-WEIGHT",
+            "deliverable_id": "DEL-1",
+            "owner_project_id": "proj-invalid-weight",
+            "required": True,
+            "verification_refs": [{"kind": "test_id", "ref": "t1"}],
+        }
+        crit["weight"] = bad_w
+
+        # 1. Test assess_criteria
+        with pytest.raises(InputRejected) as exc_info:
+            assess_criteria(
+                baseline={"baseline_revision": 1, "criteria": [crit]},
+                claims=[],
+                evidence=[],
+                waivers=[],
+                assessed_revision="rev-1",
+                now="2026-11-05T12:00:00Z",
+            )
+        assert exc_info.value.reason == "invalid_weight", f"Failed for {bad_w}: {exc_info.value.reason}"
+
+        # 2. Test assemble_assessment
+        inp = dict(base_inputs)
+        inp["baseline"] = {"baseline_revision": 1, "criteria": [crit]}
+        with pytest.raises(InputRejected) as exc_info:
+            assemble_assessment(inputs=inp)
+        assert exc_info.value.reason == "invalid_weight", f"Failed for {bad_w}: {exc_info.value.reason}"
+
+    # Also test completely omitted "weight" key
+    crit_omitted: dict[str, Any] = {
+        "criterion_id": "AC-OMITTED-WEIGHT",
+        "deliverable_id": "DEL-1",
+        "owner_project_id": "proj-invalid-weight",
+        "required": True,
+        "verification_refs": [{"kind": "test_id", "ref": "t1"}],
+    }
+    with pytest.raises(InputRejected) as exc_info:
+        assemble_assessment(inputs={**base_inputs, "baseline": {"baseline_revision": 1, "criteria": [crit_omitted]}})
+    assert exc_info.value.reason == "invalid_weight"
+
 
 
