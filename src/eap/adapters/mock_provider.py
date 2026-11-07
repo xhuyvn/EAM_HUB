@@ -2,7 +2,7 @@
 
 Features:
 - Configurable failure switches: drop_ack, crash_after_send, slow_cancel, lookup_supported.
-- Action execution (create_pr) accepting a client token (task_intent_key).
+- Action execution (create_pr) accepting a client token (operation_key).
 - Observable counters: submissions[idempotency_key], prs_created.
 - Status lookups and cancellation.
 """
@@ -152,7 +152,7 @@ class MockProvider:
         title: str = "Automated PR",
         arguments_sha256: str = "",
     ) -> dict[str, Any]:
-        """Create a pull request using a client token (task_intent_key).
+        """Create a pull request using a client token (operation_key).
 
         Increments prs_created. Applies drop_ack if enabled.
         """
@@ -178,7 +178,7 @@ class MockProvider:
         return pr_record
 
     def lookup_pr(self, client_token: str) -> dict[str, Any]:
-        """Look up a PR by client token (task_intent_key)."""
+        """Look up a PR by client token (operation_key)."""
         if not self.lookup_supported:
             return {"state": "unsupported"}
 

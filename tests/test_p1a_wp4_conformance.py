@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from eap.action.executor import (
     ActionExecutor,
+    ActionInProgressError,
     ActionSlotUndeclaredError,
     OperationKeyConflictError,
 )
@@ -305,7 +306,7 @@ def test_c29_pr_created_lost_ack_retry_and_conflict(db_engine: Engine) -> None:
 
     # 1. ActionExecutor runs attempt 1: create_pr(repo='repo:example')
     with Session(db_engine) as db:
-        task_intent_key = derive_task_intent_key(tenant, task_id)
+        op_key = derive_operation_key(tenant, task_id, "create_pr#1")
         with pytest.raises(MockProviderAckDroppedError):  # drop_ack causes error after PR creation
             ActionExecutor.execute(
                 db,
@@ -316,8 +317,8 @@ def test_c29_pr_created_lost_ack_retry_and_conflict(db_engine: Engine) -> None:
                 workflow_step="create_pr",
                 action_slot="create_pr#1",
                 resource_ref="repo:example",
-                tool_callable=lambda: mock.create_pr(
-                    client_token=task_intent_key,
+                tool_callable=lambda client_token: mock.create_pr(
+                    client_token=client_token,
                     repo="repo:example",
                 ),
             )
@@ -346,11 +347,10 @@ def test_c29_pr_created_lost_ack_retry_and_conflict(db_engine: Engine) -> None:
 
     # 3. Reconcile: simulate finding the PR and marking action execution succeeded
     with Session(db_engine) as db:
-        pr_lookup = mock.lookup_pr(task_intent_key)
+        pr_lookup = mock.lookup_pr(op_key)
         assert pr_lookup["state"] == "found"
         pr_data = pr_lookup["pr"]
 
-        op_key = derive_operation_key(tenant, task_id, "create_pr#1")
         db.execute(
             action_executions.update()
             .where(
@@ -396,8 +396,8 @@ def test_c29_pr_created_lost_ack_retry_and_conflict(db_engine: Engine) -> None:
             workflow_step="create_pr",
             action_slot="create_pr#1",
             resource_ref="repo:example",
-            tool_callable=lambda: mock.create_pr(
-                client_token=task_intent_key,
+            tool_callable=lambda client_token: mock.create_pr(
+                client_token=client_token,
                 repo="repo:example",
             ),
         )
@@ -419,8 +419,8 @@ def test_c29_pr_created_lost_ack_retry_and_conflict(db_engine: Engine) -> None:
             workflow_step="create_pr",
             action_slot="create_pr#1",
             resource_ref="repo:example-divergent",
-            tool_callable=lambda: mock.create_pr(
-                client_token=task_intent_key,
+            tool_callable=lambda client_token: mock.create_pr(
+                client_token=client_token,
                 repo="repo:example-divergent",
             ),
         )
@@ -448,7 +448,6 @@ def test_c29b_agent_proposes_new_slot_after_restart(db_engine: Engine) -> None:
         _create_task_and_run(db, tenant_id=tenant, task_id=task_id, run_id=run_id_1)
 
     mock = MockProvider()
-    task_intent_key = derive_task_intent_key(tenant, task_id)
 
     # Step 1: Initial call persists slot create_pr#1 and executes PR creation
     with Session(db_engine) as db:
@@ -461,7 +460,7 @@ def test_c29b_agent_proposes_new_slot_after_restart(db_engine: Engine) -> None:
             workflow_step="create_pr",
             action_slot="create_pr#1",
             resource_ref="repo:example",
-            tool_callable=lambda: mock.create_pr(client_token=task_intent_key),
+            tool_callable=lambda client_token: mock.create_pr(client_token=client_token),
         )
         assert res1.status == "executed"
         assert res1.invoked_tool is True
@@ -480,7 +479,7 @@ def test_c29b_agent_proposes_new_slot_after_restart(db_engine: Engine) -> None:
             action_slot="create_pr#2",  # Agent drifted
             resource_ref="repo:example",
             strict_slots=False,
-            tool_callable=lambda: mock.create_pr(client_token=task_intent_key),
+            tool_callable=lambda client_token: mock.create_pr(client_token=client_token),
         )
         assert res2.status == "journaled"
         assert res2.invoked_tool is False
@@ -500,7 +499,7 @@ def test_c29b_agent_proposes_new_slot_after_restart(db_engine: Engine) -> None:
             action_slot="create_pr#2",
             resource_ref="repo:example",
             strict_slots=True,
-            tool_callable=lambda: mock.create_pr(client_token=task_intent_key),
+            tool_callable=lambda client_token: mock.create_pr(client_token=client_token),
         )
 
     assert mock.prs_created == 1
@@ -839,3 +838,347 @@ async def test_api_cancel_and_retry_routes(api_client: AsyncClient, db_engine: E
     retry_json = resp_retry_succ.json()
     assert retry_json["attempt"] == 2
     assert retry_json["state"] == "queued"
+
+
+# -----------------------------------------------------------------------------
+# W4-1: Distinct declared slots must stay distinct
+# -----------------------------------------------------------------------------
+def test_w4_1_distinct_declared_slots_stay_distinct(db_engine: Engine) -> None:
+    """W4-1: With declared_slots ["create_pr#1","create_pr#2"]:
+    - executing create_pr#2 (different args) after #1 -> 2 PRs, 2 operation_keys
+    - re-run of each -> journaled, still 2 PRs
+    - undeclared create_pr#3 after restart -> ACTION_SLOT_UNDECLARED (strict) or mapped per DG-1, prs unchanged.
+    """
+    tenant = "tenant-w4-1"
+    task_id = "task-w4-1"
+    run_id = "run-w4-1"
+    with Session(db_engine) as db:
+        _create_task_and_run(db, tenant_id=tenant, task_id=task_id, run_id=run_id)
+
+    mock = MockProvider()
+    declared_slots = ["create_pr#1", "create_pr#2"]
+
+    with Session(db_engine) as db:
+        # Slot 1: create_pr#1
+        res1 = ActionExecutor.execute(
+            db,
+            tenant_id=tenant,
+            task_id=task_id,
+            run_id=run_id,
+            tool_id="engineering.create_pr",
+            workflow_step="create_pr",
+            action_slot="create_pr#1",
+            arguments={"title": "PR 1"},
+            resource_ref="repo:example/pr1",
+            declared_slots=declared_slots,
+            tool_callable=lambda client_token: mock.create_pr(client_token=client_token, title="PR 1"),
+        )
+        assert res1.status == "executed"
+        assert res1.invoked_tool is True
+
+        # Slot 2: create_pr#2 with different args and resource_ref
+        res2 = ActionExecutor.execute(
+            db,
+            tenant_id=tenant,
+            task_id=task_id,
+            run_id=run_id,
+            tool_id="engineering.create_pr",
+            workflow_step="create_pr",
+            action_slot="create_pr#2",
+            arguments={"title": "PR 2"},
+            resource_ref="repo:example/pr2",
+            declared_slots=declared_slots,
+            tool_callable=lambda client_token: mock.create_pr(client_token=client_token, title="PR 2"),
+        )
+        assert res2.status == "executed"
+        assert res2.invoked_tool is True
+
+    # Two distinct PRs created, distinct operation_keys, slots preserved as-is
+    assert mock.prs_created == 2
+    assert res1.operation_key != res2.operation_key
+    assert res1.action_slot == "create_pr#1"
+    assert res2.action_slot == "create_pr#2"
+
+    # Re-run of each -> journaled, still 2 PRs
+    with Session(db_engine) as db:
+        res1_rerun = ActionExecutor.execute(
+            db,
+            tenant_id=tenant,
+            task_id=task_id,
+            run_id=run_id,
+            tool_id="engineering.create_pr",
+            workflow_step="create_pr",
+            action_slot="create_pr#1",
+            arguments={"title": "PR 1"},
+            resource_ref="repo:example/pr1",
+            declared_slots=declared_slots,
+            tool_callable=lambda client_token: mock.create_pr(client_token=client_token, title="PR 1"),
+        )
+        assert res1_rerun.status == "journaled"
+        assert res1_rerun.invoked_tool is False
+
+        res2_rerun = ActionExecutor.execute(
+            db,
+            tenant_id=tenant,
+            task_id=task_id,
+            run_id=run_id,
+            tool_id="engineering.create_pr",
+            workflow_step="create_pr",
+            action_slot="create_pr#2",
+            arguments={"title": "PR 2"},
+            resource_ref="repo:example/pr2",
+            declared_slots=declared_slots,
+            tool_callable=lambda client_token: mock.create_pr(client_token=client_token, title="PR 2"),
+        )
+        assert res2_rerun.status == "journaled"
+        assert res2_rerun.invoked_tool is False
+
+    assert mock.prs_created == 2
+
+    # Undeclared create_pr#3 after restart -> ACTION_SLOT_UNDECLARED (strict)
+    with Session(db_engine) as db:
+        with pytest.raises(ActionSlotUndeclaredError):
+            ActionExecutor.execute(
+                db,
+                tenant_id=tenant,
+                task_id=task_id,
+                run_id=run_id,
+                tool_id="engineering.create_pr",
+                workflow_step="create_pr",
+                action_slot="create_pr#3",
+                strict_slots=True,
+                tool_callable=lambda client_token: mock.create_pr(client_token=client_token),
+            )
+
+        # Non-strict: mapped per DG-1, prs unchanged
+        res3_mapped = ActionExecutor.execute(
+            db,
+            tenant_id=tenant,
+            task_id=task_id,
+            run_id=run_id,
+            tool_id="engineering.create_pr",
+            workflow_step="create_pr",
+            action_slot="create_pr#3",
+            arguments={"title": "PR 1"},
+            resource_ref="repo:example/pr1",
+            strict_slots=False,
+            tool_callable=lambda client_token: mock.create_pr(client_token=client_token),
+        )
+        assert res3_mapped.status == "journaled"
+        assert res3_mapped.invoked_tool is False
+
+    assert mock.prs_created == 2
+
+
+# -----------------------------------------------------------------------------
+# W4-2: Crash after journal row is 'running' must not look like success
+# -----------------------------------------------------------------------------
+class WorkerKilledException(BaseException):
+    """Simulated worker kill after creating remote effect."""
+
+
+def test_w4_2_crash_after_running_unknown_not_success(db_engine: Engine) -> None:
+    """W4-2:
+    - kill after side effect (BaseException) -> retry with lookup -> exactly 1 PR, journal succeeded with external_ref
+    - same without lookup -> 409 REMOTE_OUTCOME_UNKNOWN, 0 new calls, journal unchanged in 'running'.
+    """
+    tenant = "tenant-w4-2"
+    task_id = "task-w4-2"
+    run_id = "run-w4-2"
+    with Session(db_engine) as db:
+        _create_task_and_run(db, tenant_id=tenant, task_id=task_id, run_id=run_id)
+
+    mock = MockProvider()
+
+    def _killer_tool(client_token: str):
+        # 1. PR is created remotely
+        mock.create_pr(client_token=client_token, repo="repo:kill-test")
+        # 2. Worker process is killed immediately via BaseException
+        raise WorkerKilledException("Worker killed after external effect created")
+
+    # Step 1: Execute tool; worker killed after PR created
+    with Session(db_engine) as db, pytest.raises(WorkerKilledException):
+        ActionExecutor.execute(
+            db,
+            tenant_id=tenant,
+            task_id=task_id,
+            run_id=run_id,
+            tool_id="engineering.create_pr",
+            workflow_step="create_pr",
+            action_slot="create_pr#1",
+            resource_ref="repo:kill-test",
+            tool_callable=_killer_tool,
+        )
+
+    assert mock.prs_created == 1
+    op_key = derive_operation_key(tenant, task_id, "create_pr#1")
+
+    # Verify journal row is in 'running' state in database with no external_ref
+    with Session(db_engine) as db:
+        exec_row = db.execute(
+            sa.select(action_executions).where(
+                action_executions.c.tenant_id == tenant,
+                action_executions.c.operation_key == op_key,
+            )
+        ).mappings().one()
+        assert exec_row["state"] == "running"
+        assert exec_row["external_ref"] is None
+
+    # Step 2: Retry WITH provider lookup:
+    # Finds PR remotely -> journals succeeded with external_ref, returns journaled result
+    with Session(db_engine) as db:
+        res = ActionExecutor.execute(
+            db,
+            tenant_id=tenant,
+            task_id=task_id,
+            run_id="run-w4-2-retry",
+            tool_id="engineering.create_pr",
+            workflow_step="create_pr",
+            action_slot="create_pr#1",
+            resource_ref="repo:kill-test",
+            provider=mock,
+            tool_callable=lambda client_token: mock.create_pr(client_token=client_token),
+        )
+        assert res.status == "journaled"
+        assert res.invoked_tool is False
+        assert res.external_ref == "pr-101"
+
+    # Exactly 1 PR created
+    assert mock.prs_created == 1
+
+    # Verify journal row is now 'succeeded' with external_ref
+    with Session(db_engine) as db:
+        exec_row2 = db.execute(
+            sa.select(action_executions).where(
+                action_executions.c.tenant_id == tenant,
+                action_executions.c.operation_key == op_key,
+            )
+        ).mappings().one()
+        assert exec_row2["state"] == "succeeded"
+        assert exec_row2["external_ref"] == "pr-101"
+
+    # Step 3: Same scenario WITHOUT lookup support -> 409 REMOTE_OUTCOME_UNKNOWN, 0 new calls, journal unchanged
+    tenant_no_lookup = "tenant-w4-2-no-lookup"
+    task_id_no_lookup = "task-w4-2-no-lookup"
+    run_id_no_lookup = "run-w4-2-no-lookup"
+    with Session(db_engine) as db:
+        _create_task_and_run(db, tenant_id=tenant_no_lookup, task_id=task_id_no_lookup, run_id=run_id_no_lookup)
+
+    mock_no_lookup = MockProvider(lookup_supported=False)
+
+    def _killer_tool_no_lookup(client_token: str):
+        mock_no_lookup.create_pr(client_token=client_token, repo="repo:no-lookup")
+        raise WorkerKilledException("Worker killed")
+
+    with Session(db_engine) as db, pytest.raises(WorkerKilledException):
+        ActionExecutor.execute(
+            db,
+            tenant_id=tenant_no_lookup,
+            task_id=task_id_no_lookup,
+            run_id=run_id_no_lookup,
+            tool_id="engineering.create_pr",
+            workflow_step="create_pr",
+            action_slot="create_pr#1",
+            resource_ref="repo:no-lookup",
+            tool_callable=_killer_tool_no_lookup,
+        )
+
+    assert mock_no_lookup.prs_created == 1
+    op_key_no_lookup = derive_operation_key(tenant_no_lookup, task_id_no_lookup, "create_pr#1")
+
+    # Retry without lookup support -> raises RemoteOutcomeUnknownError (409)
+    with Session(db_engine) as db, pytest.raises(RemoteOutcomeUnknownError):
+        ActionExecutor.execute(
+            db,
+            tenant_id=tenant_no_lookup,
+            task_id=task_id_no_lookup,
+            run_id="run-w4-2-no-lookup-retry",
+            tool_id="engineering.create_pr",
+            workflow_step="create_pr",
+            action_slot="create_pr#1",
+            resource_ref="repo:no-lookup",
+            provider=mock_no_lookup,
+            tool_callable=lambda client_token: mock_no_lookup.create_pr(client_token=client_token),
+        )
+
+    # 0 new calls, journal unchanged in 'running'
+    assert mock_no_lookup.prs_created == 1
+    with Session(db_engine) as db:
+        exec_row3 = db.execute(
+            sa.select(action_executions).where(
+                action_executions.c.tenant_id == tenant_no_lookup,
+                action_executions.c.operation_key == op_key_no_lookup,
+            )
+        ).mappings().one()
+        assert exec_row3["state"] == "running"
+        assert exec_row3["external_ref"] is None
+
+
+# -----------------------------------------------------------------------------
+# W4-3: Concurrent loser surfaces typed ACTION_IN_PROGRESS (409)
+# -----------------------------------------------------------------------------
+def test_w4_3_concurrent_loser_action_in_progress(db_engine: Engine) -> None:
+    """W4-3: Concurrent loser maps to typed ACTION_IN_PROGRESS (409) without calling the tool."""
+    tenant = "tenant-w4-3"
+    task_id = "task-w4-3"
+    run_id = "run-w4-3"
+    with Session(db_engine) as db:
+        _create_task_and_run(db, tenant_id=tenant, task_id=task_id, run_id=run_id)
+
+    mock = MockProvider()
+    tool_invoked = False
+
+    def _tool(client_token: str):
+        nonlocal tool_invoked
+        tool_invoked = True
+        return mock.create_pr(client_token=client_token)
+
+    op_key = derive_operation_key(tenant, task_id, "create_pr#1")
+    now = dt.datetime.now(dt.UTC)
+
+    # Setup an event listener that simulates a concurrent worker winning the race
+    # and committing the action_executions row right before session executes insert
+    inserted_collision = False
+
+    def _before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        nonlocal inserted_collision
+        if "INSERT INTO action_executions" in statement and not inserted_collision:
+            inserted_collision = True
+            # Concurrent worker commits the colliding row
+            with db_engine.connect() as other_conn:
+                other_conn.execute(
+                    action_executions.insert().values(
+                        tenant_id=tenant,
+                        operation_key=op_key,
+                        payload_hash="hash-race",
+                        tool_id="engineering.create_pr",
+                        resource_ref="repo:race",
+                        state="running",
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+                other_conn.commit()
+
+    sa.event.listen(db_engine, "before_cursor_execute", _before_cursor_execute)
+    try:
+        with Session(db_engine) as db:
+            with pytest.raises(ActionInProgressError) as exc_info:
+                ActionExecutor.execute(
+                    db,
+                    tenant_id=tenant,
+                    task_id=task_id,
+                    run_id=run_id,
+                    tool_id="engineering.create_pr",
+                    workflow_step="create_pr",
+                    action_slot="create_pr#1",
+                    resource_ref="repo:race",
+                    tool_callable=_tool,
+                )
+            assert "ACTION_IN_PROGRESS" in str(exc_info.value)
+            # Tool must NEVER be called by concurrent loser
+            assert tool_invoked is False
+            assert mock.prs_created == 0
+    finally:
+        sa.event.remove(db_engine, "before_cursor_execute", _before_cursor_execute)
+

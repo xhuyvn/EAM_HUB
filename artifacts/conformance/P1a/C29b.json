@@ -3,12 +3,13 @@
   "milestone": "P1a",
   "work_package": "P1a-WP4",
   "status": "passed",
-  "observed_outcome": "Action slot create_pr#1 is persisted in task_intents before the first tool call; when an agent restarts and proposes create_pr#2, mapping policy maps proposal back to recovered slot create_pr#1 returning journaled PR result without calling tool; strict policy rejects proposal with ACTION_SLOT_UNDECLARED; in both cases mock.prs_created == 1.",
+  "observed_outcome": "Persisted declared step list (all slots) in task_intents ensures distinct declared slots stay distinct (2 PRs, 2 operation_keys, re-run journaled with 0 tool calls per W4-1); undeclared proposal after restart maps to recovered slot under default policy or raises ACTION_SLOT_UNDECLARED under strict policy; mock.prs_created unchanged.",
   "counts": {
-    "passed_tests": 1,
+    "passed_tests": 2,
     "violations": 0
   },
   "evidence_refs": [
-    "tests/test_p1a_wp4_conformance.py::test_c29b_agent_proposes_new_slot_after_restart"
+    "tests/test_p1a_wp4_conformance.py::test_c29b_agent_proposes_new_slot_after_restart",
+    "tests/test_p1a_wp4_conformance.py::test_w4_1_distinct_declared_slots_stay_distinct"
   ]
 }

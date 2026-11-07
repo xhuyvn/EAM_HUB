@@ -3,15 +3,17 @@
   "milestone": "P1a",
   "work_package": "P1a-WP4",
   "status": "passed",
-  "observed_outcome": "Mock provider creates PR then drops ACK; worker restart leaves run unknown; user retry blocked with 409 REMOTE_OUTCOME_UNKNOWN; post-reconciliation retry reuses operation_key, returning journaled PR result without invoking tool (invoked_tool=False, mock.prs_created=1); divergent resource_ref with same operation_key yields 409 OPERATION_KEY_CONFLICT with 0 tool calls (DG1-C3).",
+  "observed_outcome": "Mock provider creates PR then drops ACK; worker restart leaves run unknown; user retry blocked with 409 REMOTE_OUTCOME_UNKNOWN; post-reconciliation retry reuses operation_key, returning journaled PR result without invoking tool (invoked_tool=False, mock.prs_created=1); divergent resource_ref with same operation_key yields 409 OPERATION_KEY_CONFLICT with 0 tool calls (DG1-C3); worker killed during running state reconciles via provider lookup by operation_key (W4-2); concurrent loser yields 409 ACTION_IN_PROGRESS without tool invocation (W4-3).",
   "counts": {
-    "passed_tests": 4,
+    "passed_tests": 6,
     "violations": 0
   },
   "evidence_refs": [
     "tests/db/test_action_executions.py::test_dg1_c3_duplicate_operation_key_rejected",
     "tests/db/test_action_executions.py::test_dg1_c3_same_operation_key_different_tenant_allowed",
     "tests/db/test_action_executions.py::test_action_executions_state_check_constraint",
-    "tests/test_p1a_wp4_conformance.py::test_c29_pr_created_lost_ack_retry_and_conflict"
+    "tests/test_p1a_wp4_conformance.py::test_c29_pr_created_lost_ack_retry_and_conflict",
+    "tests/test_p1a_wp4_conformance.py::test_w4_2_crash_after_running_unknown_not_success",
+    "tests/test_p1a_wp4_conformance.py::test_w4_3_concurrent_loser_action_in_progress"
   ]
 }
