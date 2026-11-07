@@ -1,0 +1,206 @@
+{
+  "positive_vectors": [
+    {
+      "name": "task_intent_key_fixture",
+      "key_type": "task_intent_key",
+      "inputs": {
+        "tenant_id": "company-example",
+        "task_id": "task-001"
+      },
+      "raw_delimited": "company-example|task-001",
+      "expected_hex": "bd26959f46630d52b7362f53608330f10ba7d2607ccbe80f51c33025fdfb1d06"
+    },
+    {
+      "name": "task_intent_key_alpha",
+      "key_type": "task_intent_key",
+      "inputs": {
+        "tenant_id": "tenant-alpha",
+        "task_id": "task-42"
+      },
+      "raw_delimited": "tenant-alpha|task-42",
+      "expected_hex": "1f17771abf930eab76d1b27d0f20f72179f87748540a3e6564dc0ef2b6d0e528"
+    },
+    {
+      "name": "operation_key_pr1",
+      "key_type": "operation_key",
+      "inputs": {
+        "tenant_id": "company-example",
+        "task_id": "task-002",
+        "action_slot": "create_pr#1"
+      },
+      "raw_delimited": "company-example|task-002|create_pr#1",
+      "expected_hex": "99842d00b17b5a263e9d4492ce3bc15fd1681b44dd0af40a8fefe378b5516fdd"
+    },
+    {
+      "name": "operation_key_tests1",
+      "key_type": "operation_key",
+      "inputs": {
+        "tenant_id": "company-example",
+        "task_id": "task-002",
+        "action_slot": "run_tests#1"
+      },
+      "raw_delimited": "company-example|task-002|run_tests#1",
+      "expected_hex": "0134538abb85b0a6757b9a9ab3029eec74c2d3a1d3f7f36c95c92ea4f2f0032a"
+    },
+    {
+      "name": "dispatch_key_run001_submit",
+      "key_type": "dispatch_idempotency_key",
+      "inputs": {
+        "binding_id": "binding-ppm-pilot",
+        "run_id": "run-001",
+        "operation": "submit"
+      },
+      "raw_delimited": "binding-ppm-pilot|run-001|submit",
+      "expected_hex": "2d95e8e9c4dd27a505b77ec5eaf7956a99baec27d3603cfca4e647738efc0065"
+    },
+    {
+      "name": "dispatch_key_run002_cancel",
+      "key_type": "dispatch_idempotency_key",
+      "inputs": {
+        "binding_id": "binding-ppm-pilot",
+        "run_id": "run-002",
+        "operation": "cancel"
+      },
+      "raw_delimited": "binding-ppm-pilot|run-002|cancel",
+      "expected_hex": "7c460ebe643215afe0444d3653a911ca6f3c952e447b4324345e1145a55449a4"
+    },
+    {
+      "name": "payload_hash_create_pr_example",
+      "key_type": "payload_hash",
+      "inputs": {
+        "tool_id": "engineering.create_pr",
+        "arguments_sha256": "6102d7f674ef7d53850cec4bcb6f13346fe9b4e67596a059e0f3b07454751cbc",
+        "resource_ref": "repo:example"
+      },
+      "raw_delimited": "engineering.create_pr|6102d7f674ef7d53850cec4bcb6f13346fe9b4e67596a059e0f3b07454751cbc|repo:example",
+      "expected_hex": "56330e2b4ebffade1ad3d90131e6073fc5ec8bb149b229524b565fd829e50f08"
+    },
+    {
+      "name": "payload_hash_create_pr_divergent",
+      "key_type": "payload_hash",
+      "inputs": {
+        "tool_id": "engineering.create_pr",
+        "arguments_sha256": "6102d7f674ef7d53850cec4bcb6f13346fe9b4e67596a059e0f3b07454751cbc",
+        "resource_ref": "repo:example-divergent"
+      },
+      "raw_delimited": "engineering.create_pr|6102d7f674ef7d53850cec4bcb6f13346fe9b4e67596a059e0f3b07454751cbc|repo:example-divergent",
+      "expected_hex": "15329b88e5b0ce51f22ce4c524791cc529fe0922a59e62dcf8362fa2cd9ff441"
+    },
+    {
+      "name": "payload_hash_empty_resource",
+      "key_type": "payload_hash",
+      "inputs": {
+        "tool_id": "system.echo",
+        "arguments_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "resource_ref": ""
+      },
+      "raw_delimited": "system.echo|e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855|",
+      "expected_hex": "2c7faf0bb8254ea961bfd3c966735426f5280045d56fffba620274bdee4f6a41"
+    }
+  ],
+  "negative_vectors": [
+    {
+      "name": "pipe_in_task_id",
+      "key_type": "task_intent_key",
+      "inputs": {
+        "tenant_id": "company-example",
+        "task_id": "task|001"
+      },
+      "expected_error": "task_id must not contain delimiter '|'",
+      "reason": "Pipes in identifiers could cause delimiter injection across fields"
+    },
+    {
+      "name": "trailing_space_tenant",
+      "key_type": "task_intent_key",
+      "inputs": {
+        "tenant_id": "company-example ",
+        "task_id": "task-001"
+      },
+      "expected_error": "tenant_id must not contain leading or trailing whitespace",
+      "reason": "Silent whitespace trimming is forbidden; invalid whitespace must raise"
+    },
+    {
+      "name": "trailing_space_task",
+      "key_type": "task_intent_key",
+      "inputs": {
+        "tenant_id": "company-example",
+        "task_id": "task-001 "
+      },
+      "expected_error": "task_id must not contain leading or trailing whitespace",
+      "reason": "Whitespace in identifiers must be rejected strictly"
+    },
+    {
+      "name": "leading_space_task",
+      "key_type": "task_intent_key",
+      "inputs": {
+        "tenant_id": "company-example",
+        "task_id": " task-001"
+      },
+      "expected_error": "task_id must not contain leading or trailing whitespace",
+      "reason": "Leading whitespace must be rejected strictly"
+    },
+    {
+      "name": "cross_tenant_collision_tenant_pipe",
+      "key_type": "task_intent_key",
+      "inputs": {
+        "tenant_id": "a|b",
+        "task_id": "c"
+      },
+      "expected_error": "tenant_id must not contain delimiter '|'",
+      "reason": "Delimiter injection attempt: tenant 'a|b' rejected before concatenation"
+    },
+    {
+      "name": "cross_tenant_collision_task_pipe",
+      "key_type": "task_intent_key",
+      "inputs": {
+        "tenant_id": "a",
+        "task_id": "b|c"
+      },
+      "expected_error": "task_id must not contain delimiter '|'",
+      "reason": "Delimiter injection attempt: task 'b|c' rejected before concatenation"
+    },
+    {
+      "name": "non_nfc_input_task_id",
+      "key_type": "task_intent_key",
+      "inputs": {
+        "tenant_id": "company-example",
+        "task_id": "task-e\u0301"
+      },
+      "expected_error": "task_id must be in Unicode Normalization Form C (NFC)",
+      "reason": "Non-NFC Unicode representation causes hash divergence across platforms and must be rejected"
+    },
+    {
+      "name": "pipe_in_action_slot",
+      "key_type": "operation_key",
+      "inputs": {
+        "tenant_id": "company-example",
+        "task_id": "task-002",
+        "action_slot": "create|pr#1"
+      },
+      "expected_error": "action_slot must not contain delimiter '|'",
+      "reason": "Pipes in action slots violate step identifier syntax"
+    },
+    {
+      "name": "pipe_in_tool_id",
+      "key_type": "payload_hash",
+      "inputs": {
+        "tool_id": "engineering|create_pr",
+        "arguments_sha256": "6102d7f674ef7d53850cec4bcb6f13346fe9b4e67596a059e0f3b07454751cbc",
+        "resource_ref": "repo:example"
+      },
+      "expected_error": "tool_id must not contain delimiter '|'",
+      "reason": "Pipes in tool IDs violate tool identifier syntax"
+    },
+    {
+      "name": "invalid_arguments_sha256_uppercase",
+      "key_type": "payload_hash",
+      "inputs": {
+        "tool_id": "engineering.create_pr",
+        "arguments_sha256": "6102D7F674EF7D53850CEC4BCB6F13346FE9B4E67596A059E0F3B07454751CBC",
+        "resource_ref": "repo:example"
+      },
+      "expected_error": "arguments_sha256 must be 64 lowercase hex characters",
+      "reason": "arguments_sha256 must strictly be lowercase hex"
+    }
+  ]
+}
