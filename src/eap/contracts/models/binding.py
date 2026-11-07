@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from eap.contracts.models.base import ContractModel, Sha256Str
+from eap.contracts.models.base import ContractModel, NonEmptyStr, Sha256Str
 
 
 class BindingCertifiedCapabilities(ContractModel):
@@ -32,14 +32,14 @@ class Binding(ContractModel):
     mode: Literal["observe", "managed", "governed"]
     endpoint_ref: Annotated[str, Field(min_length=1)]
     secret_ref: str | None = Field(...)
-    resource_scope_refs: list[str]
+    resource_scope_refs: list[NonEmptyStr]
     certified_capabilities: BindingCertifiedCapabilities
     capability_evidence_ref: Annotated[str, Field(min_length=1)]
     model_profile_ref: Annotated[str, Field(min_length=1)]
-    grant_refs: list[str]
+    grant_refs: list[NonEmptyStr]
     execution_boundary: Literal["platform_gateway", "sandboxed", "external_trusted"]
     policy_version: Annotated[str, Field(min_length=1)]
-    fallback_model_profile_refs: list[str]
+    fallback_model_profile_refs: list[NonEmptyStr]
     embedding_profile_ref: Annotated[str | None, Field(min_length=1)] = Field(...)
     egress_policy_ref: Annotated[str, Field(min_length=1)]
     telemetry_export: Literal["local_only", "approved_endpoint"]

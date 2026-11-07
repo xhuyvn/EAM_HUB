@@ -8,7 +8,6 @@ with an appropriate ContractViolation or ValidationError.
 
 from __future__ import annotations
 
-import copy
 import json
 import sys
 from pathlib import Path
@@ -51,62 +50,26 @@ def test_all_validator_negatives_rejected(capsys: pytest.CaptureFixture[str]) ->
             validate_against_model_and_rules(kind, data)
         rejected_cases.append(name)
 
-    # 2. 3 approval pair negatives from validate_package.main()
+    # 2. approval pair negatives from validate_package.build_pair_negatives()
     proposal = json.loads((REPO_ROOT / "templates" / "actions" / "action-proposal.example.json").read_text(encoding="utf-8"))
     decision = json.loads((REPO_ROOT / "examples" / "approval-decision.json").read_text(encoding="utf-8"))
 
-    pair_negatives = []
-    d1 = copy.deepcopy(decision)
-    d1["nonce"] = "nonce-replayed-000000000"
-    pair_negatives.append(("approval replay with different nonce", d1))
-
-    d2 = copy.deepcopy(decision)
-    d2["valid_until"] = "2026-11-05T11:00:00Z"
-    pair_negatives.append(("approval outlives proposal", d2))
-
-    d3 = copy.deepcopy(decision)
-    d3["consumption"] = {
-        "state": "consumed",
-        "consumed_at": "2026-11-05T09:21:00Z",
-        "consumed_by_operation_key": "op-other",
-    }
-    pair_negatives.append(("approval consumed by different operation", d3))
-
+    pair_negatives = validate_package.build_pair_negatives(decision)
     for name, d in pair_negatives:
         with pytest.raises((ContractViolation, ValueError)):
             check_approval_pair(proposal, d)
         rejected_cases.append(name)
 
-    # 3. Operation key conflict negative
+    # 3. Operation key conflict negative from validate_package.build_operation_key_negatives()
     retry = json.loads((REPO_ROOT / "examples" / "action-proposal-retry.json").read_text(encoding="utf-8"))
-    bad_retry = copy.deepcopy(retry)
-    bad_retry["resource_ref"] = "repo:other-target"
-    with pytest.raises((ContractViolation, ValueError)):
-        check_operation_key_reuse([proposal, bad_retry])
-    rejected_cases.append("same operation_key with different target repository")
+    for name, pair in validate_package.build_operation_key_negatives(proposal, retry):
+        with pytest.raises((ContractViolation, ValueError)):
+            check_operation_key_reuse(pair)
+        rejected_cases.append(name)
 
-    # 4. Location set negatives (3 cases)
+    # 4. Location set negatives from validate_package.build_location_negatives()
     locs = json.loads((REPO_ROOT / "examples" / "locations-monorepo.json").read_text(encoding="utf-8"))
-    location_negatives = [
-        (
-            "duplicate registration of same repository and metadata_root",
-            lambda ls: ls.append(dict(copy.deepcopy(ls[0]), location_id="loc-dup")),
-        ),
-        (
-            "metadata_root claimed by two projects",
-            lambda ls: ls.append(dict(copy.deepcopy(ls[0]), location_id="loc-x", project_id="proj-x")),
-        ),
-        (
-            "same physical folder registered as a second source",
-            lambda ls: ls.append(
-                dict(copy.deepcopy(ls[0]), location_id="loc-y", source_id="src-other", metadata_root="apps/c", project_id="proj-app-c")
-            ),
-        ),
-    ]
-
-    for name, mutate in location_negatives:
-        ls_copy = copy.deepcopy(locs)
-        mutate(ls_copy)
+    for name, ls_copy in validate_package.build_location_negatives(locs):
         with pytest.raises((ContractViolation, ValueError)):
             check_location_set(ls_copy)
         rejected_cases.append(name)

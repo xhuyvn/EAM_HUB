@@ -6,11 +6,11 @@ from typing import Annotated
 
 from pydantic import Field
 
-from eap.contracts.models.base import ContractModel
+from eap.contracts.models.base import ContractModel, NonEmptyStr
 
 
 class ResearchInput(ContractModel):
     """Input parameters for research domain task."""
 
     topic: Annotated[str, Field(min_length=1)]
-    source_refs: list[str]
+    source_refs: list[NonEmptyStr]

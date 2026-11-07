@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from eap.contracts.models.base import ContractModel, DateTimeStr
+from eap.contracts.models.base import ContractModel, DateTimeStr, NonEmptyStr
 
 
 class ResultUsage(ContractModel):
@@ -26,9 +26,9 @@ class Result(ContractModel):
     execution_ref: Annotated[str, Field(min_length=1)]
     outcome: Literal["succeeded", "partial", "failed", "cancelled"]
     summary: Annotated[str, Field(min_length=1)]
-    output_refs: list[str]
-    evidence_refs: list[str]
-    missing_evidence: list[str]
+    output_refs: list[NonEmptyStr]
+    evidence_refs: list[NonEmptyStr]
+    missing_evidence: list[NonEmptyStr]
     verification_required: bool
     usage: ResultUsage
     attempt: Annotated[int, Field(ge=1)]

@@ -6,14 +6,19 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from eap.contracts.models.base import ContractModel, DateTimeStr, NullableDateTimeStr
+from eap.contracts.models.base import (
+    ContractModel,
+    DateTimeStr,
+    NonEmptyStr,
+    NullableDateTimeStr,
+)
 
 
 class PpmCriterion(ContractModel):
     criterion_id: Annotated[str, Field(min_length=1)]
     deliverable_id: Annotated[str, Field(min_length=1)]
     owner_project_id: Annotated[str, Field(min_length=1)]
-    weight: float
+    weight: Annotated[float, Field(gt=0)]
     required: bool
     status: Literal[
         "verified",
@@ -37,9 +42,9 @@ class PpmCriterion(ContractModel):
         "reported_artifact_only",
         "waiver_approved",
     ]
-    supporting_evidence_refs: list[str]
-    refuting_evidence_refs: list[str]
-    missing_evidence: list[str]
+    supporting_evidence_refs: list[NonEmptyStr]
+    refuting_evidence_refs: list[NonEmptyStr]
+    missing_evidence: list[NonEmptyStr]
     explanation: Annotated[str, Field(max_length=1000)]
     reported_status: Literal[
         "none",
@@ -47,9 +52,9 @@ class PpmCriterion(ContractModel):
         "claimed_in_progress",
         "claimed_blocked",
     ]
-    reported_claim_refs: list[str]
+    reported_claim_refs: list[NonEmptyStr]
     evidence_revision: Annotated[str | None, Field(min_length=1)] = Field(...)
-    covered_test_ids: list[str]
+    covered_test_ids: list[NonEmptyStr]
     previous_status: (
         Literal[
             "verified",
@@ -85,7 +90,7 @@ class PpmDependencyRef(ContractModel):
 class PpmProgress(ContractModel):
     basis: Literal["baseline_weighted", "none"]
     verified_weight: Annotated[float | None, Field(ge=0)] = Field(...)
-    total_weight: float | None = Field(...)
+    total_weight: Annotated[float | None, Field(gt=0)] = Field(...)
     criteria_total: Annotated[int, Field(ge=0)]
     criteria_with_current_evidence: Annotated[int, Field(ge=0)]
 
@@ -97,7 +102,7 @@ class PpmOutput(ContractModel):
     assessment_id: Annotated[str, Field(min_length=1)]
     project_id: Annotated[str, Field(min_length=1)]
     baseline_revision: Annotated[int | None, Field(ge=1)] = Field(...)
-    snapshot_refs: list[str]
+    snapshot_refs: Annotated[list[NonEmptyStr], Field(min_length=1)]
     validity: Literal["current", "stale", "unknown", "conflicted"]
     verification: Literal[
         "unknown",
@@ -112,8 +117,8 @@ class PpmOutput(ContractModel):
     dependency_refs: list[PpmDependencyRef]
     progress: PpmProgress
     reported_progress_percent: Annotated[float | None, Field(ge=0, le=100)] = Field(...)
-    evidence_refs: list[str]
-    missing_evidence: list[str]
+    evidence_refs: list[NonEmptyStr]
+    missing_evidence: list[NonEmptyStr]
     as_of: DateTimeStr
     source_as_of: NullableDateTimeStr = Field(...)
     assessed_revision: Annotated[str | None, Field(min_length=1)] = Field(...)

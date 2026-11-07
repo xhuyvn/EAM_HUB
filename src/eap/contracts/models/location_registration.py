@@ -6,7 +6,12 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from eap.contracts.models.base import ContractModel, SafePathStr
+from eap.contracts.models.base import (
+    ContractModel,
+    NonEmptyStr,
+    SafePathStr,
+    StrictFalse,
+)
 
 
 class LocationArtifactAliases(ContractModel):
@@ -31,13 +36,13 @@ class LocationRegistration(ContractModel):
     connector_id: Annotated[str, Field(min_length=1)]
     root_path: Annotated[str, Field(min_length=1)]
     metadata_root: SafePathStr
-    scan_scope: list[SafePathStr]
+    scan_scope: Annotated[list[SafePathStr], Field(min_length=1)]
     artifact_aliases: LocationArtifactAliases
     notes_globs: list[SafePathStr]
-    follow_symlinks: Literal[False]
-    allow_hardlinked_files: Literal[False]
+    follow_symlinks: StrictFalse
+    allow_hardlinked_files: StrictFalse
     max_file_bytes: Annotated[int, Field(ge=1, le=16777216)]
-    deny_globs: list[str]
+    deny_globs: list[NonEmptyStr]
     classification: Literal["public", "internal", "confidential", "restricted"]
     egress_policy_ref: Annotated[str, Field(min_length=1)]
     identity: LocationIdentity

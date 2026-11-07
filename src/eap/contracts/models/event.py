@@ -34,6 +34,20 @@ RUN_SCOPED_EVENT_TYPES: set[str] = {
 }
 
 
+RunState = Literal[
+    "queued",
+    "dispatching",
+    "running",
+    "waiting_approval",
+    "cancelling",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "timed_out",
+    "unknown",
+]
+
+
 class RunStartedPayload(ContractModel):
     execution_ref: Annotated[str, Field(min_length=1)]
     agent_version: Annotated[str, Field(min_length=1)]
@@ -53,32 +67,32 @@ class RunWaitingApprovalPayload(ContractModel):
 
 
 class RunFinishedPayload(ContractModel):
-    outcome: Literal["succeeded", "failed", "cancelled", "timed_out"]
-    result_ref: str | None = Field(...)
+    outcome: Literal["succeeded", "partial", "failed", "cancelled"]
+    result_ref: Annotated[str, Field(min_length=1)]
 
 
 class WorkerHeartbeatPayload(ContractModel):
     worker_id: Annotated[str, Field(min_length=1)]
-    observed_state: Literal["idle", "busy", "draining", "stopped"]
+    observed_state: Annotated[str, Field(min_length=1)]
 
 
 class ArtifactCreatedPayload(ContractModel):
     artifact_id: Annotated[str, Field(min_length=1)]
     content_sha256: Sha256Str
-    classification: Literal["public", "internal", "confidential", "restricted"]
+    classification: Annotated[str, Field(min_length=1)]
 
 
 class RunStateChangedPayload(ContractModel):
-    from_state: str
-    to_state: str
-    reason_code: Annotated[str, Field(min_length=1)]
-    evidence_ref: str | None = Field(...)
+    from_state: RunState
+    to_state: RunState
+    reason_code: Annotated[str, Field(min_length=1, max_length=64)]
+    evidence_ref: Annotated[str | None, Field(min_length=1)] = Field(...)
 
 
 class ApprovalDecidedPayload(ContractModel):
     approval_id: Annotated[str, Field(min_length=1)]
     action_digest: Sha256Str
-    decision: Literal["approved", "denied"]
+    decision: Literal["approved", "denied", "expired", "revoked"]
     decided_by_ref: Annotated[str, Field(min_length=1)]
 
 

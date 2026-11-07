@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from eap.contracts.models.base import ContractModel, Sha256Str
+from eap.contracts.models.base import ContractModel, NonEmptyStr, Sha256Str
 
 
 class ExperimentPrimaryMetric(ContractModel):
@@ -24,7 +24,7 @@ class ExperimentGuardrailMetric(ContractModel):
 class ExperimentRollout(ContractModel):
     stage: Literal["none", "shadow", "canary"]
     max_traffic_percent: Annotated[float, Field(ge=0, le=100)]
-    rollback_trigger_refs: list[str]
+    rollback_trigger_refs: list[NonEmptyStr]
 
 
 class Experiment(ContractModel):

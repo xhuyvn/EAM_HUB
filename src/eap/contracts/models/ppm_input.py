@@ -6,12 +6,12 @@ from typing import Annotated
 
 from pydantic import Field
 
-from eap.contracts.models.base import ContractModel
+from eap.contracts.models.base import ContractModel, NonEmptyStr
 
 
 class PpmInput(ContractModel):
     """Input payload dispatched to PPM assessment runner."""
 
     project_id: Annotated[str, Field(min_length=1)]
-    snapshot_refs: list[str]
+    snapshot_refs: Annotated[list[NonEmptyStr], Field(min_length=1)]
     baseline_revision: Annotated[int, Field(ge=1)]
