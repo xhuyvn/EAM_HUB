@@ -7,11 +7,21 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from eap.api.dependencies import Principal, check_forbidden_body_fields, get_db, get_principal
+from eap.api.dependencies import (
+    Principal,
+    check_forbidden_body_fields,
+    check_forbidden_headers_and_query,
+    get_db,
+    get_principal,
+)
 from eap.contracts.models.task_request import TaskRequest
 from eap.task.service import TaskService
 
-router = APIRouter(prefix="/v1", tags=["tasks"])
+router = APIRouter(
+    prefix="/v1",
+    tags=["tasks"],
+    dependencies=[Depends(check_forbidden_headers_and_query)],
+)
 
 
 @router.post(

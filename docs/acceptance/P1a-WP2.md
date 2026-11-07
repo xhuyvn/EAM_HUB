@@ -15,9 +15,27 @@
   2. `src/eap/task/service.py`: `TaskService.create` idempotent on `(tenant_id, client_idempotency_key)` (C01), issues `task_intent_key`, pins `agent_version` (C19), and atomically inserts `tasks` + initial `runs` (attempt 1) + `run_attempt_history` + ONE outbox event envelope in the same database transaction. `TaskService.get` and `TaskService.get_runs` provide strict tenant-scoped querying with no existence oracle.
   3. `src/eap/run/service.py`: `RunService.transition` strictly validates requested transitions against `eap.contracts.rules.ALLOWED` and executes atomic commits of `runs` + `run_attempt_history` + ONE outbox event row under row-level locking (`SELECT ... FOR UPDATE`). Rejects illegal transitions with HTTP 409 `IllegalRunTransitionError` (`ILLEGAL_RUN_TRANSITION`). Rejects transitions after reaching terminal states with HTTP 409 `LateTerminalEventError` leaving history unchanged. `RunService.retry_new_attempt` enforces DG1-C1: if the latest attempt's state or `remote_outcome` is `unknown` and unreconciled, it raises HTTP 409 `RemoteOutcomeUnknownError` (`REMOTE_OUTCOME_UNKNOWN`) with attempt count and outbox strictly unchanged.
   4. `src/eap/run/outbox.py`: Helper functions `build_event` and `create_outbox_record` building event envelopes matching `contracts/event.schema.json` with `contract_version='1.1'`, `stream_id='run:<run_id>'`, and no `offset` (relay assigns offsets in commit order).
-  5. `src/eap/api/`: REST endpoints `POST /v1/tasks` (HTTP 202 Accepted, C01 idempotent), `GET /v1/tasks/{id}`, and `GET /v1/tasks/{id}/runs`. Tenant identity is strictly resolved server-side via `Principal` dependency. Requests carrying `tenant_id`, `tenant`, `principal`, or `principal_id` in body or query parameters are rejected with HTTP 422 Unprocessable Entity. Cross-tenant GET queries return HTTP 404 (no existence discovery). SC-04 secret canary string is never logged or exposed.
-  6. Migration `0002_task_run.py` (ISS-017): Exactly ONE migration file with `down_revision = "0001_core"` aligning `tasks.state` CHECK constraint `ck_tasks_state` with `contracts/hud-projection.schema.json` task states (`'draft'`, `'ready'`, `'active'`, `'blocked'`, `'review_required'`, `'completed'`, `'failed'`, `'cancelled'`) and default `'ready'`. Parity with `migrations/draft/0001_core.sql` verified.
+  5. `src/eap/api/`: REST endpoints `POST /v1/tasks` (HTTP 202 Accepted, C01 idempotent), `GET /v1/tasks/{id}`, and `GET /v1/tasks/{id}/runs`. Tenant identity is strictly resolved server-side via `Principal` dependency from settings (`EAP_BOOTSTRAP_TENANT_ID`, `EAP_BOOTSTRAP_PRINCIPAL_ID`). Any request carrying `X-Tenant-Id`, `X-Principal-Id`, or any header/query/body field naming tenant or principal returns HTTP 422 Unprocessable Entity (P2-1). Cross-tenant GET queries return HTTP 404 (no existence discovery). Tests simulate tenants via `app.dependency_overrides[get_principal]`, never headers. SC-04 secret canary string is never logged or exposed.
+  6. Migration `0002_task_run.py` (ISS-017): Re-chained with `down_revision = "0002_events"` (single head) aligning `tasks.state` CHECK constraint `ck_tasks_state` with `contracts/hud-projection.schema.json` task states (`'draft'`, `'ready'`, `'active'`, `'blocked'`, `'review_required'`, `'completed'`, `'failed'`, `'cancelled'`) and default `'ready'`. Parity with `migrations/draft/0001_core.sql` verified.
   7. Semantic Rules Fix (ISS-019): Updated `eap.contracts.rules.check_ppm_output_rules` so that `verified` and `ready_for_review` require at least one verified criterion, and empty non-waived denominators accept `verified_weight = total_weight = null`.
+
+---
+
+## 2. Review Findings Resolution (P2-1 & Migration Re-chaining)
+
+### 2.1 P2-1: Tenant Must Never Come From Client
+- **Review Finding**: A caller sending `X-Tenant-Id: tenant-A` was able to read tenant-A's tasks and runs (HTTP 200).
+- **Resolution**:
+  - `get_principal` now resolves the principal **strictly server-side** using local bootstrap configuration in `Settings` (`eap_bootstrap_tenant_id`, `eap_bootstrap_principal_id`), populated from `EAP_BOOTSTRAP_TENANT_ID` and `EAP_BOOTSTRAP_PRINCIPAL_ID` (documented in `.env.example`).
+  - Added centralized forbidden identity token check: any request header, query parameter, or JSON body field naming `tenant` or `principal` (e.g. `X-Tenant-Id`, `x-principal-id`, `tenant_id`, `principal`) is immediately rejected with **HTTP 422 Unprocessable Entity** and zero data is returned.
+  - Multi-tenant test simulation in `tests/test_api_tasks.py` now strictly uses `app.dependency_overrides[get_principal]`, completely eliminating client header injection.
+  - Added static AST/code invariant test `test_api_no_request_headers_access_in_api` asserting that `request.headers` is never accessed in `src/eap/api` outside the authorized forbidden-field check functions.
+  - Registered **ISS-020** for P1a-WP5 to replace the bootstrap principal with verified authentication tokens.
+
+### 2.2 Migration Re-chaining
+- Re-chained `migrations/versions/0002_task_run.py` to `down_revision = "0002_events"` (following P1a-WP3 merge onto `main`).
+- Verified single head `0002_task_run` via `alembic heads` (no merge revision).
+- Re-ran SC-06 empty database (up/down/up) and seeded database (down/up) cycles with 100% pass rate.
 
 ---
 
@@ -28,8 +46,9 @@
 | **DG1-C1** | When an attempt's remote outcome is unknown and unreconciled, retry must be rejected with 409 REMOTE_OUTCOME_UNKNOWN, with no new attempt row inserted. | Enforced in `RunService.retry_new_attempt`. Evidence: `tests/test_run_service.py::test_dg1_c1_retry_rejected_when_outcome_unknown`, `artifacts/conformance/P1a/DG1-C1.json`. |
 | **DG1-C3** | Retry with same operation_key but divergent payload -> 409 OPERATION_KEY_CONFLICT. | **not_due** (Assigned to P1a-WP4 Action Service). The database unique constraint `uq_action_executions_key` was delivered in P1a-WP1. |
 | **ISS-016** | Key derivation must reject control characters (newline, NUL) and spaces inside identifiers via strict charset allowlist without normalization. | Enforced in `src/eap/contracts/keys.py` via `IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9._:#/-]{1,128}$")` and explicit control char check. Evidence: 16 test cases in `tests/test_keys_iss016.py` and 23 test vectors in `tests/adr/test_dg1_vectors.py`. |
-| **ISS-017** | Align `tasks.state` CHECK constraint and default with contract `task_state` enum. | Resolved via migration `migrations/versions/0002_task_run.py`, `src/eap/db/tables.py`, and `migrations/draft/0001_core.sql`. Default set to `'ready'`. Evidence: `tools/run_sc06.py`, `tests/db/test_tasks_and_usage.py`, `tests/db/test_draft_ddl_parity.py`. |
+| **ISS-017** | Align `tasks.state` CHECK constraint and default with contract `task_state` enum. | Resolved via migration `migrations/versions/0002_task_run.py` (re-chained to `down_revision = "0002_events"`), `src/eap/db/tables.py`, and `migrations/draft/0001_core.sql`. Default set to `'ready'`. Evidence: `tools/run_sc06.py`, `tests/db/test_tasks_and_usage.py`, `tests/db/test_draft_ddl_parity.py`. |
 | **ISS-019** | Platform rules must require >=1 verified criterion for verified/ready_for_review, and accept `verified_weight = total_weight = null` for all-waived assessments. | Resolved in `src/eap/contracts/rules.py`. Evidence: `tests/contracts/test_rules_iss019.py`. |
+| **ISS-020** | P1a-WP5: authenticated principal replaces bootstrap principal; tenant never client-supplied. | Opened per review P2-1: `get_principal` resolves principal strictly server-side from settings (`EAP_BOOTSTRAP_TENANT_ID`, `EAP_BOOTSTRAP_PRINCIPAL_ID`); any header, query, or body naming tenant/principal is rejected with HTTP 422; P1a-WP5 will integrate real authentication. Evidence: `tests/test_api_tasks.py`. |
 
 ---
 
@@ -97,7 +116,7 @@ SC-06 Verification: ALL CYCLES PASSED
 Command: `uv run pytest -q`
 Real Output:
 ```
-251 passed, 1 warning in 5.23s
+263 passed, 1 warning in 42.29s
 ```
 
 ### 4.3 Contract and Schema Validation (SC-01)
