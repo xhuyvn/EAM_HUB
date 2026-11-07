@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from eap.api.routes import router
 from eap.config import Settings, get_settings, validate_loopback_bind
+from eap.observability import (
+    RequestLoggingMiddleware,
+    configure_logging,
+    redact_text,
+    validate_telemetry_config,
+)
 from eap.run.service import (
     IllegalRunTransitionError,
     LateTerminalEventError,
@@ -15,12 +23,16 @@ from eap.run.service import (
 )
 from eap.task.service import TaskNotFoundError
 
+logger = logging.getLogger("eap.api")
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     if settings is None:
         settings = get_settings()
 
     validate_loopback_bind(settings.eap_bind)
+    validate_telemetry_config(settings)
+    configure_logging(settings)
 
     app = FastAPI(
         title="Enterprise Agent Platform",
@@ -28,39 +40,49 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         description="EAP modular monolith platform API",
     )
 
+    app.add_middleware(RequestLoggingMiddleware)
+
     @app.exception_handler(IllegalRunTransitionError)
     async def illegal_transition_handler(request: Request, exc: IllegalRunTransitionError) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
-            content={"detail": str(exc), "code": "ILLEGAL_RUN_TRANSITION"},
+            content={"detail": redact_text(str(exc)), "code": "ILLEGAL_RUN_TRANSITION"},
         )
 
     @app.exception_handler(LateTerminalEventError)
     async def late_terminal_handler(request: Request, exc: LateTerminalEventError) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
-            content={"detail": str(exc), "code": "RUN_ALREADY_TERMINAL"},
+            content={"detail": redact_text(str(exc)), "code": "RUN_ALREADY_TERMINAL"},
         )
 
     @app.exception_handler(RemoteOutcomeUnknownError)
     async def remote_outcome_unknown_handler(request: Request, exc: RemoteOutcomeUnknownError) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_409_CONFLICT,
-            content={"detail": str(exc), "code": "REMOTE_OUTCOME_UNKNOWN"},
+            content={"detail": redact_text(str(exc)), "code": "REMOTE_OUTCOME_UNKNOWN"},
         )
 
     @app.exception_handler(TaskNotFoundError)
     async def task_not_found_handler(request: Request, exc: TaskNotFoundError) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
-            content={"detail": str(exc), "code": "TASK_NOT_FOUND"},
+            content={"detail": redact_text(str(exc)), "code": "TASK_NOT_FOUND"},
         )
 
     @app.exception_handler(RunNotFoundError)
     async def run_not_found_handler(request: Request, exc: RunNotFoundError) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
-            content={"detail": str(exc), "code": "RUN_NOT_FOUND"},
+            content={"detail": redact_text(str(exc)), "code": "RUN_NOT_FOUND"},
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("Unhandled server exception: %s", exc)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal Server Error", "code": "INTERNAL_SERVER_ERROR"},
         )
 
     @app.get("/healthz")

@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from eap.contracts.rules import ALLOWED, TERMINAL
 from eap.db import outbox, run_attempt_history, runs, tasks
+from eap.observability.logging import set_log_context
 from eap.run.outbox import build_event, create_outbox_record
 
 
@@ -119,6 +120,8 @@ class RunService:
         row = db.execute(stmt).mappings().one_or_none()
         if row is None:
             raise RunNotFoundError(f"Run {run_id} not found in tenant {tenant_id}")
+
+        set_log_context(tenant_id=tenant_id, task_id=str(row["task_id"]), run_id=run_id)
 
         # C15 fencing check: stale token must reject write immediately
         if fencing_token is not None:
@@ -282,6 +285,7 @@ class RunService:
         new_run_id = f"run-{uuid.uuid4().hex[:12]}"
         actual_binding = binding_id or latest_run["binding_id"]
         now = dt.datetime.now(dt.UTC)
+        set_log_context(tenant_id=tenant_id, task_id=task_id, run_id=new_run_id)
 
         with db.begin_nested():
             # 1. Insert new run row

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from eap.config import ConfiguredPrincipal, Settings, get_settings
 from eap.db.session import get_session_factory
+from eap.observability.logging import principal_id_var, register_secret, tenant_id_var
 
 # Single source of truth for forbidden identity field tokens (P2-1)
 FORBIDDEN_IDENTITY_TOKENS: tuple[str, ...] = ("tenant", "principal")
@@ -92,6 +93,10 @@ def get_principal(
     token = parts[1].strip()
     token_digest = hash_token(token)
 
+    # Register incoming token and hash in redaction filter immediately (SC-04)
+    register_secret(token)
+    register_secret(token_digest)
+
     configured_principals = settings.get_configured_principals()
     matched_principal: ConfiguredPrincipal | None = None
 
@@ -107,6 +112,10 @@ def get_principal(
             detail="Unauthorized",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Set correlation context for structured logging
+    tenant_id_var.set(matched_principal.tenant_id)
+    principal_id_var.set(matched_principal.principal_id)
 
     return Principal(
         tenant_id=matched_principal.tenant_id,

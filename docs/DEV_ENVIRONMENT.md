@@ -150,6 +150,19 @@ EAP_SECRET_CANARY=     # generated randomly per machine, used for SC-04
 - Logs, traces, and events omit values of any `*_PASSWORD`, `*_KEY`, `*_TOKEN_HASH`, or `EAP_SECRET_CANARY` variable (SC-04 grep canary).
 - **Verifier (P2a-WP9)** launches tests in empty environments with allowlisted variables (`PATH`, temporary `HOME`, `LANG`, `PYTHONHASHSEED`), without network, in temporary workspaces. Mandatory test: fixture test printing full environment; output must omit `EAP_SECRET_CANARY`.
 
+## Running the server and access logging (P1a-WP6 / SC-04)
+
+The platform API server executes via `uvicorn`:
+
+```bash
+uv run uvicorn eap.api.app:app --host 127.0.0.1 --port 8000 --no-access-log
+```
+
+- **Request logging**: The platform includes `RequestLoggingMiddleware` (`src/eap/observability/middleware.py`) which logs completed requests in structured JSON (`timestamp`, `level`, `logger="eap.api.request"`, `message`, `tenant_id`, `principal_id`, `request_id`, `method`, `path`, `status`, `duration_ms`). It strictly omits request/response bodies and headers.
+- **Access logging**: Passing `--no-access-log` disables uvicorn's default access logger, avoiding redundant unstructured log lines.
+- **Query string redaction**: If `--no-access-log` is omitted, the platform's `RedactionFilter` and patched `AccessFormatter` automatically drop query strings (e.g. `?token=...`, `?canary=...`) from `uvicorn.access` log records, preventing credential leakage in URL query parameters.
+- **Universal handler filter**: `configure_logging()` automatically attaches `RedactionFilter` to all handlers of all pre-existing loggers (including `uvicorn`, `uvicorn.access`, `uvicorn.error`, and `logging.lastResort`), redacting canaries, bearer tokens, passwords, DSN credentials, and stack tracebacks across all handlers.
+
 ## P0-WP1 Checklist and open points
 
 Environment is considered complete when all items below have real output recorded in `VALIDATION_REPORT.md`.
