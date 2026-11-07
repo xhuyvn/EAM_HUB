@@ -37,6 +37,9 @@ jobs:
       - name: Run PPM v2 negative cases
         run: uv run python ppm-v2/tools/run_negative_cases.py
 
+      - name: Check PPM v2 fixture corpus
+        run: uv run python ppm-v2/tools/check_fixtures.py
+
       - name: Check translation staleness (SC-08)
         run: uv run python tools/check_translation.py
 

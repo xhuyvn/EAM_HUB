@@ -1,0 +1,77 @@
+{
+  "fixture_id": "s07-inferred-dependency",
+  "project_id": "proj-epsilon",
+  "snapshot_refs": [
+    "snap-epsilon-r1"
+  ],
+  "snapshot_seq": 1,
+  "basis_seq": 1,
+  "previous_assessment_id": null,
+  "assessed_revision": "rev-epsilon-001",
+  "now": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "evidence_ttl_days": 7,
+  "baseline": {
+    "baseline_revision": 1,
+    "criteria": [
+      {
+        "criterion_id": "AC-001",
+        "deliverable_id": "DEL-ORDER-001",
+        "owner_project_id": "proj-epsilon",
+        "weight": 3.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_order_creation"
+          }
+        ],
+        "previous_status": null
+      }
+    ]
+  },
+  "claims": [
+    {
+      "claim_id": "claim-upd-001",
+      "source_file": ".ppm/updates/upd-001.yaml",
+      "criterion_ids": [
+        "AC-001"
+      ],
+      "test_ids": [
+        "test_order_creation"
+      ],
+      "reported_status": "claimed_done",
+      "evidence_path": null,
+      "working_tree_state": "clean",
+      "recorded_at": "2026-11-05T11:45:00Z",
+      "summary": "Completed order creation service."
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "ev-verifier-001",
+      "trust_class": "verifier_observed",
+      "revision": "rev-epsilon-001",
+      "observed_at": "2026-11-05T11:55:00Z",
+      "test_id": "test_order_creation",
+      "covered_test_ids": [
+        "test_order_creation"
+      ],
+      "result": "passed",
+      "artifact_path": null
+    }
+  ],
+  "waivers": [],
+  "dependency_refs": [],
+  "context": {
+    "relationship_proposals": [
+      {
+        "source_project_id": "proj-epsilon",
+        "target_project_id": "proj-shared-inventory",
+        "target_deliverable_id": "DEL-INV-001",
+        "relation_type": "uses_component",
+        "status": "proposed"
+      }
+    ]
+  }
+}

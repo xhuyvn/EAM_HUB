@@ -1,0 +1,34 @@
+{
+  "fixture_id": "s24-draft-only",
+  "project_id": "proj-unbaselined",
+  "snapshot_refs": [
+    "snap-draft-r1"
+  ],
+  "snapshot_seq": 1,
+  "basis_seq": 1,
+  "previous_assessment_id": null,
+  "assessed_revision": "rev-draft-001",
+  "now": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "evidence_ttl_days": 7,
+  "baseline": null,
+  "claims": [
+    {
+      "claim_id": "claim-upd-draft-001",
+      "source_file": ".ppm/updates/upd-001.yaml",
+      "criterion_ids": [
+        "AC-DRAFT-001"
+      ],
+      "test_ids": [
+        "test_initial_feature"
+      ],
+      "reported_status": "claimed_done",
+      "evidence_path": null,
+      "working_tree_state": "clean",
+      "recorded_at": "2026-11-05T11:45:00Z",
+      "summary": "Initial draft updates before baseline approval."
+    }
+  ],
+  "evidence": [],
+  "waivers": []
+}

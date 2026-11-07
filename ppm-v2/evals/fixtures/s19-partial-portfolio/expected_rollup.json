@@ -1,0 +1,25 @@
+{
+  "portfolio_id": "port-enterprise",
+  "as_of": "2026-11-05T12:00:00Z",
+  "partial": true,
+  "authorized_project_ids": [
+    "proj-public-api",
+    "proj-public-frontend"
+  ],
+  "distinct_deliverables_count": 2,
+  "distinct_deliverable_ids": [
+    "DEL-API-001",
+    "DEL-FE-001"
+  ],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 5.0,
+    "total_weight": 5.0,
+    "percent": 100.0,
+    "criteria_total": 2,
+    "criteria_verified": 2
+  },
+  "cost_state": "known",
+  "cost_usd": 12000.0,
+  "budget_usd": 15000.0
+}

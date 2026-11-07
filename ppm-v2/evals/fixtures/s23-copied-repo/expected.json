@@ -1,0 +1,61 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s23-001",
+  "project_id": "proj-replicated",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-repl-r1"
+  ],
+  "validity": "current",
+  "verification": "verified",
+  "acceptance_readiness": "ready_for_review",
+  "criteria": [
+    {
+      "criterion_id": "AC-001",
+      "deliverable_id": "DEL-EXP-001",
+      "owner_project_id": "proj-replicated",
+      "weight": 1.0,
+      "required": true,
+      "status": "verified",
+      "reason_code": "evidence_current_pass",
+      "supporting_evidence_refs": [
+        "ev-verifier-repl-001"
+      ],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [],
+      "explanation": "Verifier observed mapped test test_data_export passed at assessed revision rev-copy-001. Finding identity_conflict recorded due to repo_identity mismatch, but does not alter single-project criterion verdict.",
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "claim-upd-repl-001"
+      ],
+      "evidence_revision": "rev-copy-001",
+      "covered_test_ids": [
+        "test_data_export"
+      ],
+      "previous_status": null,
+      "evidence_trust": "verifier_observed",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 1.0,
+    "total_weight": 1.0,
+    "criteria_total": 1,
+    "criteria_with_current_evidence": 1
+  },
+  "reported_progress_percent": 100.0,
+  "evidence_refs": [
+    "ev-verifier-repl-001"
+  ],
+  "missing_evidence": [],
+  "as_of": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "assessed_revision": "rev-copy-001",
+  "previous_assessment_id": null,
+  "snapshot_seq": 1,
+  "analysis_status": "complete",
+  "basis_seq": 1,
+  "trigger": "snapshot"
+}

@@ -1,0 +1,89 @@
+{
+  "fixture_id": "s22-waiver-expiry",
+  "project_id": "proj-compliance",
+  "snapshot_refs": [
+    "snap-comp-r2"
+  ],
+  "snapshot_seq": 2,
+  "basis_seq": 2,
+  "previous_assessment_id": "asmt-comp-001",
+  "assessed_revision": "rev-comp-002",
+  "now": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "evidence_ttl_days": 7,
+  "baseline": {
+    "baseline_revision": 1,
+    "criteria": [
+      {
+        "criterion_id": "AC-001",
+        "deliverable_id": "DEL-CORE-001",
+        "owner_project_id": "proj-compliance",
+        "weight": 2.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_core_feature"
+          }
+        ],
+        "previous_status": "verified"
+      },
+      {
+        "criterion_id": "AC-002",
+        "deliverable_id": "DEL-OPT-001",
+        "owner_project_id": "proj-compliance",
+        "weight": 1.0,
+        "required": true,
+        "verification_refs": [
+          {
+            "kind": "test_id",
+            "ref": "test_load_performance"
+          }
+        ],
+        "previous_status": "waived"
+      }
+    ]
+  },
+  "claims": [
+    {
+      "claim_id": "claim-upd-comp-002",
+      "source_file": ".ppm/updates/upd-002.yaml",
+      "criterion_ids": [
+        "AC-001"
+      ],
+      "test_ids": [
+        "test_core_feature"
+      ],
+      "reported_status": "claimed_done",
+      "evidence_path": null,
+      "working_tree_state": "clean",
+      "recorded_at": "2026-11-05T11:45:00Z",
+      "summary": "Maintained core feature; performance test waiver pending renewal."
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "ev-verifier-comp-001",
+      "trust_class": "verifier_observed",
+      "revision": "rev-comp-002",
+      "observed_at": "2026-11-05T11:55:00Z",
+      "test_id": "test_core_feature",
+      "covered_test_ids": [
+        "test_core_feature"
+      ],
+      "result": "passed",
+      "artifact_path": null
+    }
+  ],
+  "waivers": [
+    {
+      "waiver_id": "waiver-wv-001",
+      "criterion_id": "AC-002",
+      "scope": "Temporary exclusion of load testing in staging",
+      "rationale": "Hardware provisioning delay",
+      "approved_by": "qa-lead-01",
+      "approved_at": "2026-10-01T00:00:00Z",
+      "expires_at": "2026-11-01T00:00:00Z"
+    }
+  ]
+}

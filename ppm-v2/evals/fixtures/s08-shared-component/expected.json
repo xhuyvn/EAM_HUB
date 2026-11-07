@@ -1,0 +1,67 @@
+{
+  "contract_version": "1.1",
+  "assessment_id": "asmt-s08-001",
+  "project_id": "proj-consumer-a",
+  "baseline_revision": 1,
+  "snapshot_refs": [
+    "snap-consumer-a-r1"
+  ],
+  "validity": "current",
+  "verification": "verified",
+  "acceptance_readiness": "ready_for_review",
+  "criteria": [
+    {
+      "criterion_id": "AC-A-001",
+      "deliverable_id": "DEL-A-001",
+      "owner_project_id": "proj-consumer-a",
+      "weight": 2.0,
+      "required": true,
+      "status": "verified",
+      "reason_code": "evidence_current_pass",
+      "supporting_evidence_refs": [
+        "ev-cons-a-001"
+      ],
+      "refuting_evidence_refs": [],
+      "missing_evidence": [],
+      "explanation": "Verifier observed mapped test test_consumer_feature_a passed at assessed revision rev-cons-a-001. Shared gateway deliverable DEL-GW-001 is referenced via dependency_refs and excluded from denominator.",
+      "reported_status": "claimed_done",
+      "reported_claim_refs": [
+        "claim-upd-cons-a"
+      ],
+      "evidence_revision": "rev-cons-a-001",
+      "covered_test_ids": [
+        "test_consumer_feature_a"
+      ],
+      "previous_status": null,
+      "evidence_trust": "verifier_observed",
+      "waiver_ref": null
+    }
+  ],
+  "dependency_refs": [
+    {
+      "deliverable_id": "DEL-GW-001",
+      "owner_project_id": "proj-shared-gw",
+      "observed_status": "verified"
+    }
+  ],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 2.0,
+    "total_weight": 2.0,
+    "criteria_total": 1,
+    "criteria_with_current_evidence": 1
+  },
+  "reported_progress_percent": 100.0,
+  "evidence_refs": [
+    "ev-cons-a-001"
+  ],
+  "missing_evidence": [],
+  "as_of": "2026-11-05T12:00:00Z",
+  "source_as_of": "2026-11-05T11:50:00Z",
+  "assessed_revision": "rev-cons-a-001",
+  "previous_assessment_id": null,
+  "snapshot_seq": 1,
+  "analysis_status": "complete",
+  "basis_seq": 1,
+  "trigger": "snapshot"
+}

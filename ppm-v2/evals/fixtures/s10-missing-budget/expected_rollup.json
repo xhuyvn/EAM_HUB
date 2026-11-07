@@ -1,0 +1,25 @@
+{
+  "portfolio_id": "port-engineering",
+  "as_of": "2026-11-05T12:00:00Z",
+  "partial": false,
+  "authorized_project_ids": [
+    "proj-core-engine",
+    "proj-ui-app"
+  ],
+  "distinct_deliverables_count": 2,
+  "distinct_deliverable_ids": [
+    "DEL-CORE-001",
+    "DEL-UI-001"
+  ],
+  "progress": {
+    "basis": "baseline_weighted",
+    "verified_weight": 6.0,
+    "total_weight": 6.0,
+    "percent": 100.0,
+    "criteria_total": 2,
+    "criteria_verified": 2
+  },
+  "cost_state": "unknown",
+  "cost_usd": null,
+  "budget_usd": null
+}
