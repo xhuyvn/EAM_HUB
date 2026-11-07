@@ -35,8 +35,10 @@ def test_settings_with_optional_services():
     assert settings.has_qdrant
 
 
-def test_env_example_interpolation():
+def test_env_example_interpolation(monkeypatch: pytest.MonkeyPatch):
     """R2: loads a temp copy of .env.example with POSTGRES_PASSWORD=x and asserts database_url contains ':x@'."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)
     repo_root = pathlib.Path(__file__).resolve().parents[1]
     env_example_text = (repo_root / ".env.example").read_text(encoding="utf-8")
 
@@ -49,7 +51,7 @@ def test_env_example_interpolation():
         tmp_path = tmp.name
 
     try:
-        settings = Settings(_env_file=tmp_path)
+        settings = Settings(_env_file=tmp_path)  # type: ignore[call-arg]
         assert settings.database_url is not None, "DATABASE_URL failed to load from interpolated .env"
         db_url_val = settings.database_url.get_secret_value()
         assert ":x@" in db_url_val, f"Expected ':x@' in database_url, got: {db_url_val}"
