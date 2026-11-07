@@ -19,11 +19,25 @@ from eap.config import get_settings
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Fail collection in CI environment if TEST_DATABASE_URL is missing (P1-2)."""
+    if os.environ.get("CI"):
+        settings = get_settings()
+        url_secret = settings.test_database_url
+        url_str = url_secret.get_secret_value() if url_secret else os.environ.get("TEST_DATABASE_URL")
+        if not url_str or not url_str.strip():
+            pytest.exit(
+                "TEST_DATABASE_URL is not set in CI environment; database tests must not skip in CI",
+                returncode=1,
+            )
+
+
 @pytest.fixture(scope="session")
 def test_db_url() -> str:
     """Retrieve and validate TEST_DATABASE_URL.
 
-    Skips tests if unset. Enforces that tests never touch eap_dev.
+    Skips tests if unset (outside CI). Enforces that tests never touch eap_dev.
+    In CI, fails with a clear error if unset (P1-2).
     """
     settings = get_settings()
     url_secret = settings.test_database_url
@@ -33,6 +47,10 @@ def test_db_url() -> str:
         url_str = url_secret.get_secret_value()
 
     if not url_str or not url_str.strip():
+        if os.environ.get("CI"):
+            pytest.fail(
+                "TEST_DATABASE_URL is not set in CI environment; database tests must not skip in CI"
+            )
         pytest.skip(
             "TEST_DATABASE_URL is not set; skipping database tests",
             allow_module_level=True,

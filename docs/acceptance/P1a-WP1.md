@@ -4,15 +4,15 @@
 - **Work Package**: P1a-WP1 (Schema and migrations per `STATUS.md`, `docs/IMPLEMENTATION_PLAN.md` §5 SC-02/SC-04/SC-06 and §6 P1a-WP1, and `docs/DEV_ENVIRONMENT.md`).
 - **Target State**: `ready_for_review`
 - **Branch**: `wp/P1a-WP1` (branched from `main` at `fab6cd3`)
-- **Code Commit under Review**: `6cfe452`
+- **Code Commit under Review**: `(current commit)`
 - **Base Commit**: `fab6cd3` ("sign DG-1 and DG-2: owner approval with conditions DG1-C1..C5, DG2-C1; P0 closed")
 - **Scope**:
-  - `migrations/versions/0001_core.py` (down_revision `0000_init`): Implements all 16 core platform tables and constraints from `migrations/draft/0001_core.sql` exactly as signed by the owner in DG-1 and DG-2.
+  - `migrations/versions/0001_core.py` (down_revision `0000_init`): Implements all 16 core platform tables and constraints from `migrations/draft/0001_core.sql` exactly as signed by the owner in DG-1 and DG-2 with Amendment A1.
   - Added PostgreSQL CHECK constraints for enumerated state and status columns using canonical values from `contracts/*.schema.json` (`tasks.state`, `runs.state`, `runs.remote_outcome`, `run_attempt_history.from_state`, `run_attempt_history.to_state`, `action_executions.state`, `task_intents.status`, `dispatch_intents.state`, `commands.status`, `project_scopes.status`).
   - Downgrade cleanly drops all 16 created tables in strict reverse-dependency order.
   - `src/eap/db/tables.py` and `src/eap/db/__init__.py`: SQLAlchemy Core table metadata matching the migration as the single source of truth for platform table metadata.
-  - Test DB fixture (`tests/conftest.py`): Session-scoped fixture creates and drops `eap_test` from `TEST_DATABASE_URL`; tests never touch `eap_dev`. If `TEST_DATABASE_URL` is unset, DB tests skip with the explicit reason `"TEST_DATABASE_URL is not set; skipping database tests"`.
-  - Database constraint test suite (`tests/db/`): 30 automated tests asserting exact constraint names in `IntegrityError` covering DG1-C3 / C29, C02, C32 / W7-3, tasks keys, usage ledger, outbox offset absence, leases fencing token NOT NULL, and non-nullable `tenant_id` across all 16 tables.
+  - Test DB fixture (`tests/conftest.py`): Session-scoped fixture creates and drops `eap_test` from `TEST_DATABASE_URL`; tests never touch `eap_dev`. If `TEST_DATABASE_URL` is unset, DB tests skip with the explicit reason `"TEST_DATABASE_URL is not set; skipping database tests"`. In CI environments (`CI=true`), missing `TEST_DATABASE_URL` fails collection immediately with exit code 1 (P1-2).
+  - Database constraint test suite (`tests/db/`): 38 automated tests asserting exact constraint names in `IntegrityError` covering DG1-C3 / C29, C02, C32 / W7-3, tasks keys, usage ledger, outbox offset absence, leases fencing token NOT NULL, non-nullable `tenant_id` across all 16 tables, catalog FK inspection, and cross-tenant composite FK rejection (P1-1).
   - Alembic autogenerate diff test (`tests/db/test_autogenerate_diff.py`): Proves zero schema drift (`compare_metadata == []`).
   - Draft DDL parity test (`tests/db/test_draft_ddl_parity.py`): Parses `migrations/draft/0001_core.sql` with `pglast` to verify 100% table, column, PK, FK, and unique constraint parity with metadata.
   - SC-06 runner (`tools/run_sc06.py`): Full up/down/up cycle on empty database and seeded fixture database with `alembic current` verification after each step.
@@ -20,8 +20,38 @@
 
 ---
 
-## 2. DG1-C3 Evidence (Action Key Conflict & Tenant Isolation)
+## 2. Review Items Evidence (P1-1 Tenant Isolation & P1-2 CI Enforcement)
 
+### 2.1 P1-1: Tenant Isolation at the Database Level (Composite Foreign Keys)
+Review finding: Parent tables referenced by simple `id` allowed cross-tenant references (e.g., tenant-B referencing tenant-A's task or source).
+Amendment A1 (owner-approved 2026-11-07):
+- **Parents**: Added `CONSTRAINT uq_tasks_tenant_id UNIQUE (tenant_id, id)` to `tasks` and `CONSTRAINT uq_sources_tenant_source_id UNIQUE (tenant_id, source_id)` to `sources`.
+- **Children**: Replaced every foreign key with a composite foreign key referencing `(tenant_id, <pk_col>)`:
+  1. `runs`: `CONSTRAINT fk_runs_tenant_task FOREIGN KEY (tenant_id, task_id) REFERENCES tasks (tenant_id, id) ON DELETE RESTRICT`
+  2. `run_attempt_history`: `CONSTRAINT fk_run_attempt_history_tenant_task FOREIGN KEY (tenant_id, task_id) REFERENCES tasks (tenant_id, id) ON DELETE RESTRICT`
+  3. `task_intents`: `CONSTRAINT fk_task_intents_tenant_task FOREIGN KEY (tenant_id, task_id) REFERENCES tasks (tenant_id, id) ON DELETE RESTRICT`
+  4. `commands`: `CONSTRAINT fk_commands_tenant_task FOREIGN KEY (tenant_id, task_id) REFERENCES tasks (tenant_id, id) ON DELETE RESTRICT`
+  5. `artifacts`: `CONSTRAINT fk_artifacts_tenant_task FOREIGN KEY (tenant_id, task_id) REFERENCES tasks (tenant_id, id) ON DELETE RESTRICT`
+  6. `project_scopes`: `CONSTRAINT fk_project_scopes_tenant_source FOREIGN KEY (tenant_id, source_id) REFERENCES sources (tenant_id, source_id) ON DELETE RESTRICT`
+  7. `ppm_scan_schedules`: `CONSTRAINT fk_ppm_scan_schedules_tenant_source FOREIGN KEY (tenant_id, source_id) REFERENCES sources (tenant_id, source_id) ON DELETE RESTRICT`
+
+Observable evidence in `tests/db/test_tenant_isolation_fks.py`:
+- `test_catalog_every_fk_includes_tenant_id`: Catalog introspection proves all 7 foreign keys in metadata and PostgreSQL catalog enforce `tenant_id` in both constrained and referred columns.
+- `test_cross_tenant_fk_runs_rejected`: Tenant-B inserting run against Tenant-A's task raises `IntegrityError` with `fk_runs_tenant_task`; same tenant succeeds.
+- `test_cross_tenant_fk_run_attempt_history_rejected`: Tenant-B history against Tenant-A task raises `fk_run_attempt_history_tenant_task`; same tenant succeeds.
+- `test_cross_tenant_fk_task_intents_rejected`: Tenant-B intent against Tenant-A task raises `fk_task_intents_tenant_task`; same tenant succeeds.
+- `test_cross_tenant_fk_commands_rejected`: Tenant-B command against Tenant-A task raises `fk_commands_tenant_task`; same tenant succeeds.
+- `test_cross_tenant_fk_artifacts_rejected`: Tenant-B artifact against Tenant-A task raises `fk_artifacts_tenant_task`; same tenant succeeds.
+- `test_cross_tenant_fk_project_scopes_rejected`: Tenant-B scope against Tenant-A source raises `fk_project_scopes_tenant_source`; same tenant succeeds.
+- `test_cross_tenant_fk_ppm_scan_schedules_rejected`: Tenant-B schedule against Tenant-A source raises `fk_ppm_scan_schedules_tenant_source`; same tenant succeeds.
+
+### 2.2 P1-2: CI Enforcement (No DB Test Skipping)
+In `tests/conftest.py`:
+- `pytest_collection_modifyitems`: Hook checks if `os.environ.get("CI")` is set. If `TEST_DATABASE_URL` is missing, pytest immediately halts collection with exit code 1 and error:
+  `TEST_DATABASE_URL is not set in CI environment; database tests must not skip in CI`.
+- `test_db_url` fixture likewise raises `pytest.fail` if called in CI with missing database URL.
+
+### 2.3 DG1-C3 Evidence (Action Key Conflict & Tenant Isolation)
 Condition DG1-C3 requires: *"Retry with the same operation_key but a different target or arguments is rejected. Enforced by P1a-WP1 (constraint), P1a-WP4 (C29). Same key + different payload_hash -> 409 OPERATION_KEY_CONFLICT."*
 
 In P1a-WP1, the database layer enforces uniqueness on `(tenant_id, operation_key)`:
@@ -30,34 +60,7 @@ In P1a-WP1, the database layer enforces uniqueness on `(tenant_id, operation_key
   CONSTRAINT uq_action_executions_key UNIQUE (tenant_id, operation_key)
   ```
 - Observable evidence from `tests/db/test_action_executions.py::test_dg1_c3_duplicate_operation_key_rejected`:
-  ```python
-  # Initial action execution
-  db_conn.execute(
-      action_executions.insert().values(
-          tenant_id="tenant-corp",
-          operation_key="99842d00b17b5a263e9d4492ce3bc15fd1681b44dd0af40a8fefe378b5516fdd",
-          payload_hash="56330e2b4ebffade1ad3d90131e6073fc5ec8bb149b229524b565fd829e50f08",
-          tool_id="engineering.create_pr",
-          resource_ref="repo:example",
-          state="running",
-      )
-  )
-
-  # Second insert with identical operation_key and divergent payload_hash
-  with pytest.raises(IntegrityError) as exc_info, db_conn.begin_nested():
-      db_conn.execute(
-          action_executions.insert().values(
-              tenant_id="tenant-corp",
-              operation_key="99842d00b17b5a263e9d4492ce3bc15fd1681b44dd0af40a8fefe378b5516fdd",
-              payload_hash="15329b88e5b0ce51f22ce4c524791cc529fe0922a59e62dcf8362fa2cd9ff441",
-              tool_id="engineering.create_pr",
-              resource_ref="repo:example-divergent",
-              state="running",
-          )
-      )
-
-  assert exc_info.value.orig.diag.constraint_name == "uq_action_executions_key"
-  ```
+  Inserting a duplicate `operation_key` with divergent `payload_hash` in the same tenant fails with `IntegrityError` naming `uq_action_executions_key`.
 - Cross-tenant isolation verified by `test_dg1_c3_same_operation_key_different_tenant_allowed`:
   The identical `operation_key` inserted under `tenant-alpha` and `tenant-beta` succeeds with 2 distinct execution records.
 
@@ -160,7 +163,7 @@ SC-06 Verification: ALL CYCLES PASSED
 5. **Python Test Suite (SC-02)**:
    ```bash
    uv run pytest -q
-   # 152 passed, 1 warning in 2.56s
+   # 160 passed, 1 warning in 3.04s
    ```
 6. **Code Formatting and Linting**:
    ```bash

@@ -35,28 +35,60 @@ EXPECTED_TABLES = [
 ]
 
 EXPECTED_NAMED_CONSTRAINTS = {
-    "tasks": ["uq_tasks_tenant_task_intent_key", "uq_tasks_tenant_client_key"],
-    "runs": ["uq_runs_tenant_run_id", "uq_runs_tenant_task_attempt"],
-    "task_intents": ["uq_task_intents_slot"],
+    "tasks": [
+        "uq_tasks_tenant_task_intent_key",
+        "uq_tasks_tenant_client_key",
+        "uq_tasks_tenant_id",
+    ],
+    "runs": [
+        "uq_runs_tenant_run_id",
+        "uq_runs_tenant_task_attempt",
+        "fk_runs_tenant_task",
+    ],
+    "run_attempt_history": ["fk_run_attempt_history_tenant_task"],
+    "task_intents": ["uq_task_intents_slot", "fk_task_intents_tenant_task"],
     "dispatch_intents": ["uq_dispatch_intents_op"],
     "action_executions": ["uq_action_executions_key"],
     "leases": ["uq_leases_resource"],
+    "commands": ["fk_commands_tenant_task"],
     "event_log": ["uq_event_log_stream_offset", "uq_event_log_event_id"],
-    "artifacts": ["uq_artifacts_tenant_artifact"],
+    "artifacts": ["uq_artifacts_tenant_artifact", "fk_artifacts_tenant_task"],
     "usage_ledger": ["uq_usage_ledger_provider_id"],
-    "sources": ["uq_sources_tenant_canonical_root", "uq_sources_tenant_repo_identity"],
-    "project_scopes": ["uq_project_scopes_source_metadata"],
-    "ppm_scan_schedules": ["uq_ppm_scan_schedules_source"],
+    "sources": [
+        "uq_sources_tenant_canonical_root",
+        "uq_sources_tenant_repo_identity",
+        "uq_sources_tenant_source_id",
+    ],
+    "project_scopes": [
+        "uq_project_scopes_source_metadata",
+        "fk_project_scopes_tenant_source",
+    ],
+    "ppm_scan_schedules": [
+        "uq_ppm_scan_schedules_source",
+        "fk_ppm_scan_schedules_tenant_source",
+    ],
 }
 
 EXPECTED_FOREIGN_KEYS = {
-    "runs": [("task_id", "tasks")],
-    "run_attempt_history": [("task_id", "tasks")],
-    "task_intents": [("task_id", "tasks")],
-    "commands": [("task_id", "tasks")],
-    "artifacts": [("task_id", "tasks")],
-    "project_scopes": [("source_id", "sources")],
-    "ppm_scan_schedules": [("source_id", "sources")],
+    "runs": [("fk_runs_tenant_task", ("tenant_id", "task_id"), "tasks", ("tenant_id", "id"))],
+    "run_attempt_history": [
+        ("fk_run_attempt_history_tenant_task", ("tenant_id", "task_id"), "tasks", ("tenant_id", "id"))
+    ],
+    "task_intents": [
+        ("fk_task_intents_tenant_task", ("tenant_id", "task_id"), "tasks", ("tenant_id", "id"))
+    ],
+    "commands": [
+        ("fk_commands_tenant_task", ("tenant_id", "task_id"), "tasks", ("tenant_id", "id"))
+    ],
+    "artifacts": [
+        ("fk_artifacts_tenant_task", ("tenant_id", "task_id"), "tasks", ("tenant_id", "id"))
+    ],
+    "project_scopes": [
+        ("fk_project_scopes_tenant_source", ("tenant_id", "source_id"), "sources", ("tenant_id", "source_id"))
+    ],
+    "ppm_scan_schedules": [
+        ("fk_ppm_scan_schedules_tenant_source", ("tenant_id", "source_id"), "sources", ("tenant_id", "source_id"))
+    ],
 }
 
 
@@ -120,15 +152,36 @@ def test_unique_constraint_parity() -> None:
 
 def test_foreign_key_parity() -> None:
     """Foreign key relationships in the draft DDL match the SQLAlchemy Core metadata."""
+    draft_tables = _get_table_defs()
     for tbl_name, expected_fks in EXPECTED_FOREIGN_KEYS.items():
+        stmt = draft_tables[tbl_name]
+        draft_fks = [
+            (
+                elt.conname,
+                tuple(a.sval for a in elt.fk_attrs),
+                elt.pktable.relname,
+                tuple(a.sval for a in elt.pk_attrs),
+            )
+            for elt in stmt.tableElts
+            if hasattr(elt, "conname") and hasattr(elt, "fk_attrs") and elt.fk_attrs
+        ]
         meta_table = metadata.tables[tbl_name]
         meta_fks = [
-            (fk.parent.name, fk.column.table.name)
-            for fk in meta_table.foreign_keys
+            (
+                fkc.name,
+                tuple(c.name for c in fkc.columns),
+                fkc.referred_table.name,
+                tuple(elem.column.name for elem in fkc.elements),
+            )
+            for fkc in meta_table.foreign_key_constraints
         ]
-        for col_name, target_table in expected_fks:
-            assert (col_name, target_table) in meta_fks, (
-                f"Table '{tbl_name}' missing FK from '{col_name}' to '{target_table}' in metadata"
+        for exp_conname, exp_cols, exp_target_table, exp_target_cols in expected_fks:
+            expected_tuple = (exp_conname, exp_cols, exp_target_table, exp_target_cols)
+            assert expected_tuple in draft_fks, (
+                f"Draft table '{tbl_name}' missing FK: {expected_tuple}. Found: {draft_fks}"
+            )
+            assert expected_tuple in meta_fks, (
+                f"Metadata table '{tbl_name}' missing FK: {expected_tuple}. Found: {meta_fks}"
             )
 
 

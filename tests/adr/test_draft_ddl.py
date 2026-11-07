@@ -38,18 +38,38 @@ EXPECTED_TABLES = [
 ]
 
 EXPECTED_NAMED_CONSTRAINTS = {
-    "tasks": ["uq_tasks_tenant_task_intent_key", "uq_tasks_tenant_client_key"],
-    "runs": ["uq_runs_tenant_run_id", "uq_runs_tenant_task_attempt"],
-    "task_intents": ["uq_task_intents_slot"],
+    "tasks": [
+        "uq_tasks_tenant_task_intent_key",
+        "uq_tasks_tenant_client_key",
+        "uq_tasks_tenant_id",
+    ],
+    "runs": [
+        "uq_runs_tenant_run_id",
+        "uq_runs_tenant_task_attempt",
+        "fk_runs_tenant_task",
+    ],
+    "run_attempt_history": ["fk_run_attempt_history_tenant_task"],
+    "task_intents": ["uq_task_intents_slot", "fk_task_intents_tenant_task"],
     "dispatch_intents": ["uq_dispatch_intents_op"],
     "action_executions": ["uq_action_executions_key"],
     "leases": ["uq_leases_resource"],
+    "commands": ["fk_commands_tenant_task"],
     "event_log": ["uq_event_log_stream_offset", "uq_event_log_event_id"],
-    "artifacts": ["uq_artifacts_tenant_artifact"],
+    "artifacts": ["uq_artifacts_tenant_artifact", "fk_artifacts_tenant_task"],
     "usage_ledger": ["uq_usage_ledger_provider_id"],
-    "sources": ["uq_sources_tenant_canonical_root", "uq_sources_tenant_repo_identity"],
-    "project_scopes": ["uq_project_scopes_source_metadata"],
-    "ppm_scan_schedules": ["uq_ppm_scan_schedules_source"],
+    "sources": [
+        "uq_sources_tenant_canonical_root",
+        "uq_sources_tenant_repo_identity",
+        "uq_sources_tenant_source_id",
+    ],
+    "project_scopes": [
+        "uq_project_scopes_source_metadata",
+        "fk_project_scopes_tenant_source",
+    ],
+    "ppm_scan_schedules": [
+        "uq_ppm_scan_schedules_source",
+        "fk_ppm_scan_schedules_tenant_source",
+    ],
 }
 
 EXPECTED_FOREIGN_KEYS = {
@@ -134,6 +154,7 @@ def test_expected_foreign_keys() -> None:
         for col_name, target_table in fk_list:
             found_fk = False
             for elt in stmt.tableElts:
+                # Column-level FK constraint
                 if getattr(elt, "colname", None) == col_name and hasattr(elt, "constraints"):
                     for c in elt.constraints or []:
                         if (
@@ -143,6 +164,16 @@ def test_expected_foreign_keys() -> None:
                         ):
                             found_fk = True
                             break
+                # Table-level composite FK constraint (Amendment A1)
+                if (
+                    getattr(elt, "contype", None) == ConstrType.CONSTR_FOREIGN
+                    and hasattr(elt, "pktable")
+                    and elt.pktable.relname == target_table
+                    and hasattr(elt, "fk_attrs")
+                    and col_name in [a.sval for a in elt.fk_attrs]
+                ):
+                    found_fk = True
+                    break
             assert found_fk, f"Table '{tbl_name}' missing FK from '{col_name}' to '{target_table}'"
 
 

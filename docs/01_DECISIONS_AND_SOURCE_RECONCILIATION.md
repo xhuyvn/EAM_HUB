@@ -76,6 +76,7 @@ Contract (1.1, no consumers): `ppm-output` adds `snapshot_seq`, `analysis_status
 
 ### P0 closure — DG-1 and DG-2 signed (07/11/2026)
 Owner xhuyvn (Huynn), project owner approved all decisions in `docs/adr/DG-1.md` (DG-1.1 key derivation and idempotency, DG-1.2 action slot authority, DG-1.3 outbox relay offsets, DG-1.4 source and project scope) and `docs/adr/DG-2.md` (DG-2.1–DG-2.5 scheduler, ordering, operating policy, triggers, input locking). Binding conditions DG1-C1…C5 and DG2-C1 are listed in §0.1 of each record and are acceptance requirements of the named work packages. Effect: **P0 closed**; P1a-WP1 may start.
+Amendment A1 (owner-approved 2026-11-07): all foreign keys are tenant-scoped composite keys (tenant_id, <col>) referencing parent (tenant_id, <pk_col>); found in P1a-WP1 review.
 
 ### Implementation preparation (06/11/2026, plan rev 1.5)
 - ADR-025 Repository language: English is canonical from P0-WP0; agents read and edit English. Vietnamese copies stored at `docs/vi/<original path>` with header `Translated from <path> @ <sha>`, solely for owner review, agents do not read (`AGENTS.md`). SC-08 reports stale translations. Rejected alternative: dual canonical languages (divergence, recreating "two competing blueprints" issue); keeping Vietnamese canonical and translating prompts only (agents consume extra tokens reading review/plan/docs in Vietnamese — savings measured in P0-WP0).

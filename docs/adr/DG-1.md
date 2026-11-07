@@ -7,6 +7,7 @@
 - **Signed by**: xhuyvn (Huynn), project owner
 - **Date**: 2026-11-07
 - **Effect**: DG-1 closed together with DG-2 → **`P0 closed`**; P1a-WP1 migration may start.
+Amendment A1 (owner-approved 2026-11-07): all foreign keys are tenant-scoped composite keys; found in P1a-WP1 review.
 
 | Decision | Scope | Owner decision |
 |---|---|---|

@@ -63,6 +63,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "task_intent_key", name="uq_tasks_tenant_task_intent_key"),
         sa.UniqueConstraint("tenant_id", "client_idempotency_key", name="uq_tasks_tenant_client_key"),
+        sa.UniqueConstraint("tenant_id", "id", name="uq_tasks_tenant_id"),
         sa.CheckConstraint(
             "state IN ('draft', 'ready', 'active', 'blocked', 'review_required', 'completed', 'failed', 'cancelled', 'queued')",
             name="ck_tasks_state",
@@ -93,7 +94,12 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(["task_id"], ["tasks.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "task_id"],
+            ["tasks.tenant_id", "tasks.id"],
+            name="fk_runs_tenant_task",
+            ondelete="RESTRICT",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "run_id", name="uq_runs_tenant_run_id"),
         sa.UniqueConstraint("tenant_id", "task_id", "attempt", name="uq_runs_tenant_task_attempt"),
@@ -124,7 +130,12 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(["task_id"], ["tasks.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "task_id"],
+            ["tasks.tenant_id", "tasks.id"],
+            name="fk_run_attempt_history_tenant_task",
+            ondelete="RESTRICT",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.CheckConstraint(
             "from_state IN ('queued', 'dispatching', 'running', 'waiting_approval', 'cancelling', 'succeeded', 'failed', 'cancelled', 'timed_out', 'unknown')",
@@ -152,7 +163,12 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(["task_id"], ["tasks.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "task_id"],
+            ["tasks.tenant_id", "tasks.id"],
+            name="fk_task_intents_tenant_task",
+            ondelete="RESTRICT",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "task_id", "action_slot", name="uq_task_intents_slot"),
         sa.CheckConstraint(
@@ -283,7 +299,12 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(["task_id"], ["tasks.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "task_id"],
+            ["tasks.tenant_id", "tasks.id"],
+            name="fk_commands_tenant_task",
+            ondelete="RESTRICT",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.CheckConstraint(
             "status IN ('accepted', 'acknowledged', 'completed', 'rejected')",
@@ -355,7 +376,12 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(["task_id"], ["tasks.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "task_id"],
+            ["tasks.tenant_id", "tasks.id"],
+            name="fk_artifacts_tenant_task",
+            ondelete="RESTRICT",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "artifact_id", name="uq_artifacts_tenant_artifact"),
     )
@@ -420,6 +446,11 @@ def upgrade() -> None:
             "repo_identity",
             name="uq_sources_tenant_repo_identity",
         ),
+        sa.UniqueConstraint(
+            "tenant_id",
+            "source_id",
+            name="uq_sources_tenant_source_id",
+        ),
     )
 
     # 14. project_scopes: Mapping between project, source, and metadata root (ADR-019, C32, W7-3)
@@ -444,7 +475,12 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(["source_id"], ["sources.source_id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "source_id"],
+            ["sources.tenant_id", "sources.source_id"],
+            name="fk_project_scopes_tenant_source",
+            ondelete="RESTRICT",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "tenant_id",
@@ -483,7 +519,12 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(["source_id"], ["sources.source_id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "source_id"],
+            ["sources.tenant_id", "sources.source_id"],
+            name="fk_ppm_scan_schedules_tenant_source",
+            ondelete="RESTRICT",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "tenant_id",
