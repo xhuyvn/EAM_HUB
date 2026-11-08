@@ -7,6 +7,10 @@ from eap.db.event_tables import (
     security_events,
     stream_heads,
 )
+from eap.db.location_tables import (
+    identity_conflicts,
+    location_registrations,
+)
 from eap.db.session import get_engine, get_session_factory
 from eap.db.tables import (
     action_executions,
@@ -37,7 +41,9 @@ __all__ = [
     "event_quarantine",
     "get_engine",
     "get_session_factory",
+    "identity_conflicts",
     "leases",
+    "location_registrations",
     "metadata",
     "outbox",
     "outbox_relay_marks",
