@@ -13,6 +13,7 @@ from alembic.config import Config
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.orm import Session
 
 from eap.config import get_settings
 
@@ -102,3 +103,11 @@ def db_conn(db_engine: Engine) -> Generator[sa.Connection, None, None]:
         trans = conn.begin()
         yield conn
         trans.rollback()
+
+
+@pytest.fixture
+def db_session(db_conn: sa.Connection) -> Generator[Session, None, None]:
+    """Provide an ORM Session bound to db_conn using savepoints."""
+    with Session(bind=db_conn, join_transaction_mode="create_savepoint") as session:
+        yield session
+

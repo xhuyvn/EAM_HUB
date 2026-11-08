@@ -14,6 +14,12 @@ from eap.db.location_tables import (
     source_shares,
 )
 from eap.db.session import get_engine, get_session_factory
+from eap.db.snapshot_tables import (
+    collector_snapshots,
+    project_snapshot_sequences,
+    project_snapshots,
+    source_physical_identities,
+)
 from eap.db.tables import (
     action_executions,
     artifacts,
@@ -37,6 +43,7 @@ from eap.db.tables import (
 __all__ = [
     "action_executions",
     "artifacts",
+    "collector_snapshots",
     "commands",
     "dispatch_intents",
     "event_log",
@@ -53,10 +60,13 @@ __all__ = [
     "ppm_scan_schedules",
     "project_current_assessment",
     "project_scopes",
+    "project_snapshot_sequences",
+    "project_snapshots",
     "projection_checkpoints",
     "run_attempt_history",
     "runs",
     "security_events",
+    "source_physical_identities",
     "source_shares",
     "sources",
     "stream_heads",
