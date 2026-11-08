@@ -2,9 +2,9 @@
 
 - **Work Package**: P1a-WP7 Ingest baseline (measurement)
 - **DG-1 Condition**: DG1-C4 (Relay sustains ≥ 200 events/s for 10 min, 0 lost / 0 duplicated)
-- **Commit**: `4b6269a3c5cc46b1df87429c2640219429c9fedb`
-- **Execution Timestamp**: `2026-11-08T00:57:36.340083+00:00`
-- **DG1-C4 Verdict**: **FAIL** (Worst 10s Window: `50.00` evt/s ≥ 200.0 evt/s)
+- **Commit**: `fd3b7a1f516f4732b0dc66228bef01d146be3c82`
+- **Execution Timestamp**: `2026-11-08T03:44:19.182879+00:00`
+- **DG1-C4 Verdict**: **PASS** (Worst 10s Window: `202.40` evt/s ≥ 200.0 evt/s)
 
 ---
 
@@ -32,90 +32,90 @@
 | Parameter | Value | Description |
 |---|---|---|
 | Configured Duration | 600 s | Target test duration |
-| Actual Duration | 1813.06 s | Total wall-clock elapsed time |
+| Actual Duration | 600.86 s | Total wall-clock elapsed time |
 | Target Rate | 200 events/s | Nominal required arrival rate |
 | Producer Pacing Target | 205.0 events/s | Includes 2.5% anti-jitter margin |
 | Concurrent Producers | 4 | Worker threads writing outbox transactions |
 | Concurrent Streams | 20 | Distinct task/run execution streams |
 | Concurrent Relays | 2 | Worker threads polling & ingesting outbox rows |
 | Relay Batch Size | 250 | Maximum outbox rows polled per transaction |
-| Relay Batch Count | 7716 | Total relay transaction batches executed |
+| Relay Batch Count | 35031 | Total relay transaction batches executed |
 | Deterministic Seed | 42 | PRNG seed for deterministic test payload |
-| Process CPU Utilization | 49.7 % | Process CPU time / wall-clock time |
+| Process CPU Utilization | 73.6 % | Process CPU time / wall-clock time |
 
 ---
 
 ## 3. Throughput and Windowed Rates
 
-- **Total Events Ingested**: `120,283` events
-- **Overall Throughput**: `66.34` events/s
-- **Worst 10s Window Throughput**: `50.00` events/s
-- **Requirement (DG1-C4)**: Worst 10s window sustained ≥ 200.0 events/s: **FAIL**
+- **Total Events Ingested**: `123,016` events
+- **Overall Throughput**: `204.73` events/s
+- **Worst 10s Window Throughput**: `202.40` events/s
+- **Requirement (DG1-C4)**: Worst 10s window sustained ≥ 200.0 events/s: **PASS**
 
 ### 10-Second Non-Overlapping Window Summary
 
 | Window Index | Time Window | Event Count | Achieved Rate (events/s) | Target Met (≥ 200) |
 |:---:|:---:|:---:|:---:|:---:|
-| 1 |   0s -  10s | 2,040 | 204.00 | YES |
-| 2 |  10s -  20s | 2,043 | 204.30 | YES |
-| 3 |  20s -  30s | 2,044 | 204.40 | YES |
-| 4 |  30s -  40s | 2,044 | 204.40 | YES |
-| 5 |  40s -  50s | 2,051 | 205.10 | YES |
-| 6 |  50s -  60s | 2,022 | 202.20 | YES |
-| 7 |  60s -  70s | 2,054 | 205.40 | YES |
-| 8 |  70s -  80s | 1,920 | 192.00 | NO |
-| 9 |  80s -  90s | 1,983 | 198.30 | NO |
-| 10 |  90s - 100s | 1,920 | 192.00 | NO |
-| 11 | 100s - 110s | 1,872 | 187.20 | NO |
-| 12 | 110s - 120s | 1,803 | 180.30 | NO |
-| 13 | 120s - 130s | 1,726 | 172.60 | NO |
-| 14 | 130s - 140s | 1,601 | 160.10 | NO |
-| 15 | 140s - 150s | 1,571 | 157.10 | NO |
-| 16 | 150s - 160s | 1,585 | 158.50 | NO |
-| 17 | 160s - 170s | 1,432 | 143.20 | NO |
-| 18 | 170s - 180s | 1,200 | 120.00 | NO |
-| 19 | 180s - 190s | 1,500 | 150.00 | NO |
-| 20 | 190s - 200s | 1,250 | 125.00 | NO |
-| 21 | 200s - 210s | 1,250 | 125.00 | NO |
-| 22 | 210s - 220s | 1,500 | 150.00 | NO |
-| 23 | 220s - 230s | 1,250 | 125.00 | NO |
-| 24 | 230s - 240s | 1,000 | 100.00 | NO |
-| 25 | 240s - 250s | 1,250 | 125.00 | NO |
-| 26 | 250s - 260s | 1,250 | 125.00 | NO |
-| 27 | 260s - 270s | 1,250 | 125.00 | NO |
-| 28 | 270s - 280s | 1,250 | 125.00 | NO |
-| 29 | 280s - 290s | 1,000 | 100.00 | NO |
-| 30 | 290s - 300s | 1,250 | 125.00 | NO |
-| 31 | 300s - 310s | 1,000 | 100.00 | NO |
-| 32 | 310s - 320s | 1,250 | 125.00 | NO |
-| 33 | 320s - 330s | 1,000 | 100.00 | NO |
-| 34 | 330s - 340s | 1,000 | 100.00 | NO |
-| 35 | 340s - 350s | 750 | 75.00 | NO |
-| 36 | 350s - 360s | 1,000 | 100.00 | NO |
-| 37 | 360s - 370s | 1,000 | 100.00 | NO |
-| 38 | 370s - 380s | 1,000 | 100.00 | NO |
-| 39 | 380s - 390s | 1,250 | 125.00 | NO |
-| 40 | 390s - 400s | 1,000 | 100.00 | NO |
-| 41 | 400s - 410s | 750 | 75.00 | NO |
-| 42 | 410s - 420s | 1,000 | 100.00 | NO |
-| 43 | 420s - 430s | 1,000 | 100.00 | NO |
-| 44 | 430s - 440s | 1,000 | 100.00 | NO |
-| 45 | 440s - 450s | 1,000 | 100.00 | NO |
-| 46 | 450s - 460s | 1,000 | 100.00 | NO |
-| 47 | 460s - 470s | 750 | 75.00 | NO |
-| 48 | 470s - 480s | 750 | 75.00 | NO |
-| 49 | 480s - 490s | 1,000 | 100.00 | NO |
-| 50 | 490s - 500s | 1,000 | 100.00 | NO |
-| 51 | 500s - 510s | 500 | 50.00 | NO |
-| 52 | 510s - 520s | 1,000 | 100.00 | NO |
-| 53 | 520s - 530s | 500 | 50.00 | NO |
-| 54 | 530s - 540s | 1,000 | 100.00 | NO |
-| 55 | 540s - 550s | 500 | 50.00 | NO |
-| 56 | 550s - 560s | 1,000 | 100.00 | NO |
-| 57 | 560s - 570s | 1,000 | 100.00 | NO |
-| 58 | 570s - 580s | 500 | 50.00 | NO |
-| 59 | 580s - 590s | 750 | 75.00 | NO |
-| 60 | 590s - 600s | 750 | 75.00 | NO |
+| 1 |   0s -  10s | 2,034 | 203.40 | YES |
+| 2 |  10s -  20s | 2,050 | 205.00 | YES |
+| 3 |  20s -  30s | 2,049 | 204.90 | YES |
+| 4 |  30s -  40s | 2,048 | 204.80 | YES |
+| 5 |  40s -  50s | 2,048 | 204.80 | YES |
+| 6 |  50s -  60s | 2,049 | 204.90 | YES |
+| 7 |  60s -  70s | 2,050 | 205.00 | YES |
+| 8 |  70s -  80s | 2,046 | 204.60 | YES |
+| 9 |  80s -  90s | 2,055 | 205.50 | YES |
+| 10 |  90s - 100s | 2,052 | 205.20 | YES |
+| 11 | 100s - 110s | 2,045 | 204.50 | YES |
+| 12 | 110s - 120s | 2,050 | 205.00 | YES |
+| 13 | 120s - 130s | 2,046 | 204.60 | YES |
+| 14 | 130s - 140s | 2,053 | 205.30 | YES |
+| 15 | 140s - 150s | 2,042 | 204.20 | YES |
+| 16 | 150s - 160s | 2,053 | 205.30 | YES |
+| 17 | 160s - 170s | 2,052 | 205.20 | YES |
+| 18 | 170s - 180s | 2,047 | 204.70 | YES |
+| 19 | 180s - 190s | 2,044 | 204.40 | YES |
+| 20 | 190s - 200s | 2,045 | 204.50 | YES |
+| 21 | 200s - 210s | 2,053 | 205.30 | YES |
+| 22 | 210s - 220s | 2,055 | 205.50 | YES |
+| 23 | 220s - 230s | 2,024 | 202.40 | YES |
+| 24 | 230s - 240s | 2,070 | 207.00 | YES |
+| 25 | 240s - 250s | 2,042 | 204.20 | YES |
+| 26 | 250s - 260s | 2,048 | 204.80 | YES |
+| 27 | 260s - 270s | 2,040 | 204.00 | YES |
+| 28 | 270s - 280s | 2,064 | 206.40 | YES |
+| 29 | 280s - 290s | 2,032 | 203.20 | YES |
+| 30 | 290s - 300s | 2,058 | 205.80 | YES |
+| 31 | 300s - 310s | 2,058 | 205.80 | YES |
+| 32 | 310s - 320s | 2,041 | 204.10 | YES |
+| 33 | 320s - 330s | 2,044 | 204.40 | YES |
+| 34 | 330s - 340s | 2,041 | 204.10 | YES |
+| 35 | 340s - 350s | 2,048 | 204.80 | YES |
+| 36 | 350s - 360s | 2,043 | 204.30 | YES |
+| 37 | 360s - 370s | 2,061 | 206.10 | YES |
+| 38 | 370s - 380s | 2,041 | 204.10 | YES |
+| 39 | 380s - 390s | 2,048 | 204.80 | YES |
+| 40 | 390s - 400s | 2,054 | 205.40 | YES |
+| 41 | 400s - 410s | 2,046 | 204.60 | YES |
+| 42 | 410s - 420s | 2,042 | 204.20 | YES |
+| 43 | 420s - 430s | 2,059 | 205.90 | YES |
+| 44 | 430s - 440s | 2,051 | 205.10 | YES |
+| 45 | 440s - 450s | 2,051 | 205.10 | YES |
+| 46 | 450s - 460s | 2,045 | 204.50 | YES |
+| 47 | 460s - 470s | 2,056 | 205.60 | YES |
+| 48 | 470s - 480s | 2,036 | 203.60 | YES |
+| 49 | 480s - 490s | 2,044 | 204.40 | YES |
+| 50 | 490s - 500s | 2,065 | 206.50 | YES |
+| 51 | 500s - 510s | 2,047 | 204.70 | YES |
+| 52 | 510s - 520s | 2,045 | 204.50 | YES |
+| 53 | 520s - 530s | 2,056 | 205.60 | YES |
+| 54 | 530s - 540s | 2,046 | 204.60 | YES |
+| 55 | 540s - 550s | 2,048 | 204.80 | YES |
+| 56 | 550s - 560s | 2,048 | 204.80 | YES |
+| 57 | 560s - 570s | 2,062 | 206.20 | YES |
+| 58 | 570s - 580s | 2,049 | 204.90 | YES |
+| 59 | 580s - 590s | 2,052 | 205.20 | YES |
+| 60 | 590s - 600s | 2,042 | 204.20 | YES |
 
 ---
 
@@ -123,27 +123,36 @@
 
 | Latency Stage | p50 (ms) | p95 (ms) | p99 (ms) |
 |---|:---:|:---:|:---:|
-| Ingest -> Projection Checkpoint | 2220.03 ms | 11697.46 ms | 14220.92 ms |
-| Producer Commit -> Projection Checkpoint | 124950.27 ms | 1157188.41 ms | 1300308.03 ms |
+| Ingest -> Projection Checkpoint | 8.59 ms | 31.85 ms | 42.02 ms |
+| Producer Commit -> Projection Checkpoint | 212.89 ms | 662.25 ms | 772.74 ms |
 
 ---
 
 ## 5. Storage Growth and Bytes Per Event (ARCH-24 Baseline)
 
-- **WAL LSN Range**: `0/22EBA88` -> `2/C9FAAEC8`
-- **Total WAL Written**: `11,941,966,912` bytes (11388.75 MB)
-- **WAL Growth Per Event**: `99282.25` bytes/event
-- **Total Database Growth**: `836,460,544` bytes (797.71 MB)
+- **WAL LSN Range**: `3/D391218` -> `3/24B93AD8`
+- **Total WAL Written**: `394,275,008` bytes (376.01 MB)
+- **WAL Growth Per Event**: `3205.07` bytes/event
+- **Total Database Growth**: `227,115,008` bytes (216.59 MB)
 
 ### Relation Sizes (pg_total_relation_size)
 
 | Table Name | Before (bytes) | After (bytes) | Growth (bytes) | Bytes / Event |
 |---|:---:|:---:|:---:|:---:|
-| `outbox` | 163,840 | 78,594,048 | 78,430,208 | 652.05 |
-| `event_log` | 253,952 | 110,272,512 | 110,018,560 | 914.66 |
-| `projection_checkpoints` | 81,920 | 81,920 | 0 | 0.00 |
-| `outbox_relay_marks` | 114,688 | 26,959,872 | 26,845,184 | 223.18 |
-| `stream_heads` | 81,920 | 621,248,512 | 621,166,592 | 5164.21 |
+| `outbox` | 16,384 | 80,388,096 | 80,371,712 | 653.34 |
+| `event_log` | 32,768 | 120,512,512 | 120,479,744 | 979.38 |
+| `projection_checkpoints` | 16,384 | 90,112 | 73,728 | 0.60 |
+| `outbox_relay_marks` | 16,384 | 26,050,560 | 26,034,176 | 211.63 |
+| `stream_heads` | 16,384 | 172,032 | 155,648 | 1.27 |
+| `security_events` | 32,768 | 32,768 | 0 | 0.00 |
+
+### Storage & WAL Rate Stability: First 60s vs Last 60s (R7-3)
+
+| Interval | Ingested Events | WAL Bytes | WAL Bytes / Event | Table Growth | Table Bytes / Event |
+|---|:---:|:---:|:---:|:---:|:---:|
+| First 60s | 12,280 | 42,978,736 | 3499.90 B/evt | 22,585,344 B | 1839.20 B/evt |
+| Last 60s | 12,389 | 38,270,968 | 3089.11 B/evt | 22,806,528 B | 1840.87 B/evt |
+| Full Run (600.86s) | 123,016 | 394,275,008 | 3205.07 B/evt | 227,115,008 B | 1846.22 B/evt |
 
 ---
 
@@ -151,19 +160,20 @@
 
 | Check | Requirement | Result | Status |
 |---|---|---|:---:|
-| 0 Lost | Every outbox row relayed to event_log & outbox_relay_marks | 120283/120283 | PASS |
+| 0 Lost | Every outbox row relayed to event_log & outbox_relay_marks | 123016/123016 | PASS |
 | 0 Duplicated | 0 duplicate event_id in event_log | 0 duplicates | PASS |
 | Contiguous Offsets | Offsets per stream strictly contiguous 1..N | Contiguous | PASS |
 | Projection Hash Match | Full stream rebuild hash == Live checkpoint hash | Hash identical across all streams | PASS |
+| 0 Gaps (R7-2) | Well-behaved producer: gap_count == 0 | 0 gaps | PASS |
 
 ---
 
 ## 7. DG1-C4 Verdict and Conclusion
 
 - **Sustained Throughput Condition**: Sustained ≥ 200 events/s for full duration with worst 10s window ≥ 200.0 events/s.
-- **Observed Worst 10s Window**: `50.00` events/s.
-- **Correctness Checks**: All passed (0 lost, 0 duplicated, contiguous offsets, hash parity).
-- **Final Verdict**: **FAIL**.
+- **Observed Worst 10s Window**: `202.40` events/s.
+- **Correctness Checks**: All passed (0 lost, 0 duplicated, contiguous offsets, hash parity, 0 gaps).
+- **Final Verdict**: **PASS**.
 
 ---
 
@@ -171,12 +181,12 @@
 
 - **Tested Rates**: `200, 400, 800` events/s (for 60 s each)
 - **Highest Rate with Sustained Worst 10s Window >= Target & Correctness PASS**: **0 events/s**
-- **Observed Bottleneck at Capacity Limit**: `Producer transaction commit latency under WAL fsync (p95=22735.9ms)`
+- **Observed Bottleneck at Capacity Limit**: `Producer transaction commit latency under WAL fsync (p95=1541.5ms)`
 
 ### Headroom Step Details
 
 | Target Rate (evt/s) | Achieved Rate (evt/s) | Worst 10s Window (evt/s) | Target Sustained | Correctness | p95 Latency (ms) | Bottleneck Observed |
 |:---:|:---:|:---:|:---:|:---:|:---:|---|
-| 200 | 169.0 | 175.8 | NO | PASS | 6078.8 ms | Producer transaction commit latency under WAL fsync (p95=6078.8ms) |
-| 400 | 274.6 | 200.0 | NO | PASS | 20445.0 ms | Producer transaction commit latency under WAL fsync (p95=20445.0ms) |
-| 800 | 264.4 | 200.0 | NO | PASS | 22735.9 ms | Producer transaction commit latency under WAL fsync (p95=22735.9ms) |
+| 200 | 191.6 | 197.2 | NO | PASS | 2095.6 ms | Producer transaction commit latency under WAL fsync (p95=2095.6ms) |
+| 400 | 374.4 | 314.1 | NO | PASS | 1430.0 ms | Producer transaction commit latency under WAL fsync (p95=1430.0ms) |
+| 800 | 390.7 | 367.0 | NO | PASS | 1541.5 ms | Producer transaction commit latency under WAL fsync (p95=1541.5ms) |

@@ -14,6 +14,7 @@ from eap.db.tables import event_log
 from eap.events.binding import ProducerBinding
 from eap.events.quarantine import (
     KIND_EVENT_CONTENT_CONFLICT,
+    KIND_PRODUCER_SEQ_GAP,
     KIND_PRODUCER_UNAUTHORIZED,
     KIND_TENANT_MISMATCH,
     REASON_EVENT_CONTENT_CONFLICT,
@@ -236,23 +237,45 @@ def check_and_ingest_event(
     current_offset = int(head_row[0]) if head_row else 0
     producer_state = dict(head_row[1] or {}) if head_row else {}
 
+    producers: dict[str, dict[str, Any]] = producer_state.setdefault("producers", {})
     seqs: dict[str, int] = producer_state.setdefault("seqs", {})
     producer_seq = envelope.get("producer_seq")
     gap_detected = False
 
     if producer_seq is not None:
+        p_info: dict[str, Any] = producers.setdefault(
+            producer_id,
+            {"last_seq": 0, "gap_count": 0, "last_gap": None},
+        )
         last_seq = seqs.get(producer_id)
         if last_seq is not None and producer_seq > last_seq + 1:
             gap_detected = True
-            gaps: list[dict[str, Any]] = producer_state.setdefault("gaps", [])
-            gaps.append(
-                {
+            gap_summary = {
+                "expected_seq": last_seq + 1,
+                "received_seq": producer_seq,
+                "event_id": event_id,
+            }
+            p_info["gap_count"] = int(p_info.get("gap_count", 0)) + 1
+            p_info["last_gap"] = gap_summary
+            producer_state["gap_count"] = int(producer_state.get("gap_count", 0)) + 1
+            producer_state["last_gap"] = {
+                "producer_id": producer_id,
+                **gap_summary,
+            }
+            # Record individual gap row in security_events (R7-1)
+            record_security_event(
+                conn,
+                tenant_id=authoritative_tenant,
+                kind=KIND_PRODUCER_SEQ_GAP,
+                subject_event_id=event_id,
+                stream_id=stream_id,
+                detail={
                     "producer_id": producer_id,
                     "expected_seq": last_seq + 1,
                     "received_seq": producer_seq,
-                    "event_id": event_id,
-                }
+                },
             )
+        p_info["last_seq"] = producer_seq
         seqs[producer_id] = producer_seq
 
     # Append to event_log with strictly increasing ingest_offset

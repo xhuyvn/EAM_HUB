@@ -468,9 +468,148 @@ def test_gap_detection_recorded_in_stream_heads(db_engine: sa.Engine) -> None:
             )
         ).scalar()
         assert state is not None
-        assert "gaps" in state
-        gaps = state["gaps"]
-        assert len(gaps) == 1
-        assert gaps[0]["expected_seq"] == 2
-        assert gaps[0]["received_seq"] == 4
+        assert state.get("gap_count") == 1
+        assert state.get("last_gap") == {
+            "producer_id": producer_id,
+            "expected_seq": 2,
+            "received_seq": 4,
+            "event_id": "evt-gap-4",
+        }
+        prod_info = state.get("producers", {}).get(producer_id, {})
+        assert prod_info.get("gap_count") == 1
+        assert prod_info.get("last_seq") == 4
+
+        # Check individual row in security_events
+        sec_gap = conn.execute(
+            select(
+                security_events.c.kind,
+                security_events.c.subject_event_id,
+                security_events.c.detail,
+            ).where(
+                security_events.c.tenant_id == tenant,
+                security_events.c.kind == "producer_seq_gap",
+            )
+        ).fetchone()
+        assert sec_gap is not None
+        assert sec_gap[0] == "producer_seq_gap"
+        assert sec_gap[1] == "evt-gap-4"
+        assert sec_gap[2]["expected_seq"] == 2
+        assert sec_gap[2]["received_seq"] == 4
+
+
+def test_r7_1_adversarial_producer_bounded_gap_state(db_engine: sa.Engine) -> None:
+    """R7-1: Adversarial producer sends 10,000 events with seq jumping every event.
+
+    Verifies:
+    1. stream_heads producer_state remains bounded O(1) in size: pg_column_size < 2 KB.
+    2. Gaps are accurately counted.
+    3. Throughput does not degrade across the run.
+    """
+    import time
+
+    from eap.db.event_tables import stream_heads
+
+    tenant = "tenant-r71-adversarial"
+    stream_id = "run:run-r71-bounded"
+    producer_id = "worker-adversarial"
+
+    binding = ProducerBinding(
+        tenant_id=tenant,
+        producer_id=producer_id,
+        binding_id="bind-r71",
+        certified_capabilities={"events": True},
+    )
+    provider = StaticBindingProvider([binding])
+    relay = OutboxRelayWorker(enabled=True, batch_size=250)
+
+    # Insert 10,000 events with sequence jumping every single event (e.g. 2, 4, 6, 8, ...)
+    total_events = 10000
+    rows = []
+    for i in range(1, total_events + 1):
+        seq = i * 2  # jumps by 2 every time -> gap on every event after event 1
+        env = make_event_envelope(
+            event_id=f"evt-adv-{i:05d}",
+            tenant_id=tenant,
+            event_type="run.progress",
+            stream_id=stream_id,
+            producer_id=producer_id,
+            producer_seq=seq,
+            payload={"stage": f"Step {i}", "completed_units": i, "total_units": total_events, "unit": "steps"},
+        )
+        rows.append({
+            "tenant_id": tenant,
+            "event_id": f"evt-adv-{i:05d}",
+            "stream_id": stream_id,
+            "event_type": "run.progress",
+            "payload": env,
+        })
+
+    # Bulk insert outbox rows
+    with db_engine.begin() as conn:
+        conn.execute(outbox.insert(), rows)
+
+    # Relay all batches while measuring duration of first 1,000 vs last 1,000
+    relayed_count = 0
+    batch_times = []
+    while relayed_count < total_events:
+        t0 = time.perf_counter()
+        with db_engine.begin() as conn:
+            res = relay.relay_stream_batch(
+                conn,
+                tenant_id=tenant,
+                stream_id=stream_id,
+                binding_provider=provider,
+            )
+        dt = time.perf_counter() - t0
+        assert res.ingested_count > 0, "Expected relay progress"
+        relayed_count += res.ingested_count
+        batch_times.append((res.ingested_count, dt))
+
+    assert relayed_count == total_events
+
+    # Verify stream_heads row size via pg_column_size < 2 KB
+    with db_engine.connect() as conn:
+        col_size = conn.execute(
+            sa.text(
+                "SELECT pg_column_size(producer_state) FROM stream_heads "
+                "WHERE tenant_id = :t AND stream_id = :s"
+            ),
+            {"t": tenant, "s": stream_id},
+        ).scalar()
+        assert col_size is not None
+        assert col_size < 2048, f"Expected pg_column_size(producer_state) < 2 KB, got {col_size} bytes"
+
+        # Check gap count in state
+        state = conn.execute(
+            select(stream_heads.c.producer_state).where(
+                stream_heads.c.tenant_id == tenant,
+                stream_heads.c.stream_id == stream_id,
+            )
+        ).scalar()
+        assert state is not None
+        # Event 1 (seq=2) has no previous seq; events 2..10000 each jump from (i-1)*2 to i*2 -> 9,999 gaps
+        assert state.get("gap_count") == total_events - 1
+        p_state = state.get("producers", {}).get(producer_id, {})
+        assert p_state.get("gap_count") == total_events - 1
+        assert p_state.get("last_seq") == total_events * 2
+
+        # Check security_events count
+        sec_gap_count = conn.execute(
+            select(sa.func.count())
+            .select_from(security_events)
+            .where(
+                security_events.c.tenant_id == tenant,
+                security_events.c.kind == "producer_seq_gap",
+            )
+        ).scalar()
+        assert sec_gap_count == total_events - 1
+
+    # Throughput check: compare rate of first 1,000 events vs last 1,000 events
+    # First 4 batches (1000 events) vs last 4 batches (1000 events)
+    first_1k_time = sum(t[1] for t in batch_times[:4])
+    last_1k_time = sum(t[1] for t in batch_times[-4:])
+    # Throughput does not degrade over the run: ratio must stay within 2.5x
+    assert last_1k_time < first_1k_time * 2.5, (
+        f"Throughput degraded: first 1k took {first_1k_time:.3f}s, last 1k took {last_1k_time:.3f}s"
+    )
 

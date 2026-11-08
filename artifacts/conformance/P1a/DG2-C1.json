@@ -8,7 +8,7 @@
     "concurrent_producers": 4,
     "concurrent_streams": 20,
     "concurrent_relays": 2,
-    "total_events": 120283
+    "total_events": 123016
   },
   "evidence_refs": [
     "docs/measurements/P1a-WP7.md",

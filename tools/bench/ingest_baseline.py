@@ -20,7 +20,7 @@ import subprocess
 import sys
 import threading
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -31,11 +31,15 @@ from sqlalchemy import create_engine, func, select, text
 
 from eap.config import get_settings
 from eap.db import outbox, runs, tasks
-from eap.db.event_tables import outbox_relay_marks, stream_heads
+from eap.db.event_tables import (
+    outbox_relay_marks,
+    projection_checkpoints,
+    security_events,
+    stream_heads,
+)
 from eap.db.tables import event_log
 from eap.events.binding import ProducerBinding, StaticBindingProvider
 from eap.events.projection import (
-    PROJECTION_NAME_HUD_RUNS,
     build_fresh_snapshot,
     load_checkpoint,
 )
@@ -56,7 +60,7 @@ def get_git_commit() -> str:
             check=True,
         )
         return res.stdout.strip()
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return "unknown"
 
 
@@ -87,8 +91,8 @@ def get_total_ram_gb() -> float:
                 for line in f:
                     if line.startswith("MemTotal:"):
                         return float(round(float(int(line.split()[1])) / (1024**2), 2))
-        except Exception:
-            pass
+        except (OSError, ValueError):
+            return 0.0
     return 0.0
 
 
@@ -144,7 +148,7 @@ def query_pg_settings(engine: sa.Engine) -> dict[str, str]:
             try:
                 val = conn.execute(text(f"SHOW {k}")).scalar()
                 settings[k] = str(val)
-            except Exception:
+            except sa.exc.SQLAlchemyError:
                 settings[k] = "unknown"
     return settings
 
@@ -157,6 +161,7 @@ def query_relation_sizes(engine: sa.Engine) -> dict[str, int]:
         "projection_checkpoints",
         "outbox_relay_marks",
         "stream_heads",
+        "security_events",
     ]
     sizes: dict[str, int] = {}
     with engine.connect() as conn:
@@ -166,7 +171,7 @@ def query_relation_sizes(engine: sa.Engine) -> dict[str, int]:
                     text("SELECT pg_total_relation_size(:tbl)"), {"tbl": t}
                 ).scalar()
                 sizes[t] = int(sz) if sz is not None else 0
-            except Exception:
+            except sa.exc.SQLAlchemyError:
                 sizes[t] = 0
     return sizes
 
@@ -203,9 +208,9 @@ def calculate_percentiles(values: list[float]) -> dict[str, float]:
         return {"p50_ms": 0.0, "p95_ms": 0.0, "p99_ms": 0.0}
     sorted_v = sorted(values)
     n = len(sorted_v)
-    p50_idx = min(int(round(0.50 * (n - 1))), n - 1)
-    p95_idx = min(int(round(0.95 * (n - 1))), n - 1)
-    p99_idx = min(int(round(0.99 * (n - 1))), n - 1)
+    p50_idx = min(round(0.50 * (n - 1)), n - 1)
+    p95_idx = min(round(0.95 * (n - 1)), n - 1)
+    p99_idx = min(round(0.99 * (n - 1)), n - 1)
     return {
         "p50_ms": round(sorted_v[p50_idx] * 1000, 2),
         "p95_ms": round(sorted_v[p95_idx] * 1000, 2),
@@ -261,6 +266,8 @@ def run_benchmark(
         conn.execute(event_log.delete().where(event_log.c.tenant_id == tenant_id))
         conn.execute(outbox_relay_marks.delete().where(outbox_relay_marks.c.tenant_id == tenant_id))
         conn.execute(stream_heads.delete().where(stream_heads.c.tenant_id == tenant_id))
+        conn.execute(projection_checkpoints.delete().where(projection_checkpoints.c.tenant_id == tenant_id))
+        conn.execute(security_events.delete().where(security_events.c.tenant_id == tenant_id))
 
     # Pre-seed tasks and runs for each stream
     now_utc = dt.datetime.now(dt.UTC)
@@ -338,7 +345,6 @@ def run_benchmark(
         res = orig_save_checkpoint(conn, **kwargs)
         t_now = time.time()
         st_id = kwargs.get("stream_id")
-        last_offset = kwargs.get("last_ingest_offset")
         with timing_lock:
             for rec in timing_records.values():
                 if rec.stream_id == st_id and rec.checkpoint_time == 0.0 and rec.ingest_time > 0.0:
@@ -348,16 +354,19 @@ def run_benchmark(
     relay_module.check_and_ingest_event = wrapped_check_and_ingest
     relay_module.save_checkpoint = wrapped_save_checkpoint
 
-    # Producer worker routine
+    # Producer worker routine (R7-2: producer_seq strictly increasing per (producer_id, stream_id), starting at 1)
     def producer_worker(p_idx: int, t_start_perf: float) -> None:
-        seq = 0
+        stream_seqs: dict[str, int] = {st: 0 for st in streams}
+        p_event_count = 0
         while not stop_event.is_set():
-            seq += 1
-            stream_idx = (p_idx * 13 + seq) % num_streams
+            p_event_count += 1
+            stream_idx = (p_idx * 13 + p_event_count) % num_streams
             st_id = streams[stream_idx]
             r_id = run_ids[stream_idx]
             t_id = task_ids[stream_idx]
-            evt_id = f"evt-bench-{p_idx:02d}-{seq:06d}-{time.time_ns()}"
+            stream_seqs[st_id] += 1
+            seq = stream_seqs[st_id]
+            evt_id = f"evt-bench-{p_idx:02d}-{stream_idx:02d}-{seq:06d}-{time.time_ns()}"
 
             event = build_event(
                 event_type="run.progress",
@@ -395,7 +404,7 @@ def run_benchmark(
                 )
 
             # Schedule next event with monotonic pacing
-            target_time = t_start_perf + (seq / rate_per_producer)
+            target_time = t_start_perf + (p_event_count / rate_per_producer)
             now = time.perf_counter()
             sleep_dur = target_time - now
             if sleep_dur > 0:
@@ -449,6 +458,15 @@ def run_benchmark(
     for t in prod_threads:
         t.start()
 
+    sample_start = {
+        "wal_lsn": wal_before,
+        "sizes": sizes_before,
+        "events": 0,
+        "time": t_start_wall,
+    }
+    sample_60s: dict[str, Any] | None = None
+    sample_penultimate_60s: dict[str, Any] | None = None
+
     # Periodic live reporting every 10 seconds (or remaining duration)
     rem_time = float(duration)
     while rem_time > 0.0:
@@ -460,6 +478,24 @@ def run_benchmark(
             cnt = len(ingested_timestamps)
         current_rate = cnt / elapsed if elapsed > 0 else 0.0
         print(f"[{elapsed:5.1f}s / {duration}s] Ingested: {cnt:6d} events ({current_rate:5.1f} evt/s avg)")
+
+        # Capture sample at ~60s (R7-3)
+        if sample_60s is None and elapsed >= 58.0:
+            sample_60s = {
+                "wal_lsn": query_wal_lsn(engine),
+                "sizes": query_relation_sizes(engine),
+                "events": cnt,
+                "elapsed": elapsed,
+            }
+
+        # Capture sample at ~duration - 60s (R7-3)
+        if duration >= 120.0 and sample_penultimate_60s is None and (duration - rem_time) >= (duration - 60.0):
+            sample_penultimate_60s = {
+                "wal_lsn": query_wal_lsn(engine),
+                "sizes": query_relation_sizes(engine),
+                "events": cnt,
+                "elapsed": elapsed,
+            }
 
     # Stop producers
     print("\n==> Duration reached. Stopping producers...")
@@ -520,8 +556,7 @@ def run_benchmark(
             "event_count": len(events_in_w),
             "rate_events_per_sec": w_rate,
         })
-        if w_rate < worst_10s_rate:
-            worst_10s_rate = w_rate
+        worst_10s_rate = min(worst_10s_rate, w_rate)
 
     if worst_10s_rate == float("inf"):
         worst_10s_rate = 0.0
@@ -594,7 +629,33 @@ def run_benchmark(
                 projection_hash_match = False
                 break
 
-    correctness_passed = zero_lost and zero_duplicated and contiguous_offsets and projection_hash_match
+        # 5. Gap count == 0 across all stream_heads (R7-2: well-behaved run)
+        total_gaps = 0
+        for st_id in streams:
+            head_state = conn.scalar(
+                select(stream_heads.c.producer_state).where(
+                    stream_heads.c.tenant_id == tenant_id,
+                    stream_heads.c.stream_id == st_id,
+                )
+            ) or {}
+            total_gaps += int(head_state.get("gap_count", 0))
+        sec_gap_rows = conn.scalar(
+            select(func.count())
+            .select_from(security_events)
+            .where(
+                security_events.c.tenant_id == tenant_id,
+                security_events.c.kind == "producer_seq_gap",
+            )
+        ) or 0
+        zero_gaps = (total_gaps == 0 and sec_gap_rows == 0)
+
+    correctness_passed = (
+        zero_lost
+        and zero_duplicated
+        and contiguous_offsets
+        and projection_hash_match
+        and zero_gaps
+    )
     dg1_c4_passed = (worst_10s_rate >= 200.0) and correctness_passed
 
     # Storage growth and bytes/event
@@ -609,9 +670,41 @@ def run_benchmark(
 
     wal_per_event = round(wal_bytes / total_events_ingested, 2) if total_events_ingested > 0 else 0.0
 
-    print(f"\n=======================================================")
-    print(f"BENCHMARK RESULTS (P1a-WP7 / SC-07 / DG1-C4)")
-    print(f"=======================================================")
+    # First 60s vs Last 60s comparison (R7-3)
+    rate_comparison: dict[str, Any] = {}
+    if sample_60s is not None and int(sample_60s["events"]) > 0:
+        ev_60 = int(sample_60s["events"])
+        lsn_start = str(sample_start["wal_lsn"])
+        lsn_60 = str(sample_60s["wal_lsn"])
+        wal_60 = query_wal_diff(engine, lsn_start, lsn_60)
+        sizes_60: dict[str, int] = sample_60s["sizes"]  # type: ignore[assignment]
+        bytes_60 = sum(sizes_60.values()) - sum(sizes_before.values())
+        rate_comparison["first_60s"] = {
+            "events": ev_60,
+            "wal_bytes": wal_60,
+            "wal_bytes_per_event": round(wal_60 / ev_60, 2),
+            "table_growth_bytes": bytes_60,
+            "table_bytes_per_event": round(bytes_60 / ev_60, 2),
+        }
+
+    if sample_penultimate_60s is not None:
+        ev_last = total_events_ingested - int(sample_penultimate_60s["events"])
+        if ev_last > 0:
+            lsn_pen = str(sample_penultimate_60s["wal_lsn"])
+            wal_last = query_wal_diff(engine, lsn_pen, wal_after)
+            sizes_pen: dict[str, int] = sample_penultimate_60s["sizes"]  # type: ignore[assignment]
+            bytes_last = sum(sizes_after.values()) - sum(sizes_pen.values())
+            rate_comparison["last_60s"] = {
+                "events": ev_last,
+                "wal_bytes": wal_last,
+                "wal_bytes_per_event": round(wal_last / ev_last, 2),
+                "table_growth_bytes": bytes_last,
+                "table_bytes_per_event": round(bytes_last / ev_last, 2),
+            }
+
+    print("\n=======================================================")
+    print("BENCHMARK RESULTS (P1a-WP7 / SC-07 / DG1-C4)")
+    print("=======================================================")
     print(f"Duration:              {total_time_perf:.2f} s")
     print(f"Total events ingested: {total_events_ingested}")
     print(f"Overall rate:          {overall_rate:.2f} events/s")
@@ -625,8 +718,9 @@ def run_benchmark(
     print(f"0 Duplicated:          {'PASS' if zero_duplicated else 'FAIL'} (Total={tot_evts}, Distinct={dist_evts})")
     print(f"Contiguous offsets:    {'PASS' if contiguous_offsets else 'FAIL'}")
     print(f"Projection hash match: {'PASS' if projection_hash_match else 'FAIL'}")
+    print(f"0 Gaps (R7-2):         {'PASS' if zero_gaps else 'FAIL'} (Gaps detected={total_gaps})")
     print(f"DG1-C4 Verdict:        {'PASS' if dg1_c4_passed else 'FAIL'}")
-    print(f"=======================================================\n")
+    print("=======================================================\n")
 
     return {
         "metadata": {
@@ -671,11 +765,13 @@ def run_benchmark(
             "table_sizes_after_bytes": sizes_after,
             "table_growth_bytes": table_growth,
             "total_db_growth_bytes": total_db_growth,
+            "total_db_bytes_per_event": round(total_db_growth / total_events_ingested, 2) if total_events_ingested > 0 else 0.0,
             "bytes_per_event": bytes_per_event,
             "wal_lsn_before": wal_before,
             "wal_lsn_after": wal_after,
             "wal_bytes": wal_bytes,
             "wal_bytes_per_event": wal_per_event,
+            "rate_comparison": rate_comparison,
         },
         "window_rates": window_rates,
         "correctness": {
@@ -683,6 +779,8 @@ def run_benchmark(
             "zero_duplicated": zero_duplicated,
             "contiguous_offsets": contiguous_offsets,
             "projection_full_rebuild_hash_match": projection_hash_match,
+            "zero_gaps": zero_gaps,
+            "gap_count": total_gaps,
             "all_passed": correctness_passed,
         },
         "verdict": {
@@ -707,8 +805,8 @@ def generate_markdown_report(data: dict[str, Any]) -> str:
     lines = [
         "# SC-07 Ingestion Baseline Measurement Report (P1a-WP7)",
         "",
-        f"- **Work Package**: P1a-WP7 Ingest baseline (measurement)",
-        f"- **DG-1 Condition**: DG1-C4 (Relay sustains ≥ 200 events/s for 10 min, 0 lost / 0 duplicated)",
+        "- **Work Package**: P1a-WP7 Ingest baseline (measurement)",
+        "- **DG-1 Condition**: DG1-C4 (Relay sustains ≥ 200 events/s for 10 min, 0 lost / 0 duplicated)",
         f"- **Commit**: `{data['metadata']['git_commit']}`",
         f"- **Execution Timestamp**: `{data['metadata']['timestamp_utc']}`",
         f"- **DG1-C4 Verdict**: **{verdict['dg1_c4_status']}** (Worst 10s Window: `{verdict['achieved_worst_window']:.2f}` evt/s ≥ 200.0 evt/s)",
@@ -717,8 +815,8 @@ def generate_markdown_report(data: dict[str, Any]) -> str:
         "",
         "## 1. Environment and Configuration",
         "",
-        f"| Parameter | Value |",
-        f"|---|---|",
+        "| Parameter | Value |",
+        "|---|---|",
         f"| CPU Model | {env['cpu_model']} |",
         f"| Logical CPU Cores | {env['cpu_cores']} |",
         f"| Physical Memory (RAM) | {env['ram_gb']} GB |",
@@ -736,8 +834,8 @@ def generate_markdown_report(data: dict[str, Any]) -> str:
         "",
         "## 2. Benchmark Parameters and Execution",
         "",
-        f"| Parameter | Value | Description |",
-        f"|---|---|---|",
+        "| Parameter | Value | Description |",
+        "|---|---|---|",
         f"| Configured Duration | {params['duration_configured_seconds']} s | Target test duration |",
         f"| Actual Duration | {exec_info['duration_seconds']} s | Total wall-clock elapsed time |",
         f"| Target Rate | {params['rate_nominal']} events/s | Nominal required arrival rate |",
@@ -804,26 +902,50 @@ def generate_markdown_report(data: dict[str, Any]) -> str:
         bpe = st["bytes_per_event"][tbl]
         lines.append(f"| `{tbl}` | {b:,} | {a:,} | {g:,} | {bpe:.2f} |")
 
+    rate_comp = st.get("rate_comparison", {})
+    if rate_comp:
+        lines.extend([
+            "",
+            "### Storage & WAL Rate Stability: First 60s vs Last 60s (R7-3)",
+            "",
+            "| Interval | Ingested Events | WAL Bytes | WAL Bytes / Event | Table Growth | Table Bytes / Event |",
+            "|---|:---:|:---:|:---:|:---:|:---:|",
+        ])
+        if "first_60s" in rate_comp:
+            f60 = rate_comp["first_60s"]
+            lines.append(
+                f"| First 60s | {f60['events']:,} | {f60['wal_bytes']:,} | {f60['wal_bytes_per_event']:.2f} B/evt | {f60['table_growth_bytes']:,} B | {f60['table_bytes_per_event']:.2f} B/evt |"
+            )
+        if "last_60s" in rate_comp:
+            l60 = rate_comp["last_60s"]
+            lines.append(
+                f"| Last 60s | {l60['events']:,} | {l60['wal_bytes']:,} | {l60['wal_bytes_per_event']:.2f} B/evt | {l60['table_growth_bytes']:,} B | {l60['table_bytes_per_event']:.2f} B/evt |"
+            )
+        lines.append(
+            f"| Full Run ({exec_info['duration_seconds']}s) | {exec_info['total_events_ingested']:,} | {st['wal_bytes']:,} | {st['wal_bytes_per_event']:.2f} B/evt | {st['total_db_growth_bytes']:,} B | {st.get('total_db_bytes_per_event', 0.0):.2f} B/evt |"
+        )
+
     lines.extend([
         "",
         "---",
         "",
         "## 6. Correctness Under Load",
         "",
-        f"| Check | Requirement | Result | Status |",
-        f"|---|---|---|:---:|",
+        "| Check | Requirement | Result | Status |",
+        "|---|---|---|:---:|",
         f"| 0 Lost | Every outbox row relayed to event_log & outbox_relay_marks | {exec_info['total_events_ingested']}/{exec_info['total_events_ingested']} | {'PASS' if corr['zero_lost'] else 'FAIL'} |",
         f"| 0 Duplicated | 0 duplicate event_id in event_log | 0 duplicates | {'PASS' if corr['zero_duplicated'] else 'FAIL'} |",
         f"| Contiguous Offsets | Offsets per stream strictly contiguous 1..N | Contiguous | {'PASS' if corr['contiguous_offsets'] else 'FAIL'} |",
         f"| Projection Hash Match | Full stream rebuild hash == Live checkpoint hash | Hash identical across all streams | {'PASS' if corr['projection_full_rebuild_hash_match'] else 'FAIL'} |",
+        f"| 0 Gaps (R7-2) | Well-behaved producer: gap_count == 0 | {corr.get('gap_count', 0)} gaps | {'PASS' if corr.get('zero_gaps') else 'FAIL'} |",
         "",
         "---",
         "",
         "## 7. DG1-C4 Verdict and Conclusion",
         "",
-        f"- **Sustained Throughput Condition**: Sustained ≥ 200 events/s for full duration with worst 10s window ≥ 200.0 events/s.",
+        "- **Sustained Throughput Condition**: Sustained ≥ 200 events/s for full duration with worst 10s window ≥ 200.0 events/s.",
         f"- **Observed Worst 10s Window**: `{verdict['achieved_worst_window']:.2f}` events/s.",
-        f"- **Correctness Checks**: All passed (0 lost, 0 duplicated, contiguous offsets, hash parity).",
+        "- **Correctness Checks**: All passed (0 lost, 0 duplicated, contiguous offsets, hash parity, 0 gaps).",
         f"- **Final Verdict**: **{verdict['dg1_c4_status']}**.",
     ])
 
@@ -897,20 +1019,19 @@ def run_headroom_ramp(
 
         # Bottleneck detection
         bottleneck = "None (headroom confirmed; system sustains target rate)"
-        if not sustained:
-            if worst_w < float(r):
-                p_lat = step_res["latency"]["commit_to_projection"]["p95_ms"]
-                r_lat = step_res["latency"]["ingest_to_projection"]["p95_ms"]
-                cpu_p = step_res["execution"]["process_cpu_percent"]
-                if cpu_p > 85.0:
-                    bottleneck = f"CPU saturation ({cpu_p}% CPU across worker threads)"
-                elif p_lat > 200.0:
-                    bottleneck = f"Producer transaction commit latency under WAL fsync (p95={p_lat:.1f}ms)"
-                elif r_lat > 100.0:
-                    bottleneck = f"Relay ingestion / checkpoint batch processing time (p95={r_lat:.1f}ms)"
-                else:
-                    bottleneck = f"Throughput plateau (achieved {overall:.1f} evt/s, worst window {worst_w:.1f} evt/s)"
-                bottleneck_summary = bottleneck
+        if not sustained and worst_w < float(r):
+            p_lat = step_res["latency"]["commit_to_projection"]["p95_ms"]
+            r_lat = step_res["latency"]["ingest_to_projection"]["p95_ms"]
+            cpu_p = step_res["execution"]["process_cpu_percent"]
+            if cpu_p > 85.0:
+                bottleneck = f"CPU saturation ({cpu_p}% CPU across worker threads)"
+            elif p_lat > 200.0:
+                bottleneck = f"Producer transaction commit latency under WAL fsync (p95={p_lat:.1f}ms)"
+            elif r_lat > 100.0:
+                bottleneck = f"Relay ingestion / checkpoint batch processing time (p95={r_lat:.1f}ms)"
+            else:
+                bottleneck = f"Throughput plateau (achieved {overall:.1f} evt/s, worst window {worst_w:.1f} evt/s)"
+            bottleneck_summary = bottleneck
 
         if sustained:
             highest_sustained_rate = max(highest_sustained_rate, r)
@@ -1028,7 +1149,7 @@ def main() -> None:
 
     if args.no_throughput_gate:
         if not results.get("correctness", {}).get("all_passed", False):
-            print(f"\n[ERROR] Correctness checks failed under load")
+            print("\n[ERROR] Correctness checks failed under load")
             sys.exit(1)
         worst_w = results.get("verdict", {}).get("achieved_worst_window", 0.0)
         print(f"\n[INFO] --no-throughput-gate active: correctness passed, throughput gating bypassed (achieved worst 10s window: {worst_w:.2f} evt/s)")

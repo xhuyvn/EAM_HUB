@@ -31,6 +31,7 @@ def test_ingest_baseline_runner_short_cycle(db_engine: sa.Engine, test_db_url: s
     assert res["correctness"]["zero_duplicated"] is True
     assert res["correctness"]["contiguous_offsets"] is True
     assert res["correctness"]["projection_full_rebuild_hash_match"] is True
+    assert res["correctness"]["zero_gaps"] is True
     assert res["correctness"]["all_passed"] is True
     assert "latency" in res
     assert "storage" in res
