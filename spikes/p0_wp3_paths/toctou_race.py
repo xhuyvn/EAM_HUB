@@ -28,7 +28,11 @@ from spikes.p0_wp3_paths.safe_open import (
 )
 
 
-def run_toctou_race(iterations: int = 1000, engine: str = "ctypes") -> dict[str, Any]:
+def run_toctou_race(
+    iterations: int = 1000,
+    engine: str = "ctypes",
+    swap_type: str = "symlink",
+) -> dict[str, Any]:
     with tempfile.TemporaryDirectory() as td:
         base = Path(td)
         root = base / "root"
@@ -45,13 +49,13 @@ def run_toctou_race(iterations: int = 1000, engine: str = "ctypes") -> dict[str,
         safe_dir.mkdir()
         (safe_dir / "target.txt").write_text("SAFE_LEGITIMATE_DATA", encoding="utf-8")
 
-        # Junction pointing outside
-        junction_staging = base / "junction_staging"
-        if sys.platform == "win32":
+        # Staging outside reference (junction or symlink)
+        staging_dir = base / "staging_dir"
+        if sys.platform == "win32" and swap_type == "junction":
             import _winapi
-            _winapi.CreateJunction(str(outside), str(junction_staging))
+            _winapi.CreateJunction(str(outside), str(staging_dir))
         else:
-            os.symlink(str(outside), str(junction_staging))
+            os.symlink(str(outside), str(staging_dir), target_is_directory=True)
 
         # We will race on root / "swap_dir"
         swap_dir = root / "swap_dir"
@@ -61,6 +65,7 @@ def run_toctou_race(iterations: int = 1000, engine: str = "ctypes") -> dict[str,
         stop_event = threading.Event()
         stats = {
             "iterations": iterations,
+            "swap_type": swap_type,
             "safe_reads": 0,
             "blocked_traversals": 0,
             "file_not_found": 0,
@@ -71,12 +76,12 @@ def run_toctou_race(iterations: int = 1000, engine: str = "ctypes") -> dict[str,
         }
 
         def swapper_thread() -> None:
-            # Rapidly swap swap_dir between legitimate dir and junction
-            is_junc = False
+            # Rapidly swap swap_dir between legitimate dir and junction/symlink
+            is_swapped = False
             temp_swap = root / "swap_temp"
             while not stop_event.is_set():
                 try:
-                    if is_junc:
+                    if is_swapped:
                         # Replace with safe dir
                         if temp_swap.exists():
                             if temp_swap.is_dir() and not temp_swap.is_symlink():
@@ -85,20 +90,19 @@ def run_toctou_race(iterations: int = 1000, engine: str = "ctypes") -> dict[str,
                                 temp_swap.unlink(missing_ok=True)
                         shutil.copytree(str(safe_dir), str(temp_swap))
                         # Atomic or fast replace
-                        if swap_dir.exists():
+                        if swap_dir.exists() or os.path.islink(swap_dir):
                             if sys.platform == "win32":
-                                # Junction removal via rmdir
                                 os.system(f'rmdir "{swap_dir}" >nul 2>&1')
                             else:
                                 swap_dir.unlink(missing_ok=True)
                         if temp_swap.exists():
                             temp_swap.rename(swap_dir)
-                        is_junc = False
+                        is_swapped = False
                     else:
                         # Replace with junction / symlink pointing outside
                         if swap_dir.exists():
                             shutil.rmtree(str(swap_dir), ignore_errors=True)
-                        if sys.platform == "win32":
+                        if sys.platform == "win32" and swap_type == "junction":
                             import _winapi
                             try:
                                 _winapi.CreateJunction(str(outside), str(swap_dir))
@@ -106,10 +110,10 @@ def run_toctou_race(iterations: int = 1000, engine: str = "ctypes") -> dict[str,
                                 pass
                         else:
                             try:
-                                os.symlink(str(outside), str(swap_dir))
+                                os.symlink(str(outside), str(swap_dir), target_is_directory=True)
                             except Exception:
                                 pass
-                        is_junc = True
+                        is_swapped = True
                 except Exception:
                     pass
                 # tiny yield
@@ -138,9 +142,9 @@ def run_toctou_race(iterations: int = 1000, engine: str = "ctypes") -> dict[str,
         finally:
             stop_event.set()
             t.join(timeout=2.0)
-            # Cleanup any lingering junctions
+            # Cleanup any lingering junctions or symlinks
             if sys.platform == "win32":
-                os.system(f'rmdir "{junction_staging}" >nul 2>&1')
+                os.system(f'rmdir "{staging_dir}" >nul 2>&1')
                 os.system(f'rmdir "{swap_dir}" >nul 2>&1')
 
         return stats
@@ -148,7 +152,8 @@ def run_toctou_race(iterations: int = 1000, engine: str = "ctypes") -> dict[str,
 if __name__ == "__main__":
     eng = sys.argv[1] if len(sys.argv) > 1 else "ctypes"
     n = int(sys.argv[2]) if len(sys.argv) > 2 else 1000
-    res = run_toctou_race(iterations=n, engine=eng)
-    print(f"\n--- TOCTOU RACE TEST ({eng} on {sys.platform}, {n} iterations) ---")
+    stype = sys.argv[3] if len(sys.argv) > 3 else "symlink"
+    res = run_toctou_race(iterations=n, engine=eng, swap_type=stype)
+    print(f"\n--- TOCTOU RACE TEST ({eng} [{stype}] on {sys.platform}, {n} iterations) ---")
     for k, v in res.items():
         print(f"  {k}: {v}")

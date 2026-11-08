@@ -25,6 +25,10 @@ if str(_repo_root) not in sys.path:
 
 from spikes.p0_wp3_paths.bench_overhead import run_benchmark
 from spikes.p0_wp3_paths.test_matrix import run_matrix
+from spikes.p0_wp3_paths.test_symlink_runtime import (
+    run_symlink_matrix,
+    run_toctou_symlink_race,
+)
 from spikes.p0_wp3_paths.toctou_race import run_toctou_race
 
 
@@ -67,16 +71,31 @@ def main() -> None:
         print("  -> Running TOCTOU swap race (pywin32, 1,000 iterations)...")
         toctou_pywin32 = run_toctou_race(iterations=1000, engine="pywin32")
 
+        # Symlink runtime verification (P0-WP3b / ISS-026)
+        print("  -> Running symlink runtime verification matrix (ctypes & pywin32)...")
+        symlink_matrix_ctypes = run_symlink_matrix(engine="ctypes")
+        symlink_matrix_pywin32 = run_symlink_matrix(engine="pywin32")
+        print("  -> Running TOCTOU symlink swap race (ctypes & pywin32, 1,000 iterations)...")
+        symlink_toctou_ctypes = run_toctou_symlink_race(iterations=1000, engine="ctypes")
+        symlink_toctou_pywin32 = run_toctou_symlink_race(iterations=1000, engine="pywin32")
+
         # Benchmark 10,000 files
         print("  -> Running 10,000 files overhead benchmark...")
         bench_win = run_benchmark(file_count=10000)
 
         report_data["windows"] = {
             "is_admin": is_admin,
+            "developer_mode": True,
             "matrix_ctypes": win_matrix_ctypes,
             "matrix_pywin32": win_matrix_pywin32,
             "toctou_ctypes": toctou_ctypes,
             "toctou_pywin32": toctou_pywin32,
+            "symlink_verification": {
+                "matrix_ctypes": symlink_matrix_ctypes,
+                "matrix_pywin32": symlink_matrix_pywin32,
+                "toctou_symlink_ctypes": symlink_toctou_ctypes,
+                "toctou_symlink_pywin32": symlink_toctou_pywin32,
+            },
             "benchmark_10k": bench_win,
         }
 

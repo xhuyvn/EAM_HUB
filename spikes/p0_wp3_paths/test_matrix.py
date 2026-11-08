@@ -80,7 +80,7 @@ def run_matrix(engine: str = "ctypes") -> list[dict[str, Any]]:
         sym_dir = root / "sym_dir_outside"
         try:
             os.symlink(str(outside / "secret.txt"), str(sym_file))
-            os.symlink(str(outside), str(sym_dir))
+            os.symlink(str(outside), str(sym_dir), target_is_directory=True)
             symlink_created = True
         except OSError as e:
             symlink_err = f"Unprivileged creation blocked: {e}"

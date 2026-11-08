@@ -1,0 +1,277 @@
+{
+  "metadata": {
+    "work_package": "P0-WP3b",
+    "issue": "ISS-026",
+    "gate": "DG-3",
+    "date": "2026-11-08",
+    "platform": "Windows 11 (AMD64)",
+    "is_admin": false,
+    "prerequisite_mode": "Developer Mode enabled (Settings > System > For developers)"
+  },
+  "matrix_ctypes": [
+    {
+      "vector_id": "V01-A1",
+      "name": "File symlink outside root (absolute target)",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (follow_symlinks=false)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-A2",
+      "name": "File symlink outside root (relative target)",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (follow_symlinks=false)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-B1",
+      "name": "Directory symlink outside root (absolute target, read child)",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: PathTraversalError (escapes root boundary)",
+      "observed": "Rejected: PathTraversalError: Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\root\\'.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\root\\'."
+    },
+    {
+      "vector_id": "V01-B2",
+      "name": "Directory symlink outside root (relative target, read child)",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: PathTraversalError (escapes root boundary)",
+      "observed": "Rejected: PathTraversalError: Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\root\\'.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\root\\'."
+    },
+    {
+      "vector_id": "V01-B3",
+      "name": "Directory symlink opened directly as file",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (directory)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a directory.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a directory."
+    },
+    {
+      "vector_id": "V01-C1",
+      "name": "File symlink chain pointing outside root",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (reparse point)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-C2",
+      "name": "Directory symlink chain pointing outside root",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: PathTraversalError (escapes root boundary)",
+      "observed": "Rejected: PathTraversalError: Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\root\\'.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpdz44mbbc\\root\\'."
+    },
+    {
+      "vector_id": "V01-D1",
+      "name": "Symlink to file inside root (absolute, follow_symlinks=false)",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (reparse point disallowed)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-D2",
+      "name": "Symlink to file inside root (relative, follow_symlinks=false)",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (reparse point disallowed)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-E1",
+      "name": "Git clone (core.symlinks=true) symlink pointing outside",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (reparse point disallowed)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink. (real_symlink=True)",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "islink=True; Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-E2",
+      "name": "Git clone (core.symlinks=true) symlink pointing inside",
+      "engine": "ctypes",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (reparse point disallowed)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink. (real_symlink=True)",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "islink=True; Target is a reparse point / symlink."
+    }
+  ],
+  "matrix_pywin32": [
+    {
+      "vector_id": "V01-A1",
+      "name": "File symlink outside root (absolute target)",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (follow_symlinks=false)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-A2",
+      "name": "File symlink outside root (relative target)",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (follow_symlinks=false)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-B1",
+      "name": "Directory symlink outside root (absolute target, read child)",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: PathTraversalError (escapes root boundary)",
+      "observed": "Rejected: PathTraversalError: Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\root\\'.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\root\\'."
+    },
+    {
+      "vector_id": "V01-B2",
+      "name": "Directory symlink outside root (relative target, read child)",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: PathTraversalError (escapes root boundary)",
+      "observed": "Rejected: PathTraversalError: Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\root\\'.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\root\\'."
+    },
+    {
+      "vector_id": "V01-B3",
+      "name": "Directory symlink opened directly as file",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (directory)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a directory.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a directory."
+    },
+    {
+      "vector_id": "V01-C1",
+      "name": "File symlink chain pointing outside root",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (reparse point)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-C2",
+      "name": "Directory symlink chain pointing outside root",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: PathTraversalError (escapes root boundary)",
+      "observed": "Rejected: PathTraversalError: Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\root\\'.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpawyj5usq\\root\\'."
+    },
+    {
+      "vector_id": "V01-D1",
+      "name": "Symlink to file inside root (absolute, follow_symlinks=false)",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (reparse point disallowed)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-D2",
+      "name": "Symlink to file inside root (relative, follow_symlinks=false)",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (reparse point disallowed)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink.",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-E1",
+      "name": "Git clone (core.symlinks=true) symlink pointing outside",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (reparse point disallowed)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink. (real_symlink=True)",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "islink=True; Target is a reparse point / symlink."
+    },
+    {
+      "vector_id": "V01-E2",
+      "name": "Git clone (core.symlinks=true) symlink pointing inside",
+      "engine": "pywin32",
+      "platform": "win32",
+      "expected": "Reject: FileTypeNotAllowedError (reparse point disallowed)",
+      "observed": "Rejected: FileTypeNotAllowedError: Target is a reparse point / symlink. (real_symlink=True)",
+      "passed": true,
+      "status": "PASS",
+      "raw_output": "islink=True; Target is a reparse point / symlink."
+    }
+  ],
+  "toctou_ctypes": {
+    "iterations": 1000,
+    "engine": "ctypes",
+    "swap_type": "directory_symlink",
+    "safe_reads": 5,
+    "blocked_traversals": 683,
+    "file_not_found": 312,
+    "escapes": 0,
+    "unhandled_errors": 0
+  },
+  "toctou_pywin32": {
+    "iterations": 1000,
+    "engine": "pywin32",
+    "swap_type": "directory_symlink",
+    "safe_reads": 4,
+    "blocked_traversals": 726,
+    "file_not_found": 270,
+    "escapes": 0,
+    "unhandled_errors": 0
+  }
+}
