@@ -4,7 +4,7 @@
 - **Work Package**: P1a-WP7 Ingest baseline (measurement) per `STATUS.md`, `docs/IMPLEMENTATION_PLAN.md` §5 SC-07 and §6 P1a-WP7, `docs/adr/DG-1.md` §0.1 DG1-C4, `docs/adr/DG-2.md` §0.1 DG2-C1.
 - **Target State**: `ready_for_review` (Owner `changes_requested` R7-1, R7-2, R7-3 fully addressed; DG1-C4 PASS).
 - **Branch**: `wp/P1a-WP7` (branched from `main` at `06a3015`)
-- **Code Commit under Review**: (recorded upon final commit)
+- **Code Commit under Review**: `22f30ed` ("P1a-WP7: address changes_requested (R7-1 bounded gaps, R7-2 per-stream sequencing, R7-3 formal run PASS)")
 - **Base Commit**: `06a3015` ("accept P1a-WP6: logging and redaction (SC-04)")
 - **Parallel Work Packages Respected**:
   - No database migrations added (zero schema changes; existing tables used).
@@ -146,7 +146,7 @@ Owner review found the initial bottleneck diagnosis (outbox sequential scan) was
 | Static Typecheck | `uv run mypy src tests ppm-v2/reducer tools/bench/ingest_baseline.py` | **PASS** (0 errors in 119 files) |
 | Web HUD Build | `npm --prefix web/hud run build` | **PASS** (built in 400ms) |
 | Checksums | `sha256sum -c SHA256SUMS.txt` | **PASS** |
-| GitHub Actions CI | Full CI run | **PASS** |
+| GitHub Actions CI | Full CI run | **PASS** ([Run 42444611116](https://github.com/xhuyvn/EAM_HUB/actions/runs/42444611116)) |
 
 ---
 
