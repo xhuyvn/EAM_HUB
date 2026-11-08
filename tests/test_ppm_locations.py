@@ -45,6 +45,14 @@ LOCATION_EXAMPLE_PATH = ROOT / "examples" / "location-registration.json"
 MONOREPO_EXAMPLE_PATH = ROOT / "examples" / "locations-monorepo.json"
 
 
+@pytest.fixture(autouse=True)
+def _force_windows_host_os(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests register Windows-style roots; pin the server-side host OS so they
+    behave the same on Linux CI runners and Windows dev machines (L2 derives host_os
+    from the server, not the client)."""
+    monkeypatch.setenv("EAP_HOST_OS", "windows")
+
+
 @pytest.fixture
 def api_client(db_engine: Engine):
     """Test async client connected to real PostgreSQL database with dependency injection."""
