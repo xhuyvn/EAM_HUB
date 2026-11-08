@@ -78,7 +78,8 @@ def get_total_ram_gb() -> float:
 
         stat = MEMORYSTATUSEX()
         stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
-        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+        windll = getattr(ctypes, "windll", None)
+        if windll is not None and windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
             return float(round(float(stat.ullTotalPhys) / (1024**3), 2))
     else:
         try:
