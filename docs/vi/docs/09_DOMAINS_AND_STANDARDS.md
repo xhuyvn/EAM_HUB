@@ -1,4 +1,4 @@
-> Translated from docs/09_DOMAINS_AND_STANDARDS.md @ fb857f4
+> Translated from docs/09_DOMAINS_AND_STANDARDS.md @ a36d44e
 
 # Domain expansion và standards mapping
 ## Phạm vi kế thừa

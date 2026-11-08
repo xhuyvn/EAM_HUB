@@ -1,4 +1,4 @@
-> Translated from guides/EXISTING_AGENT.md @ fb857f4
+> Translated from guides/EXISTING_AGENT.md @ a36d44e
 
 # Hướng dẫn tiếp nhận agent có sẵn
 ## Discovery

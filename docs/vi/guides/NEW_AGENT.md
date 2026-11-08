@@ -1,4 +1,4 @@
-> Translated from guides/NEW_AGENT.md @ fb857f4
+> Translated from guides/NEW_AGENT.md @ a36d44e
 
 # Hướng dẫn tích hợp agent mới
 1. Chọn business owner, task types, input/output, acceptance criteria và mức L0/L1/L2 cần thiết.

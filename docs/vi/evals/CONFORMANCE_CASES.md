@@ -1,4 +1,4 @@
-> Translated from evals/CONFORMANCE_CASES.md @ fb857f4
+> Translated from evals/CONFORMANCE_CASES.md @ a36d44e
 
 # Agent admission và recovery suite
 | Case | Expected outcome |

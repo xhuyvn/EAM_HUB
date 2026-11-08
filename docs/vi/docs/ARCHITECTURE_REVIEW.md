@@ -1,4 +1,4 @@
-> Translated from docs/ARCHITECTURE_REVIEW.md @ fb857f4
+> Translated from docs/ARCHITECTURE_REVIEW.md @ a36d44e
 
 # Architecture Review — Enterprise Agent Platform (Blueprint 1.0 → 1.1)
 

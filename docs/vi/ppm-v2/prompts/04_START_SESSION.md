@@ -1,4 +1,4 @@
-> Translated from ppm-v2/prompts/04_START_SESSION.md @ fb857f4
+> Translated from ppm-v2/prompts/04_START_SESSION.md @ a36d44e
 
 # Prompt — bắt đầu phiên
 TASK=<công việc>; WORK_PACKAGE_ID=<ID hoặc null>.

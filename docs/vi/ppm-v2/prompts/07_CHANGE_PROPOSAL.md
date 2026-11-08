@@ -1,4 +1,4 @@
-> Translated from ppm-v2/prompts/07_CHANGE_PROPOSAL.md @ fb857f4
+> Translated from ppm-v2/prompts/07_CHANGE_PROPOSAL.md @ a36d44e
 
 # Prompt — thay đổi mục tiêu/phạm vi
 CHANGE=<thay đổi mong muốn>.

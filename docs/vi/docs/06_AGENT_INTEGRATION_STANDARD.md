@@ -1,4 +1,4 @@
-> Translated from docs/06_AGENT_INTEGRATION_STANDARD.md @ fb857f4
+> Translated from docs/06_AGENT_INTEGRATION_STANDARD.md @ a36d44e
 
 # Enterprise Agent Integration Contract 1.0
 ## Các mức tích hợp

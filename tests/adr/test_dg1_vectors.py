@@ -109,11 +109,11 @@ def test_dg1_json_artifact_consistency() -> None:
         assert item["expected_hex"] == vector.expected_hex
 
     assert len(neg_data) == len(NEGATIVE_VECTORS)
-    for item, vector in zip(neg_data, NEGATIVE_VECTORS, strict=True):
-        assert item["name"] == vector.name
-        assert item["key_type"] == vector.key_type
-        assert item["expected_error"] == vector.expected_error
-        assert item["reason"] == vector.reason
+    for item, neg_vector in zip(neg_data, NEGATIVE_VECTORS, strict=True):
+        assert item["name"] == neg_vector.name
+        assert item["key_type"] == neg_vector.key_type
+        assert item["expected_error"] == neg_vector.expected_error
+        assert item["reason"] == neg_vector.reason
 
 
 def test_fixture_envelope_vector_match() -> None:

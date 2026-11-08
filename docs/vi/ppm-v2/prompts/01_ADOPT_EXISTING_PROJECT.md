@@ -1,4 +1,4 @@
-> Translated from ppm-v2/prompts/01_ADOPT_EXISTING_PROJECT.md @ fb857f4
+> Translated from ppm-v2/prompts/01_ADOPT_EXISTING_PROJECT.md @ a36d44e
 
 # Prompt — tiếp nhận dự án đang làm/đã triển khai
 Copy đoạn dưới cho coding agent, thay PROJECT_ROOT. Cung cấp kèm standards, schemas và templates từ bộ v2.

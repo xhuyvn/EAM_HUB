@@ -1,4 +1,4 @@
-> Translated from docs/DEV_ENVIRONMENT.md @ fb857f4
+> Translated from docs/DEV_ENVIRONMENT.md @ d7c9e91
 
 # EAM_HUB — Dev Environment
 
@@ -119,6 +119,15 @@ Chỉ platform đọc `.env`; reducer, validator và test code của project đ�
 # .env.example — commit file này, không commit .env
 EAP_ENV=dev
 EAP_BIND=127.0.0.1:8000
+# Local authentication (token hashes only; sha256 hex; tokens/hashes never logged, SC-04)
+# Generate token: openssl rand -hex 32
+# Generate hash:  python -c "import hashlib; print(hashlib.sha256(b'<token>').hexdigest())"
+EAP_OWNER_TENANT_ID=tenant-owner
+EAP_OWNER_PRINCIPAL_ID=principal-owner
+EAP_OWNER_TOKEN_HASH=
+EAP_SECOND_TENANT_ID=tenant-second
+EAP_SECOND_PRINCIPAL_ID=principal-second
+EAP_SECOND_TOKEN_HASH=
 DATABASE_URL=postgresql+psycopg://eap:${POSTGRES_PASSWORD}@127.0.0.1:5432/eap_dev
 TEST_DATABASE_URL=postgresql+psycopg://eap:${POSTGRES_PASSWORD}@127.0.0.1:5432/eap_test
 POSTGRES_PASSWORD=
@@ -132,24 +141,46 @@ EAP_TELEMETRY=local_only
 EAP_SECRET_CANARY=     # sinh ngẫu nhiên mỗi máy, dùng cho SC-04
 ```
 
+- **Local identity and authentication (P1a-WP5 / ISS-020)**:
+  - Local authentication operates strictly without database user tables. Local principals (at least an owner and a second principal) are defined in configuration with bearer tokens.
+  - Plaintext tokens are **never** stored in `.env` or settings. Only their SHA-256 hex digests (e.g. `sha256:<hex>` or raw `<hex>`) are stored in `EAP_OWNER_TOKEN_HASH` and `EAP_SECOND_TOKEN_HASH` (or `EAP_PRINCIPALS_JSON`) as `SecretStr`.
+  - Clients provide tokens in `Authorization: Bearer <token>`. Identity is resolved via constant-time comparison against configured hashes. Missing, malformed, unknown, or wrong tokens return HTTP 401 with identical `"detail": "Unauthorized"` responses.
+  - Tenant identity always comes from the resolved principal record; client-declared tenant/principal headers, queries, or body fields are strictly rejected with HTTP 422.
+  - **Loopback-only restriction**: Server startup refuses non-loopback `EAP_BIND` addresses (e.g. `0.0.0.0`, `192.168.x.x`, `::`), permitting only `127.0.0.1`, `::1`, or `localhost`.
 - Thêm biến mới → cập nhật `.env.example` trong cùng commit; config load bằng `pydantic-settings`, thiếu biến bắt buộc thì dừng lúc khởi động.
 - Test dùng `.env.test` sinh từ fixture; coding agent không được đọc `.env` thật.
-- Log/trace/event không chứa giá trị của bất kỳ biến `*_PASSWORD`, `*_KEY`, `EAP_SECRET_CANARY` (SC-04 grep canary).
+- Log, trace, và event không chứa giá trị của bất kỳ biến `*_PASSWORD`, `*_KEY`, `*_TOKEN_HASH`, hoặc `EAP_SECRET_CANARY` (SC-04 grep canary).
 - **Verifier (P2a-WP9)** khởi chạy test với env rỗng + allowlist (`PATH`, `HOME` tạm, `LANG`, `PYTHONHASHSEED`), không network, workspace tạm. Test bắt buộc: một fixture test in toàn bộ env, output không được chứa `EAP_SECRET_CANARY`.
+
+## Running the server and access logging (P1a-WP6 / SC-04)
+
+API server của platform chạy qua `uvicorn`:
+
+```bash
+uv run uvicorn eap.api.app:app --host 127.0.0.1 --port 8000 --no-access-log
+```
+
+- **Request logging**: Platform bao gồm `RequestLoggingMiddleware` (`src/eap/observability/middleware.py`) ghi log các request hoàn tất dưới dạng JSON có cấu trúc (`timestamp`, `level`, `logger="eap.api.request"`, `message`, `tenant_id`, `principal_id`, `request_id`, `method`, `path`, `status`, `duration_ms`). Nghiêm ngặt bỏ qua body và header của request/response.
+- **Access logging**: Truyền `--no-access-log` sẽ tắt access logger mặc định của uvicorn, tránh các dòng log phi cấu trúc trùng lặp.
+- **Query string redaction**: Nếu không truyền `--no-access-log`, `RedactionFilter` và `AccessFormatter` được vá của platform tự động loại bỏ query string (ví dụ `?token=...`, `?canary=...`) khỏi các bản ghi log của `uvicorn.access`, ngăn rò rỉ credential trong tham số query của URL.
+- **Universal handler filter**: `configure_logging()` tự động gắn `RedactionFilter` vào tất cả handler của mọi logger có sẵn từ trước (bao gồm `uvicorn`, `uvicorn.access`, `uvicorn.error`, và `logging.lastResort`), redacting canaries, bearer tokens, passwords, DSN credentials, và traceback ngoại lệ trên toàn bộ handler.
 
 ## Checklist P0-WP1 và điểm mở
 
 Môi trường được coi là xong khi mọi mục dưới có output thật ghi vào `VALIDATION_REPORT.md`.
 
-- [ ] `docker compose pull` thành công cho ba tag; ghi image digest vào `docs/DEV_ENVIRONMENT.md`
-- [ ] `docker compose up -d` chỉ bật PostgreSQL; healthcheck xanh; `--profile optional` bật thêm Redis, Qdrant
-- [ ] `uv sync` trên Python 3.12 sạch; `uv.lock` commit
-- [ ] `uv run python tools/validate_package.py` và `ppm-v2/tools/run_negative_cases.py` PASS trên 3.12
-- [ ] `pip install -r ppm-v2/tools/requirements.txt` trong venv trống → validator PPM chạy không cần platform
-- [ ] Test import-boundary: `ppm_reducer` không import `eap`/network/subprocess
-- [ ] SC-06 migration up/down/up trên PostgreSQL 18.6
-- [ ] App khởi động và test xanh khi `REDIS_URL`, `QDRANT_URL` để trống
-- [ ] SC-04: canary không xuất hiện trong log
+- [x] `docker compose pull` thành công cho ba tag; ghi image digest vào `docs/DEV_ENVIRONMENT.md`:
+  - `postgres:18.6-trixie`: `sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583`
+  - `redis:8.10.1-trixie`: `sha256:8a1efc5f479551822b47424ccae982026b633f28818eab0387348120a61e10e2`
+  - `qdrant/qdrant:v1.20.0`: `sha256:9bfc89f9914fc14876a88c05270685921a55b8877b254a98bcc1cc2f0a424cd2`
+- [x] `docker compose up -d` chỉ bật PostgreSQL; healthcheck xanh; `--profile optional` bật thêm Redis, Qdrant
+- [x] `uv sync` trên Python 3.12 sạch; `uv.lock` commit
+- [x] `uv run python tools/validate_package.py` và `ppm-v2/tools/run_negative_cases.py` PASS trên 3.12
+- [x] `pip install -r ppm-v2/tools/requirements.txt` trong venv trống → validator PPM chạy không cần platform
+- [x] Test import-boundary: `ppm_reducer` không import `eap`/network/subprocess
+- [x] SC-06 migration up/down/up trên PostgreSQL 18.6
+- [x] App khởi động và test xanh khi `REDIS_URL`, `QDRANT_URL` để trống
+- [x] SC-04: canary không xuất hiện trong log
 
 Điểm mở:
 

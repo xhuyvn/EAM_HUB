@@ -1,4 +1,4 @@
-> Translated from ppm-v2/prompts/03_REPOSITORY_INSTRUCTIONS.md @ fb857f4
+> Translated from ppm-v2/prompts/03_REPOSITORY_INSTRUCTIONS.md @ a36d44e
 
 # Đoạn hướng dẫn đưa vào AGENTS.md hoặc CLAUDE.md
 Đây là nội dung để owner/coding agent được ủy quyền merge vào hướng dẫn hiện có. Không phải file Skill và không yêu cầu cài plugin.

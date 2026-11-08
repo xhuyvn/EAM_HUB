@@ -1,4 +1,4 @@
-> Translated from ppm-v2/docs/IMPLEMENTATION_PLAN.md @ fb857f4
+> Translated from ppm-v2/docs/IMPLEMENTATION_PLAN.md @ a36d44e
 
 # Implementation Plan — PPM v2 Agent
 

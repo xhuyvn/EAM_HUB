@@ -1,4 +1,4 @@
-> Translated from README.md @ fb857f4
+> Translated from README.md @ a36d44e
 
 > Implementation workflow (06/11/2026): coding agents start with `AGENTS.md` and `STATUS.md`; reviews use `prompts/REVIEW_SESSION.md` and `docs/REVIEW_LOG.md`. Dev environment: `docs/DEV_ENVIRONMENT.md`.
 

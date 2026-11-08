@@ -1,4 +1,4 @@
-> Translated from ppm-v2/CHANGELOG.md @ fb857f4
+> Translated from ppm-v2/CHANGELOG.md @ a36d44e
 
 # v2.0 — 01/11/2026
 - Giữ nền tảng PPM/evidence, bổ sung contract 2.0 và authority matrix.

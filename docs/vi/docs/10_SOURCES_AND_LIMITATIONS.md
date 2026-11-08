@@ -1,4 +1,4 @@
-> Translated from docs/10_SOURCES_AND_LIMITATIONS.md @ fb857f4
+> Translated from docs/10_SOURCES_AND_LIMITATIONS.md @ a36d44e
 
 # Nguồn, quyết định và giới hạn kiểm chứng
 Ngày kiểm tra web 05/11/2026. Nguồn công khai được dùng cho capability/nguyên lý; SDK và auth cụ thể cần compatibility spike khi implementation.

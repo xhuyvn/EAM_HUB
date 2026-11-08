@@ -1,4 +1,4 @@
-> Translated from ppm-v2/templates/project/.ppm/notes/README.md @ fb857f4
+> Translated from ppm-v2/templates/project/.ppm/notes/README.md @ a36d44e
 
 # Notes
 Có thể thêm Markdown notes loại idea/blocker/question/observation. Ghi thời điểm và nguồn.

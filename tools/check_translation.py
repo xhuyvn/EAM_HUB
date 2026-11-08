@@ -19,7 +19,6 @@ Modes:
 """
 
 import argparse
-import os
 import re
 import subprocess
 import sys
@@ -27,34 +26,36 @@ from pathlib import Path
 
 # Identifier extraction regexes
 ID_PATTERNS = [
-    r'\bARCH-\d+\b',
-    r'\bPPM-[A-Za-z0-9_-]+\b',
-    r'\bC\d{2}[a-z]?\b',
-    r'\b(?:P\d+[a-z]?-WP\d+|PPM-M\d+-WP\d+|H\d+-WP\d+)\b',
-    r'\bADR-\d+\b',
-    r'\bDG-\d+\b',
-    r'\bISS-\d+\b',
-    r'\bD-\d+\b',
-    r'\bSC-\d+\b',
-    r'\bAC-\d+\b',
-    r'\b[A-Z][A-Z0-9_]{3,}[A-Z0-9]\b',  # uppercase reason/error codes
+    r"\bARCH-\d+\b",
+    r"\bPPM-[A-Za-z0-9_-]+\b",
+    r"\bC\d{2}[a-z]?\b",
+    r"\b(?:P\d+[a-z]?-WP\d+|PPM-M\d+-WP\d+|H\d+-WP\d+)\b",
+    r"\bADR-\d+\b",
+    r"\bDG-\d+\b",
+    r"\bISS-\d+\b",
+    r"\bD-\d+\b",
+    r"\bSC-\d+\b",
+    r"\bAC-\d+\b",
+    r"\b[A-Z][A-Z0-9_]{3,}[A-Z0-9]\b",  # uppercase reason/error codes
 ]
 
 HEADER_REGEX = re.compile(
-    r'(?:<!--\s*)?(?:>\s*)?Translated from\s+([^\s@]+)\s+@\s+([0-9a-fA-F]+)(?:\s*-->)?'
+    r"(?:<!--\s*)?(?:>\s*)?Translated from\s+([^\s@]+)\s+@\s+([0-9a-fA-F]+)(?:\s*-->)?"
 )
+
 
 def normalize_text_numbers(text: str) -> str:
     """Normalize regional number formatting (decimal commas, thousands separators)."""
     # 86.400 or 86,400 -> 86400
-    text = re.sub(r'(\d+)[.,](\d{3})\b', r'\1\2', text)
+    text = re.sub(r"(\d+)[.,](\d{3})\b", r"\1\2", text)
     # 17,3 -> 17.3
-    text = re.sub(r'(\d+),(\d+)\b', r'\1.\2', text)
+    text = re.sub(r"(\d+),(\d+)\b", r"\1.\2", text)
     return text
 
-def extract_identifiers(text: str) -> set:
+
+def extract_identifiers(text: str) -> set[str]:
     """Extract set of identifiers, backtick references, and numbers from text."""
-    ids = set()
+    ids: set[str] = set()
     # Remove YAML/header or translation comments if at very start
     lines = text.splitlines()
     body_lines = []
@@ -69,35 +70,62 @@ def extract_identifiers(text: str) -> set:
             ids.add(m.group(0))
 
     # Backtick tokens (paths, symbols, flags, config keys)
-    for m in re.finditer(r'`([^`\n]+)`', body):
+    for m in re.finditer(r"`([^`\n]+)`", body):
         val = m.group(1).strip()
-        if re.match(r'^[A-Za-z0-9_\-\./\*#]+$', val):
+        if re.match(r"^[A-Za-z0-9_\-\./\*#]+$", val):
             ids.add(val)
 
     # Standalone or unit-attached numbers (e.g. 17.3, 86400, 60s, 2s, 1600x1000)
     norm_body = normalize_text_numbers(body)
-    for m in re.finditer(r'(?<![a-zA-Z0-9_])(\d+(?:\.\d+)?)(?![0-9])', norm_body):
+    for m in re.finditer(r"(?<![a-zA-Z0-9_])(\d+(?:\.\d+)?)(?![0-9])", norm_body):
         ids.add(m.group(1))
 
     return ids
 
-def parse_header(content: str):
+
+def parse_header(content: str) -> tuple[str | None, str | None]:
     """Extract (path, sha) from the first 5 lines of a translated file."""
     for line in content.splitlines()[:5]:
         m = HEADER_REGEX.search(line)
         if m:
-            return m.group(1).replace('\\', '/'), m.group(2)
+            return m.group(1).replace("\\", "/"), m.group(2)
     return None, None
 
-def find_vi_files(repo_root: Path):
+
+def find_vi_files(repo_root: Path) -> list[Path]:
     """Find all markdown files under docs/vi/."""
     vi_root = repo_root / "docs" / "vi"
     if not vi_root.exists():
         return []
-    result = []
-    for p in vi_root.rglob("*.md"):
-        result.append(p)
-    return sorted(result)
+    return sorted(vi_root.rglob("*.md"))
+
+
+def has_git_history(repo_root: Path) -> bool:
+    """Check whether git history is available at repo_root."""
+    git_entry = repo_root / ".git"
+    if not git_entry.exists():
+        return False
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            check=False,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+        )
+        if res.returncode != 0 or res.stdout.strip() != "true":
+            return False
+        res_head = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            check=False,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+        )
+        return res_head.returncode == 0
+    except (FileNotFoundError, PermissionError):
+        return False
+
 
 def run_compare(repo_root: Path) -> int:
     """Compare identifiers between all docs/vi/** and their canonical en counterparts."""
@@ -113,7 +141,7 @@ def run_compare(repo_root: Path) -> int:
 
     for vi_path in vi_files:
         vi_content = vi_path.read_text(encoding="utf-8")
-        rel_target, sha = parse_header(vi_content)
+        rel_target, _sha = parse_header(vi_content)
         if not rel_target:
             # Fallback to computing relative path from docs/vi
             rel_from_vi = vi_path.relative_to(repo_root / "docs" / "vi").as_posix()
@@ -137,9 +165,9 @@ def run_compare(repo_root: Path) -> int:
         if missing_in_en or extra_in_en:
             print(f"\n[FAIL] {rel_target}:")
             if missing_in_en:
-                print(f"  Missing in English ({len(missing_in_en)}): {sorted(list(missing_in_en))[:20]}")
+                print(f"  Missing in English ({len(missing_in_en)}): {sorted(missing_in_en)[:20]}")
             if extra_in_en:
-                print(f"  Extra in English ({len(extra_in_en)}): {sorted(list(extra_in_en))[:20]}")
+                print(f"  Extra in English ({len(extra_in_en)}): {sorted(extra_in_en)[:20]}")
             total_diffs += len(missing_in_en) + len(extra_in_en)
         else:
             print(f"  OK: {rel_target} ({len(vi_ids)} identifiers matched)")
@@ -152,12 +180,20 @@ def run_compare(repo_root: Path) -> int:
         print(f"FAIL: {total_diffs} identifier differences detected across {total_pairs} pairs.")
         return 1
 
-def run_staleness_report(repo_root: Path) -> int:
+
+def run_staleness_report(repo_root: Path, strict: bool = False) -> int:
     """SC-08: report any stale translations where the English file changed after sha."""
     vi_files = find_vi_files(repo_root)
     if not vi_files:
         print("No translated files found in docs/vi/.")
         return 0
+
+    if not has_git_history(repo_root):
+        print(f"SC-08 Staleness Report: checking {len(vi_files)} translations against git history...")
+        print("  WARNING: No git history available (not a git repository or archive export).")
+        print("\n------------------------------------------------------------")
+        print("SC-08 Report Summary: not_run: no git history.")
+        return 1 if strict else 0
 
     print(f"SC-08 Staleness Report: checking {len(vi_files)} translations against git history...")
     stale_count = 0
@@ -180,19 +216,26 @@ def run_staleness_report(repo_root: Path) -> int:
 
         # Check git log between sha and HEAD for rel_target
         cmd = ["git", "log", f"{sha}..HEAD", "--oneline", "--", rel_target]
-        res = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True)
-        if res.returncode == 0 and res.stdout.strip():
-            commits = res.stdout.strip().splitlines()
-            print(f"  STALE: {rel_target} (translated @ {sha}, {len(commits)} commits ahead)")
-            stale_count += 1
+        res = subprocess.run(cmd, check=False, cwd=repo_root, capture_output=True, text=True)
+        if res.returncode == 0:
+            if res.stdout.strip():
+                commits = res.stdout.strip().splitlines()
+                print(f"  STALE: {rel_target} (translated @ {sha}, {len(commits)} commits ahead)")
+                stale_count += 1
+            else:
+                print(f"  OK: {rel_target} @ {sha}")
+                ok_count += 1
         else:
-            print(f"  OK: {rel_target} @ {sha}")
-            ok_count += 1
+            print(f"  ERROR: Unable to check git log for {rel_target} @ {sha}: {res.stderr.strip()}")
+            stale_count += 1
 
     print("\n------------------------------------------------------------")
     print(f"SC-08 Report Summary: {ok_count} up-to-date, {stale_count} stale, {no_header_count} missing headers.")
+    if strict and (stale_count > 0 or no_header_count > 0):
+        return 1
     # Stale translations are warnings and do not block merge per plan §5
     return 0
+
 
 def run_fixture_test(repo_root: Path) -> int:
     """Test fixture detection: catch removed ID and changed number."""
@@ -216,12 +259,13 @@ def run_fixture_test(repo_root: Path) -> int:
 
     if id_caught and number_caught:
         print("PASS: Fixture detection verified:")
-        print(f"  - Detected removed identifier: 'ARCH-01'")
-        print(f"  - Detected changed number: '18.6' -> '18.7'")
+        print("  - Detected removed identifier: 'ARCH-01'")
+        print("  - Detected changed number: '18.6' -> '18.7'")
         return 0
     else:
         print(f"FAIL: Fixture detection failed. missing={missing}, extra={extra}")
         return 1
+
 
 def run_link_check(repo_root: Path) -> int:
     """Verify all internal relative markdown links in English docs exist."""
@@ -229,7 +273,7 @@ def run_link_check(repo_root: Path) -> int:
     broken_links = 0
     checked_links = 0
 
-    link_pattern = re.compile(r'\[([^\]]+)\]\(([^:\)]+?)(?:#[^\)]*)?\)')
+    link_pattern = re.compile(r"\[([^\]]+)\]\(([^:\)]+?)(?:#[^\)]*)?\)")
 
     for md_path in repo_root.rglob("*.md"):
         # Skip docs/vi/, .venv, node_modules, .git
@@ -241,7 +285,7 @@ def run_link_check(repo_root: Path) -> int:
         for m in link_pattern.finditer(content):
             target = m.group(2).strip()
             # Skip empty, mailto, anchor-only
-            if not target or target.startswith("#") or target.startswith("mailto:"):
+            if not target or target.startswith(("#", "mailto:")):
                 continue
 
             checked_links += 1
@@ -254,10 +298,12 @@ def run_link_check(repo_root: Path) -> int:
     print(f"Link check: {checked_links} links checked, {broken_links} broken.")
     return 0 if broken_links == 0 else 1
 
+
 def run_token_report(repo_root: Path) -> int:
     """Report token counts before and after translation for 3 representative files (ISS-007)."""
     try:
         import tiktoken
+
         enc = tiktoken.get_encoding("cl100k_base")
     except ImportError:
         print("tiktoken not installed; token report requires tiktoken.")
@@ -301,12 +347,14 @@ def run_token_report(repo_root: Path) -> int:
     print(f"{'TOTAL':<40} {total_vi:<12} {total_en:<12} {total_saved:<15} {total_pct:.1f}%\n")
     return 0
 
-def main():
+
+def main() -> int:
     parser = argparse.ArgumentParser(description="Check translation consistency and staleness.")
     parser.add_argument("--compare", action="store_true", help="Compare identifiers between vi and en pairs")
     parser.add_argument("--fixture", action="store_true", help="Run test fixture verification")
     parser.add_argument("--links", action="store_true", help="Check for broken internal markdown links")
     parser.add_argument("--tokens", action="store_true", help="Measure token count difference for ISS-007")
+    parser.add_argument("--strict", action="store_true", help="Fail with non-zero exit code on stale translations or missing git history")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parent.parent
@@ -321,7 +369,8 @@ def main():
         return run_token_report(repo_root)
 
     # Default mode: SC-08 staleness report
-    return run_staleness_report(repo_root)
+    return run_staleness_report(repo_root, strict=args.strict)
+
 
 if __name__ == "__main__":
     sys.exit(main())

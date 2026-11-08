@@ -1,4 +1,4 @@
-> Translated from docs/08_OPERATIONS_AND_DATA.md @ fb857f4
+> Translated from docs/08_OPERATIONS_AND_DATA.md @ a36d44e
 
 # Vận hành và dữ liệu
 ## Storage model

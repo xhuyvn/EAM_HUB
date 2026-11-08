@@ -1,4 +1,4 @@
-> Translated from ppm-v2/evals/SCENARIO_MATRIX.md @ fb857f4
+> Translated from ppm-v2/evals/SCENARIO_MATRIX.md @ a36d44e
 
 # Scenario matrix — PPM blueprint §13 → conformance cases → PPM-M0 fixtures
 

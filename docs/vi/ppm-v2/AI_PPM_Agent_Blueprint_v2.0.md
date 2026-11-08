@@ -1,4 +1,4 @@
-> Translated from ppm-v2/AI_PPM_Agent_Blueprint_v2.0.md @ fb857f4
+> Translated from ppm-v2/AI_PPM_Agent_Blueprint_v2.0.md @ a36d44e
 
 > Platform integration notice — 05/11/2026. Host permissions, task/run lifecycle, scheduling and executor dispatch follow the platform MASTER_BLUEPRINT and docs/04_PPM_INTEGRATION. PPM contract 2.0 retains domain reporting semantics. Use platform P0–P5 for delivery and map legacy PPM M0–M6 as described in docs/04.
 

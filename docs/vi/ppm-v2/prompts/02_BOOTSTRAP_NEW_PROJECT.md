@@ -1,4 +1,4 @@
-> Translated from ppm-v2/prompts/02_BOOTSTRAP_NEW_PROJECT.md @ fb857f4
+> Translated from ppm-v2/prompts/02_BOOTSTRAP_NEW_PROJECT.md @ a36d44e
 
 # Prompt — dự án mới
 PROJECT_ROOT=<đường dẫn>; IDEA=<ý tưởng>; OWNER=<owner ref>.
