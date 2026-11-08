@@ -18,6 +18,7 @@ REASON_SCHEMA_VIOLATION = "schema_violation"
 KIND_TENANT_MISMATCH = "tenant_mismatch"
 KIND_EVENT_CONTENT_CONFLICT = "event_content_conflict"
 KIND_PRODUCER_UNAUTHORIZED = "producer_unauthorized"
+KIND_PRODUCER_SEQ_GAP = "producer_seq_gap"
 
 
 def record_quarantine(
