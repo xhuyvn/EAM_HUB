@@ -6,7 +6,7 @@ Status values: `not_started` · `in_progress` · `ready_for_review` · `changes_
 
 ## Current position
 - Phase: **P0 closed**; P1a in progress. Accepted: P1a-WP1..WP6; PPM-M0-WP1..WP5; P0-WP4 (D-01 = option b).
-- **PPM-M0**: code complete; waiting on owner signature of fixtures s30–s33 (`docs/acceptance/PPM-M0-WP5.md`).
+- **PPM-M0 complete** (2026-11-08): WP1–WP5 accepted; owner signed fixtures s01, s21, s19 (2026-11-07) and s30–s33 (2026-11-08). The reducer is ready to be embedded by P2a-WP4.
 - Next: **P1a-WP7 Ingest baseline** (DG1-C4: sustained ≥ 200 events/s for 10 min, 0 lost/duplicated) — last P1a WP. After P1a: P2a-WP1 (sources and project scopes) toward D0-thin-slice.
 - Run the API with redaction intact: see `docs/DEV_ENVIRONMENT.md` (uvicorn access log without query string).
 - Every P1a/P2a WP that touches a DG condition must show that condition's evidence in its packet.
@@ -47,6 +47,7 @@ The remaining WPs to D1-fixture (P2a-WP5…WP9, P1a-WP4…WP7, P3a-WP1…WP4, D1
 ## Session log (newest first)
 | Date | WP | Agent/session | Result | Commit |
 |---|---|---|---|---|
+| 2026-11-08 | PPM-M0 | owner | signed fixtures s30–s33 (inactive waiver, evidence from future, missing assessed revision, all waived); **PPM-M0 complete** | (this commit) |
 | 2026-11-07 | P1a-WP6 | owner | accepted after re-review (W6-1/W6-2 fixed: uvicorn dictConfig before create_app -> uvicorn.error shows `***`, access log drops query string; pre-existing child handler and lastResort filtered; end-to-end real uvicorn subprocess with exception + ?token=<canary>: 0 canary, 0 DSN password in output, traceback retained redacted). SC-04 met for the API runtime | `0ca1534` |
 | 2026-11-07 | P1a-WP6 | coding agent (implementation lead) | ready_for_review; address changes_requested (W6-1 pre-existing handler redaction on all loggers incl. propagate=False and uvicorn.error/access; uvicorn.access query string drop; docs/DEV_ENVIRONMENT.md uvicorn run command; W6-2 logging.lastResort redaction filter); 4 new W6-1/W6-2 tests pass; 430 pytest pass on PG 18.6; GitHub Actions CI 42391307605 PASS; ruff & mypy clean; all shared checks pass | `a45edbf` |
 | 2026-11-07 | P1a-WP6 | coding agent (implementation lead) | ready_for_review; structured JSON logging & credential redaction (SC-04); RedactionFilter applied to all handlers (SecretStr, Authorization, Bearer tokens, token hashes, DSN passwords user:***@, canary, sensitive keys, exceptions/tracebacks); request logging middleware (never headers/bodies); telemetry local_only exporter refusal; 426 pytest pass against PG 18.6; GitHub Actions CI 42388151035 PASS; ISS-023 resolved; all shared checks pass | `706e784` |

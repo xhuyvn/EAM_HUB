@@ -44,6 +44,15 @@ The following 4 fixtures are submitted for owner review and sign-off, concluding
 
 ---
 
+### Owner sign-off record
+
+- **Signed by**: xhuyvn (Huynn), project owner
+- **Date**: 2026-11-08
+- **Decision**: approve `expected.json` / `expected_error.json` of `s30-inactive-waiver`, `s31-evidence-from-future`, `s32-missing-assessed-revision`, `s33-all-waived` as the specification for the reducer.
+- **Effect**: with s01, s21, s19 signed on 2026-11-07, the PPM-M0 exit condition in `ppm-v2/docs/IMPLEMENTATION_PLAN.md` §3 is met — **PPM-M0 complete**.
+
+---
+
 ## 3. ISS-015 Resolution Summary
 
 - **Issue**: `ISS-015` (Reducer behaviour added in M0-WP2 review covered by unit tests only: inactive waiver, `evidence_from_future`, `missing_assessed_revision`).
