@@ -99,6 +99,10 @@ class Settings(BaseSettings):
     eap_telemetry: str = Field(default="local_only", alias="EAP_TELEMETRY")
     eap_secret_canary: SecretStr | None = Field(default=None, alias="EAP_SECRET_CANARY")
 
+    # Host and environment configuration (L2)
+    eap_host_id: str = Field(default="host-local-001", alias="EAP_HOST_ID")
+    eap_host_os: str | None = Field(default=None, alias="EAP_HOST_OS")
+
     # Local pilot principals (token hashes only; sha256 hex; tokens/hashes never logged)
     eap_owner_tenant_id: str = Field(default="tenant-owner", alias="EAP_OWNER_TENANT_ID")
     eap_owner_principal_id: str = Field(default="principal-owner", alias="EAP_OWNER_PRINCIPAL_ID")
@@ -141,6 +145,14 @@ class Settings(BaseSettings):
     @property
     def has_qdrant(self) -> bool:
         return bool(self.qdrant_url)
+
+    def get_server_host_os(self) -> str:
+        """Derive host OS server-side from configuration or local connector platform (L2)."""
+        import sys
+
+        if self.eap_host_os and self.eap_host_os.strip():
+            return self.eap_host_os.strip().lower()
+        return "windows" if sys.platform == "win32" else "linux"
 
     def get_configured_principals(self) -> list[ConfiguredPrincipal]:
         principals: list[ConfiguredPrincipal] = []

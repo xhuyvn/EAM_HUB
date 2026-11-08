@@ -77,7 +77,49 @@ identity_conflicts = Table(
     UniqueConstraint("tenant_id", "id", name="uq_identity_conflicts_tenant_id"),
 )
 
+# 3. host_root_ownership: Host-level canonical root ownership for cross-tenant sharing (L3)
+# Note: Intentionally NOT tenant-scoped in primary key because it models a shared physical
+# host filesystem resource across tenants on a single host. Has no foreign keys to tenant data
+# so DG-1 Amendment A1 is unaffected.
+host_root_ownership = Table(
+    "host_root_ownership",
+    metadata,
+    Column("host_id", String(64), primary_key=True),
+    Column("canonical_root_key", String(512), primary_key=True),
+    Column("canonical_root", Text, nullable=False),
+    Column("owner_tenant_id", String(64), nullable=False),
+    Column("owner_source_id", String(64), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+# 4. source_shares: Cross-tenant folder sharing requests and approvals (L3)
+source_shares = Table(
+    "source_shares",
+    metadata,
+    Column("id", String(64), primary_key=True),
+    Column("host_id", String(64), nullable=False),
+    Column("canonical_root_key", String(512), nullable=False),
+    Column("owner_tenant_id", String(64), nullable=False),
+    Column("owner_source_id", String(64), nullable=False),
+    Column("requester_tenant_id", String(64), nullable=False),
+    Column("requester_source_id", String(64), nullable=False),
+    Column("requester_principal_id", String(128), nullable=False),
+    Column("state", String(32), nullable=False, server_default="pending_share"),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("decided_at", DateTime(timezone=True), nullable=True),
+    Column("decided_by_principal_id", String(128), nullable=True),
+    Column("revoked_at", DateTime(timezone=True), nullable=True),
+    Column("revoked_by_principal_id", String(128), nullable=True),
+    UniqueConstraint("requester_tenant_id", "requester_source_id", name="uq_source_shares_requester_source"),
+    CheckConstraint(
+        "state IN ('pending_share', 'approved', 'rejected', 'revoked')",
+        name="ck_source_shares_state",
+    ),
+)
+
 __all__ = [
+    "host_root_ownership",
     "identity_conflicts",
     "location_registrations",
+    "source_shares",
 ]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -15,6 +15,7 @@ from eap.api.dependencies import (
     get_db,
     get_principal,
 )
+from eap.config import Settings, get_settings
 from eap.ppm.path import PathValidationError
 from eap.ppm.service import (
     DuplicateLocationError,
@@ -24,7 +25,10 @@ from eap.ppm.service import (
     LocationServiceError,
     MetadataRootConflictError,
     RegistrantApprovalForbiddenError,
+    ShareApprovalForbiddenError,
+    ShareNotFoundError,
     SourceAlreadyRegisteredError,
+    UnapprovedSourceLocationError,
     UnauthorizedApprovalError,
 )
 
@@ -39,19 +43,19 @@ class SourceRegistrationRequest(BaseModel):
     source_id: Annotated[str, Field(min_length=1)]
     canonical_root: Annotated[str, Field(min_length=1)]
     repo_identity: Annotated[str, Field(min_length=1)]
-    host_os: str = "windows"
 
 
 @ppm_router.post(
     "/sources",
-    status_code=status.HTTP_201_CREATED,
-    summary="Register a physical source root (409 on duplicate folder or repo identity)",
+    summary="Register a physical source root (201 active or 202 pending_share)",
 )
 async def register_source(
     request: Request,
     body: Annotated[dict[str, Any], Depends(check_forbidden_body_fields)],
     principal: Annotated[Principal, Depends(get_principal)],
     db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    response: Response,
 ) -> dict[str, Any]:
     try:
         req = SourceRegistrationRequest.model_validate(body)
@@ -61,15 +65,22 @@ async def register_source(
             detail=f"Invalid source registration request: {exc}",
         ) from exc
 
+    server_host_os = settings.get_server_host_os()
+    server_host_id = settings.eap_host_id
+
     try:
-        return LocationService.register_source(
+        result, status_code = LocationService.register_source(
             db,
             tenant_id=principal.tenant_id,
             source_id=req.source_id,
             canonical_root=req.canonical_root,
             repo_identity=req.repo_identity,
-            host_os=req.host_os,
+            principal_id=principal.principal_id,
+            host_id=server_host_id,
+            host_os=server_host_os,
         )
+        response.status_code = status_code
+        return result
     except PathValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -114,20 +125,23 @@ async def get_source(
 @ppm_router.post(
     "/locations",
     status_code=status.HTTP_201_CREATED,
-    summary="Register a project location scope (starts in state proposed)",
+    summary="Register a location (proposed state; or suspended on identity_conflict)",
 )
 async def register_location(
     request: Request,
     body: Annotated[dict[str, Any], Depends(check_forbidden_body_fields)],
     principal: Annotated[Principal, Depends(get_principal)],
     db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> dict[str, Any]:
+    server_host_os = settings.get_server_host_os()
     try:
         return LocationService.register_location(
             db,
             tenant_id=principal.tenant_id,
             data=body,
             principal_id=principal.principal_id,
+            host_os=server_host_os,
         )
     except PathValidationError as exc:
         raise HTTPException(
@@ -215,7 +229,7 @@ async def approve_location(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=exc.message,
         ) from exc
-    except InvalidLocationStateError as exc:
+    except (InvalidLocationStateError, UnapprovedSourceLocationError) as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=exc.message,
@@ -232,3 +246,101 @@ async def approve_location_alias(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict[str, Any]:
     return await approve_location(location_id=location_id, principal=principal, db=db)
+
+
+@ppm_router.post(
+    "/shares/{share_id}/approve",
+    summary="Approve cross-tenant source share request (L3)",
+)
+async def approve_share(
+    share_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    try:
+        return LocationService.approve_share(db, share_id=share_id, principal=principal)
+    except ShareNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.message,
+        ) from exc
+    except ShareApprovalForbiddenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=exc.message,
+        ) from exc
+
+
+@ppm_router.post(
+    "/shares/{share_id}/reject",
+    summary="Reject cross-tenant source share request (L3)",
+)
+async def reject_share(
+    share_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    try:
+        return LocationService.reject_share(db, share_id=share_id, principal=principal)
+    except ShareNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.message,
+        ) from exc
+    except ShareApprovalForbiddenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=exc.message,
+        ) from exc
+
+
+@ppm_router.post(
+    "/shares/{share_id}/revoke",
+    summary="Revoke cross-tenant source share, suspending active locations (L3)",
+)
+async def revoke_share(
+    share_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    try:
+        return LocationService.revoke_share(db, share_id=share_id, principal=principal)
+    except ShareNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.message,
+        ) from exc
+    except ShareApprovalForbiddenError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=exc.message,
+        ) from exc
+
+
+@ppm_router.get(
+    "/shares/{share_id}",
+    summary="Get cross-tenant source share request details",
+)
+async def get_share(
+    share_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    try:
+        return LocationService.get_share(db, share_id=share_id, principal=principal)
+    except ShareNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.message,
+        ) from exc
+
+
+@ppm_router.get(
+    "/shares",
+    summary="List cross-tenant source share requests visible to tenant",
+)
+async def list_shares(
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> list[dict[str, Any]]:
+    return LocationService.list_shares(db, principal=principal)

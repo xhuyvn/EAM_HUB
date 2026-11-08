@@ -139,6 +139,67 @@ class TestCanonicalizeRootNegatives:
         with pytest.raises(PathValidationError, match="POSIX path must not contain backslashes"):
             canonicalize_root("\\home\\user\\dir", host_os="linux")
 
+    @pytest.mark.parametrize(
+        "bad_win_segment",
+        [
+            "C:\\Repo\\App.",
+            "C:\\Repo\\App ",
+            "C:\\Repo\\Subdir.\\Folder",
+            "C:\\Repo\\Subdir \\Folder",
+            "\\\\server\\share\\App.",
+            "\\\\server\\share\\App ",
+        ],
+    )
+    def test_windows_trailing_dot_or_space_rejected(self, bad_win_segment: str) -> None:
+        with pytest.raises(PathValidationError, match="must not end with '\\.' or ' '"):
+            canonicalize_root(bad_win_segment, host_os="windows", allow_unc=True)
+
+    @pytest.mark.parametrize(
+        "reserved_device_path",
+        [
+            "C:\\Repo\\CON",
+            "C:\\Repo\\con.txt",
+            "C:\\Repo\\AUX",
+            "C:\\Repo\\aux.json",
+            "C:\\Repo\\PRN",
+            "C:\\Repo\\prn.log",
+            "C:\\Repo\\NUL",
+            "C:\\Repo\\nul.dat",
+            "C:\\Repo\\COM1",
+            "C:\\Repo\\com9.txt",
+            "C:\\Repo\\LPT1",
+            "C:\\Repo\\lpt8.bin",
+            "\\\\server\\share\\aux.json",
+        ],
+    )
+    def test_windows_reserved_device_names_rejected(self, reserved_device_path: str) -> None:
+        with pytest.raises(PathValidationError, match="reserved device name"):
+            canonicalize_root(reserved_device_path, host_os="windows", allow_unc=True)
+
+    @pytest.mark.parametrize(
+        "trailing_ctrl_path",
+        [
+            "/home/user/project\n",
+            "/home/user/project\r",
+            "/home/user/project\t",
+            "C:\\Projects\\repo\n",
+        ],
+    )
+    def test_trailing_control_characters_rejected_without_strip(self, trailing_ctrl_path: str) -> None:
+        os_name = "linux" if trailing_ctrl_path.startswith("/") else "windows"
+        with pytest.raises(PathValidationError, match="control or NUL character"):
+            canonicalize_root(trailing_ctrl_path, host_os=os_name)
+
+    def test_unicode_nfc_normalization_and_casefold(self) -> None:
+        # C:\Répo (NFC: \xe9) vs C:\Re\u0301po (NFD: e + combining acute accent)
+        nfc_path = "C:\\Répo\\App"
+        nfd_path = "C:\\Re\u0301po\\App"
+        res_nfc = canonicalize_root(nfc_path, host_os="windows")
+        res_nfd = canonicalize_root(nfd_path, host_os="windows")
+        assert res_nfc == "c:/répo/app"
+        assert res_nfd == "c:/répo/app"
+        assert res_nfc == res_nfd
+
     def test_windows_ads_colon_rejected(self) -> None:
         with pytest.raises(PathValidationError, match="alternate data stream"):
             canonicalize_root("C:\\Projects\\file:hidden", host_os="windows")

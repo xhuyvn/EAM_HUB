@@ -98,7 +98,6 @@ async def test_c32_monorepo_three_scopes_on_one_source_succeed(api_client, db_co
             "source_id": "src-example-monorepo",
             "canonical_root": "D:/projects/example-monorepo",
             "repo_identity": "git:example-monorepo@root-commit-0001",
-            "host_os": "windows",
         },
     )
     assert res_source.status_code == 201, res_source.text
@@ -222,7 +221,6 @@ async def test_same_folder_under_different_source_rejected_409(api_client) -> No
             "source_id": "src-primary",
             "canonical_root": "C:\\Repos\\ProjectAlpha",
             "repo_identity": "git@github.com:example/alpha.git",
-            "host_os": "windows",
         },
     )
     assert res1.status_code == 201
@@ -234,11 +232,10 @@ async def test_same_folder_under_different_source_rejected_409(api_client) -> No
             "source_id": "src-secondary",
             "canonical_root": "c:/repos/projectalpha",  # Same folder after case normalization
             "repo_identity": "git@github.com:example/alpha-clone.git",
-            "host_os": "windows",
         },
     )
     assert res2.status_code == 409
-    assert "already registered under source_id 'src-primary'" in res2.text
+    assert "already registered" in res2.text.lower()
 
 
 @pytest.mark.anyio
@@ -252,9 +249,8 @@ async def test_same_repo_identity_under_different_source_rejected_409(api_client
         "/v1/ppm/sources",
         json={
             "source_id": "src-git-1",
-            "canonical_root": "/repos/checkout-1",
+            "canonical_root": "C:/repos/checkout-1",
             "repo_identity": "git:shared-repo-12345",
-            "host_os": "linux",
         },
     )
     assert res1.status_code == 201
@@ -263,9 +259,8 @@ async def test_same_repo_identity_under_different_source_rejected_409(api_client
         "/v1/ppm/sources",
         json={
             "source_id": "src-git-2",
-            "canonical_root": "/repos/checkout-2",  # Different directory
+            "canonical_root": "C:/repos/checkout-2",  # Different directory
             "repo_identity": "git:shared-repo-12345",  # SAME repo_identity
-            "host_os": "linux",
         },
     )
     assert res2.status_code == 409
@@ -328,9 +323,8 @@ async def test_c42_copied_repo_with_same_project_id_quarantined(api_client, db_c
         "/v1/ppm/sources",
         json={
             "source_id": "src-repo-orig",
-            "canonical_root": "/repos/original",
+            "canonical_root": "C:/repos/original",
             "repo_identity": "git:repo-original@commit-1",
-            "host_os": "linux",
         },
     )
 
@@ -338,7 +332,7 @@ async def test_c42_copied_repo_with_same_project_id_quarantined(api_client, db_c
     loc1["location_id"] = f"loc-{tenant}-orig"
     loc1["project_id"] = "proj-replicated"
     loc1["source_id"] = "src-repo-orig"
-    loc1["root_path"] = "/repos/original"
+    loc1["root_path"] = "C:/repos/original"
     loc1["identity"] = {
         "canonical_root_fingerprint": "fp-1",
         "repo_identity": "git:repo-original@commit-1",
@@ -355,9 +349,8 @@ async def test_c42_copied_repo_with_same_project_id_quarantined(api_client, db_c
         "/v1/ppm/sources",
         json={
             "source_id": "src-repo-copied",
-            "canonical_root": "/repos/copied",
+            "canonical_root": "C:/repos/copied",
             "repo_identity": "git:repo-copied@commit-99",  # DIFFERENT repo_identity
-            "host_os": "linux",
         },
     )
 
@@ -366,7 +359,7 @@ async def test_c42_copied_repo_with_same_project_id_quarantined(api_client, db_c
     loc2["location_id"] = f"loc-{tenant}-copy"
     loc2["project_id"] = "proj-replicated"  # SAME project_id
     loc2["source_id"] = "src-repo-copied"
-    loc2["root_path"] = "/repos/copied"
+    loc2["root_path"] = "C:/repos/copied"
     loc2["identity"] = {
         "canonical_root_fingerprint": "fp-2",
         "repo_identity": "git:repo-copied@commit-99",
@@ -425,6 +418,7 @@ async def test_approval_authority_and_isolation(api_client, db_conn: sa.Connecti
 
     loc = json.loads(LOCATION_EXAMPLE_PATH.read_text(encoding="utf-8"))
     loc["source_id"] = f"src-{tenant_a}"
+    loc["root_path"] = f"C:\\projects\\approval_test_{tenant_a}"
     loc["location_id"] = "loc-approve-test"
     loc["state"] = "proposed"
     loc["approved_by_ref"] = None
@@ -589,4 +583,169 @@ async def test_sc04_canary_redaction_in_ppm_location_flows(
         assert canary not in record.getMessage()
         if record.exc_text:
             assert canary not in record.exc_text
+
+
+@pytest.mark.anyio
+async def test_l2_host_os_client_supplied_rejected_422(api_client) -> None:
+    """L2: host_os must not come from the client; a client-supplied host_os field -> 422."""
+    client = api_client.http
+    tenant = "tenant-l2-test"
+    api_client.set_principal(tenant_id=tenant, principal_id="principal-l2", roles=["admin"])
+
+    # 1. Body injection in /sources
+    r_body = await client.post(
+        "/v1/ppm/sources",
+        json={
+            "source_id": "src-l2",
+            "canonical_root": "C:/repos/l2",
+            "repo_identity": "git:l2",
+            "host_os": "linux",
+        },
+    )
+    assert r_body.status_code == 422
+    assert "host_os" in r_body.text
+
+    # 2. Body injection in /locations
+    loc = json.loads(LOCATION_EXAMPLE_PATH.read_text(encoding="utf-8"))
+    loc["host_os"] = "windows"
+    r_loc = await client.post("/v1/ppm/locations", json=loc)
+    assert r_loc.status_code == 422
+    assert "host_os" in r_loc.text
+
+    # 3. Header injection
+    r_hdr = await client.get("/v1/ppm/sources", headers={"Host-OS": "windows"})
+    assert r_hdr.status_code == 422
+    assert "host_os" in r_hdr.text
+
+    # 4. Query param injection
+    r_query = await client.get("/v1/ppm/sources?host_os=windows")
+    assert r_query.status_code == 422
+    assert "host_os" in r_query.text
+
+
+@pytest.mark.anyio
+async def test_l3_cross_tenant_source_sharing_workflow(api_client, db_conn: sa.Connection) -> None:
+    """L3: Cross-tenant use of the same folder workflow (Owner decision 2026-11-08).
+
+    Tests:
+    - Tenant A registers physical root -> 201 Created (state: active, owns root in host_root_ownership).
+    - Tenant B on Tenant A's folder -> 202 Accepted (state: pending_share), no owner identity leaked.
+    - Tenant B registers location on source -> 201 (proposed).
+    - Tenant B tries to activate location -> 409 Conflict (unapproved share).
+    - Tenant B tries to approve own share request -> 403 Forbidden.
+    - Tenant A's second (non-owner) principal tries to approve share -> 403 Forbidden.
+    - Stranger Tenant C tries to approve share -> 404 Not Found.
+    - Tenant A's owner approves share -> 200 OK (state: approved).
+    - Tenant B can now activate location -> 200 OK (state: active).
+    - Tenant A's owner revokes share -> 200 OK (state: revoked).
+    - Tenant B's location is moved to suspended!
+    - Outbox events emitted in owning tenant's stream.
+    """
+    client = api_client.http
+    tenant_a = "tenant-l3-owner"
+    tenant_b = "tenant-l3-requester"
+    tenant_c = "tenant-l3-stranger"
+    shared_root = "C:/projects/l3_shared_folder"
+
+    # 1. Tenant A registers the canonical root -> becomes owner
+    api_client.set_principal(tenant_id=tenant_a, principal_id="owner-a", roles=["owner", "admin"])
+    res_a = await client.post(
+        "/v1/ppm/sources",
+        json={
+            "source_id": "src-tenant-a",
+            "canonical_root": shared_root,
+            "repo_identity": "git:shared-repo-v1",
+        },
+    )
+    assert res_a.status_code == 201
+    assert res_a.json()["state"] == "active"
+
+    # 2. Tenant B registers same root (case/slash variant) -> 202 pending_share
+    api_client.set_principal(tenant_id=tenant_b, principal_id="user-b", roles=["admin"])
+    res_b = await client.post(
+        "/v1/ppm/sources",
+        json={
+            "source_id": "src-tenant-b",
+            "canonical_root": "c:\\projects\\l3_shared_folder",
+            "repo_identity": "git:shared-repo-v1",
+        },
+    )
+    assert res_b.status_code == 202
+    b_data = res_b.json()
+    assert b_data["state"] == "pending_share"
+    assert "share_id" in b_data
+    share_id = b_data["share_id"]
+
+    # Invariant: Response must NOT reveal the owning tenant's id or name!
+    assert tenant_a not in res_b.text
+    assert "owner-a" not in res_b.text
+    assert "owner_tenant_id" not in b_data
+
+    # 3. Tenant B registers a location on this pending source
+    loc_b = json.loads(LOCATION_EXAMPLE_PATH.read_text(encoding="utf-8"))
+    loc_b["source_id"] = "src-tenant-b"
+    loc_b["root_path"] = shared_root
+    loc_b["location_id"] = "loc-b-shared"
+    loc_b["state"] = "proposed"
+    loc_b["approved_by_ref"] = None
+
+    res_loc_b = await client.post("/v1/ppm/locations", json=loc_b)
+    assert res_loc_b.status_code == 201
+
+    # 4. Tenant B tries to activate location -> 409 Conflict
+    api_client.set_principal(tenant_id=tenant_b, principal_id="approver-b", roles=["owner", "admin"])
+    res_act_fail = await client.post("/v1/ppm/locations/loc-b-shared/approve")
+    assert res_act_fail.status_code == 409
+    assert "pending_share" in res_act_fail.text
+
+    # 5. Tenant B attempts to approve its own share request -> 403 Forbidden
+    res_self_share = await client.post(f"/v1/ppm/shares/{share_id}/approve")
+    assert res_self_share.status_code == 403
+    assert "cannot approve own share" in res_self_share.text.lower()
+
+    # 6. Tenant A's non-owner principal attempts to approve share -> 403 Forbidden
+    api_client.set_principal(tenant_id=tenant_a, principal_id="admin-a", roles=["admin"])
+    res_non_owner_share = await client.post(f"/v1/ppm/shares/{share_id}/approve")
+    assert res_non_owner_share.status_code == 403
+    assert "lacks owner role" in res_non_owner_share.text.lower()
+
+    # 7. Tenant C (stranger) attempts to approve share -> 404 Not Found
+    api_client.set_principal(tenant_id=tenant_c, principal_id="owner-c", roles=["owner", "admin"])
+    res_stranger = await client.post(f"/v1/ppm/shares/{share_id}/approve")
+    assert res_stranger.status_code == 404
+
+    # 8. Tenant A's owner principal approves the share -> 200 OK
+    api_client.set_principal(tenant_id=tenant_a, principal_id="owner-a", roles=["owner", "admin"])
+    res_approve_ok = await client.post(f"/v1/ppm/shares/{share_id}/approve")
+    assert res_approve_ok.status_code == 200
+    assert res_approve_ok.json()["state"] == "approved"
+
+    # 9. Tenant B can now activate its location on the approved source -> 200 OK
+    api_client.set_principal(tenant_id=tenant_b, principal_id="approver-b", roles=["owner", "admin"])
+    res_act_ok = await client.post("/v1/ppm/locations/loc-b-shared/approve")
+    assert res_act_ok.status_code == 200
+    assert res_act_ok.json()["state"] == "active"
+
+    # 10. Tenant A's owner revokes the share -> 200 OK
+    api_client.set_principal(tenant_id=tenant_a, principal_id="owner-a", roles=["owner", "admin"])
+    res_revoke = await client.post(f"/v1/ppm/shares/{share_id}/revoke")
+    assert res_revoke.status_code == 200
+    assert res_revoke.json()["state"] == "revoked"
+
+    # 11. Verify Tenant B's location is suspended after revocation
+    api_client.set_principal(tenant_id=tenant_b, principal_id="user-b", roles=["admin"])
+    res_loc_after = await client.get("/v1/ppm/locations/loc-b-shared")
+    assert res_loc_after.status_code == 200
+    assert res_loc_after.json()["state"] == "suspended"
+
+    # 12. Verify outbox events written in Tenant A's stream
+    ev_share = db_conn.execute(
+        sa.select(outbox).where(
+            outbox.c.tenant_id == tenant_a,
+            outbox.c.event_type == "ppm.source_share.revoked",
+        )
+    ).mappings().first()
+    assert ev_share is not None
+    assert ev_share["payload"]["payload"]["share_id"] == share_id
+
 

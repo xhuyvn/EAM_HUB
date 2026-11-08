@@ -8,9 +8,11 @@ belong to P2a-WP2 per spike P0-WP3.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Mapping, Sequence
 
 SAFE_RELATIVE_PATTERN = re.compile(r"^(?!/)(?!.*\\)(?!.*:)(?!.*(?:^|/)\.\.(?:/|$)).+$")
+WIN_RESERVED_NAMES = re.compile(r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$", re.IGNORECASE)
 
 
 class PathValidationError(ValueError):
@@ -20,32 +22,39 @@ class PathValidationError(ValueError):
 def canonicalize_root(path: str, host_os: str, allow_unc: bool = False) -> str:
     """Canonicalize a physical root path purely in memory without touching the filesystem.
 
-    Enforces:
-    - Rejection of relative paths.
-    - Rejection of '..' segments.
-    - Rejection of NUL and control characters (ord < 32, ord == 127).
-    - Rejection of Windows device namespaces (\\\\?\\, \\\\.\\, //?/, //./).
+    Enforces (L1 & P2a-WP1):
+    - Unicode NFC normalization first.
+    - Rejection of every control character including \\n, \\r, \\t, NUL (ord < 32, ord == 127)
+      without silently stripping them.
+    - Rejection of empty or whitespace-only paths.
+    - Windows: casefolding for case-insensitive uniqueness.
+    - Windows: rejection of segments ending with '.' or ' ' (never stripped).
+    - Windows: rejection of reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9,
+      with or without extension, case-insensitive).
+    - Windows: rejection of device namespaces (\\\\?\\, \\\\.\\, //?/, //./).
     - Rejection of UNC paths (\\\\server\\share, //server/share) unless allow_unc=True.
-    - Rejection of mixed separators (e.g. mixing '/' and '\\' in the same path).
-    - Rejection of Alternate Data Streams (':' in filename/path on Windows).
-    - Normalization of case on Windows (entire path lowercased for case-insensitive uniqueness).
+    - Rejection of mixed separators ('/' and '\\' in the same path).
+    - Rejection of Alternate Data Streams (':' in path after drive letter on Windows).
+    - Rejection of relative paths and '..' segments.
     - Normalization of separators to forward slashes ('/').
-    - Collapsing of redundant slashes and stripping trailing slashes (except root).
+    - Collapsing redundant slashes and stripping trailing slashes (except root).
     """
     if not isinstance(path, str):
         raise PathValidationError(f"Path must be a string, got {type(path).__name__}")
 
-    raw = path.strip()
-    if not raw:
-        raise PathValidationError("Path must not be empty or whitespace only")
+    # 1. Unicode NFC normalization first (L1)
+    raw = unicodedata.normalize("NFC", path)
 
-    # Reject NUL and control characters
+    # 2. Reject NUL and control characters on unstripped input (never silently strip \n, \r, \t)
     for ch in raw:
         code = ord(ch)
         if code < 32 or code == 127:
             raise PathValidationError(
                 f"Path contains invalid control or NUL character (ASCII {code}): {raw!r}"
             )
+
+    if not raw or not raw.strip():
+        raise PathValidationError("Path must not be empty or whitespace only")
 
     os_clean = host_os.strip().lower()
     is_windows = os_clean in ("windows", "win", "win32")
@@ -76,13 +85,24 @@ def canonicalize_root(path: str, host_os: str, allow_unc: bool = False) -> str:
         # Parse UNC path
         sep = "\\" if has_bwd else "/"
         unc_body = raw[2:]
-        parts = [p for p in unc_body.split(sep) if p and p != "."]
+        parts = [p for p in unc_body.split(sep) if p]
         if any(p == ".." for p in parts):
             raise PathValidationError(f"UNC path must not contain '..' segments: {raw}")
         if len(parts) < 2:
             raise PathValidationError(f"UNC path must include both server and share: {raw}")
+
         if is_windows:
-            parts = [p.lower() for p in parts]
+            # Check segments ending in dot/space and reserved device names
+            for p in parts:
+                if p.endswith((".", " ")):
+                    raise PathValidationError(
+                        f"Windows path segment must not end with '.' or ' ': {p!r} in {raw!r}"
+                    )
+                if WIN_RESERVED_NAMES.match(p):
+                    raise PathValidationError(
+                        f"Windows path segment must not be a reserved device name: {p!r} in {raw!r}"
+                    )
+            parts = [p.casefold() for p in parts]
         return "//" + "/".join(parts)
 
     if is_posix:
@@ -129,9 +149,23 @@ def canonicalize_root(path: str, host_os: str, allow_unc: bool = False) -> str:
     if any(p == ".." for p in parts):
         raise PathValidationError(f"Windows path must not contain '..' segments: {raw}")
 
-    # Case normalization on Windows: lowercase drive and all path segments
-    clean_parts = [p.lower() for p in parts if p and p != "."]
-    norm_drive = drive_letter.lower() + ":"
+    # Windows segments: reject ending with '.' or ' ' and reserved device names (never strip)
+    clean_parts: list[str] = []
+    for p in parts:
+        if not p:
+            continue
+        if p.endswith((".", " ")):
+            raise PathValidationError(
+                f"Windows path segment must not end with '.' or ' ': {p!r} in {raw!r}"
+            )
+        if WIN_RESERVED_NAMES.match(p):
+            raise PathValidationError(
+                f"Windows path segment must not be a reserved device name: {p!r} in {raw!r}"
+            )
+        clean_parts.append(p.casefold())
+
+    # Case normalization on Windows: casefold drive letter and all path segments
+    norm_drive = drive_letter.casefold() + ":"
 
     if not clean_parts:
         return norm_drive + "/"

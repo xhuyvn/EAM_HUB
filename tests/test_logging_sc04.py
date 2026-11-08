@@ -529,3 +529,61 @@ if __name__ == "__main__":
     assert secret_pw not in all_output, f"Password leaked in uvicorn subprocess output:\n{all_output}"
     assert "trigger-error" in all_output, f"Expected /trigger-error path in output:\n{all_output}"
 
+
+@pytest.mark.asyncio
+async def test_l4_request_logs_carry_tenant_and_principal_after_auth(
+    db_engine: Engine,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """L4: Request logs must carry tenant_id and principal_id after authentication (not null)."""
+    valid_token = f"eap-token-l4-{uuid.uuid4().hex}"
+    token_hash = hashlib.sha256(valid_token.encode("utf-8")).hexdigest()
+
+    settings = Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        EAP_ENV="test",
+        EAP_BIND="127.0.0.1:8000",
+        EAP_OWNER_TENANT_ID="tenant-l4-audit",
+        EAP_OWNER_PRINCIPAL_ID="principal-l4-audit",
+        EAP_OWNER_TOKEN_HASH=SecretStr(token_hash),
+    )
+
+    test_app = create_app(settings)
+    SessionLocal = sessionmaker(bind=db_engine, autoflush=False, autocommit=False)
+
+    def _override_get_db():
+        session = SessionLocal()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    test_app.dependency_overrides[get_db] = _override_get_db
+    test_app.dependency_overrides[get_settings] = lambda: settings
+    caplog.set_level(logging.INFO, logger="eap.api.request")
+
+    transport = ASGITransport(app=test_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(
+            "/v1/ppm/sources",
+            headers={"Authorization": f"Bearer {valid_token}"},
+        )
+        assert resp.status_code == 200
+
+    # Inspect records from eap.api.request logger
+    req_records = [r for r in caplog.records if r.name == "eap.api.request"]
+    assert len(req_records) >= 1
+    record = req_records[-1]
+
+    # Verify attributes on LogRecord directly (L4)
+    assert getattr(record, "tenant_id", None) == "tenant-l4-audit"
+    assert getattr(record, "principal_id", None) == "principal-l4-audit"
+
+    # Verify serialized JSON formatted output
+    formatter = JsonFormatter()
+    formatted = formatter.format(record)
+    entry = json.loads(formatted)
+    assert entry.get("tenant_id") == "tenant-l4-audit"
+    assert entry.get("principal_id") == "principal-l4-audit"
+
+

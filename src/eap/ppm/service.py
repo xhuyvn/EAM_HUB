@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 import uuid
 from typing import Any
 
@@ -25,13 +26,17 @@ from eap.api.dependencies import Principal
 from eap.contracts.models.location_registration import LocationRegistration
 from eap.contracts.rules import semantic_checks
 from eap.db import (
+    host_root_ownership,
     identity_conflicts,
     location_registrations,
     outbox,
     project_scopes,
+    source_shares,
     sources,
 )
 from eap.ppm.path import canonicalize_root, validate_aliases
+
+logger = logging.getLogger("eap.ppm.service")
 
 
 class LocationServiceError(ValueError):
@@ -99,6 +104,27 @@ class InvalidLocationStateError(LocationServiceError):
         super().__init__(message, code="INVALID_LOCATION_STATE")
 
 
+class ShareNotFoundError(LocationServiceError):
+    """Raised when a share request is not found within the tenant scope."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, code="SHARE_NOT_FOUND")
+
+
+class ShareApprovalForbiddenError(LocationServiceError):
+    """Raised when a principal is unauthorized to approve, reject, or revoke a share request."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, code="SHARE_APPROVAL_FORBIDDEN")
+
+
+class UnapprovedSourceLocationError(LocationServiceError):
+    """Raised when attempting to activate a location on an unapproved cross-tenant shared source."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, code="UNAPPROVED_SOURCE_LOCATION")
+
+
 def _emit_outbox_event(
     db: Session,
     *,
@@ -144,11 +170,18 @@ class LocationService:
         source_id: str,
         canonical_root: str,
         repo_identity: str,
+        principal_id: str = "principal-system",
+        host_id: str = "host-local-001",
         host_os: str = "windows",
-    ) -> dict[str, Any]:
-        """Register a physical repository/directory root.
+    ) -> tuple[dict[str, Any], int]:
+        """Register a physical repository/directory root (L3 Owner decision 2026-11-08).
 
-        Enforces: One physical directory / repo identity = one source per tenant (409 on conflict).
+        Enforces:
+        - One physical directory / repo identity = one source per tenant (409 on duplicate within tenant).
+        - Cross-tenant use of the same folder: ALLOWED ONLY WITH APPROVAL by owning tenant's owner (L3).
+        - First tenant to register canonical root on a host owns it in host_root_ownership table.
+        - Second tenant registering same root gets source in state pending_share (HTTP 202) + share request.
+        - Response never reveals the owning tenant's id or name.
         """
         clean_root = canonicalize_root(canonical_root, host_os=host_os)
 
@@ -166,7 +199,7 @@ class LocationService:
                 existing_src["canonical_root"] == clean_root
                 and existing_src["repo_identity"] == repo_identity
             ):
-                return dict(existing_src)
+                return LocationService._attach_source_state(db, tenant_id, dict(existing_src)), 200
             raise SourceAlreadyRegisteredError(
                 f"source_id '{source_id}' already registered with differing root or repo_identity"
             )
@@ -198,6 +231,71 @@ class LocationService:
             )
 
         now = dt.datetime.now(dt.UTC)
+
+        # Check host-scoped root ownership table (L3)
+        host_row = db.execute(
+            sa.select(host_root_ownership).where(
+                host_root_ownership.c.host_id == host_id,
+                host_root_ownership.c.canonical_root_key == clean_root,
+            )
+        ).mappings().first()
+
+        if host_row is None:
+            # First tenant on host -> becomes owner of this canonical root (L3)
+            db.execute(
+                host_root_ownership.insert().values(
+                    host_id=host_id,
+                    canonical_root_key=clean_root,
+                    canonical_root=clean_root,
+                    owner_tenant_id=tenant_id,
+                    owner_source_id=source_id,
+                    created_at=now,
+                )
+            )
+            db.execute(
+                sources.insert().values(
+                    source_id=source_id,
+                    tenant_id=tenant_id,
+                    canonical_root=clean_root,
+                    repo_identity=repo_identity,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            _emit_outbox_event(
+                db,
+                tenant_id=tenant_id,
+                event_type="ppm.source.registered",
+                stream_id=f"source:{source_id}",
+                payload={
+                    "source_id": source_id,
+                    "canonical_root": clean_root,
+                    "repo_identity": repo_identity,
+                    "state": "active",
+                },
+            )
+            db.commit()
+
+            return {
+                "source_id": source_id,
+                "tenant_id": tenant_id,
+                "canonical_root": clean_root,
+                "repo_identity": repo_identity,
+                "state": "active",
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat(),
+            }, 201
+
+        # Root is already registered on this host by a tenant
+        owner_tenant = host_row["owner_tenant_id"]
+        if owner_tenant == tenant_id:
+            # Same tenant attempting to register same root twice under different source_id
+            raise SourceAlreadyRegisteredError(
+                f"Directory '{clean_root}' is already registered under source_id '{host_row['owner_source_id']}'"
+            )
+
+        # Different tenant -> cross-tenant registration requires share approval (L3)
+        share_id = f"shr-{uuid.uuid4().hex[:12]}"
         db.execute(
             sources.insert().values(
                 source_id=source_id,
@@ -208,28 +306,100 @@ class LocationService:
                 updated_at=now,
             )
         )
+        db.execute(
+            source_shares.insert().values(
+                id=share_id,
+                host_id=host_id,
+                canonical_root_key=clean_root,
+                owner_tenant_id=owner_tenant,
+                owner_source_id=host_row["owner_source_id"],
+                requester_tenant_id=tenant_id,
+                requester_source_id=source_id,
+                requester_principal_id=principal_id,
+                state="pending_share",
+                created_at=now,
+            )
+        )
 
+        # Outbox event in OWNING tenant stream (L3)
+        _emit_outbox_event(
+            db,
+            tenant_id=owner_tenant,
+            event_type="ppm.source_share.requested",
+            stream_id=f"tenant-{owner_tenant}",
+            payload={
+                "share_id": share_id,
+                "host_id": host_id,
+                "canonical_root": clean_root,
+                "requester_tenant_id": tenant_id,
+                "requester_source_id": source_id,
+                "state": "pending_share",
+            },
+        )
+
+        # Outbox event in REQUESTER tenant stream
         _emit_outbox_event(
             db,
             tenant_id=tenant_id,
-            event_type="ppm.source.registered",
-            stream_id=f"source:{source_id}",
+            event_type="ppm.source_share.requested",
+            stream_id=f"tenant-{tenant_id}",
             payload={
+                "share_id": share_id,
                 "source_id": source_id,
-                "canonical_root": clean_root,
-                "repo_identity": repo_identity,
+                "state": "pending_share",
+            },
+        )
+
+        # Audit log in owning tenant's stream (L3)
+        logger.info(
+            "Source share requested: share_id=%s host=%s root=%s requester_tenant=%s",
+            share_id,
+            host_id,
+            clean_root,
+            tenant_id,
+            extra={
+                "tenant_id": owner_tenant,
+                "principal_id": principal_id,
             },
         )
         db.commit()
 
+        # HTTP 202 response: NEVER reveals owning tenant id or name (L3)
         return {
             "source_id": source_id,
             "tenant_id": tenant_id,
             "canonical_root": clean_root,
             "repo_identity": repo_identity,
+            "state": "pending_share",
+            "share_id": share_id,
+            "message": "Source registered in state pending_share; requires approval by host root owner",
             "created_at": now.isoformat(),
             "updated_at": now.isoformat(),
-        }
+        }, 202
+
+    @staticmethod
+    def _attach_source_state(db: Session, tenant_id: str, row_dict: dict[str, Any]) -> dict[str, Any]:
+        """Attach runtime sharing state to a source row."""
+        result = dict(row_dict)
+        source_id = result["source_id"]
+        share = db.execute(
+            sa.select(source_shares).where(
+                source_shares.c.requester_tenant_id == tenant_id,
+                source_shares.c.requester_source_id == source_id,
+            )
+        ).mappings().first()
+
+        if share is not None:
+            result["state"] = share["state"]
+            result["share_id"] = share["id"]
+        else:
+            result["state"] = "active"
+
+        if isinstance(result.get("created_at"), dt.datetime):
+            result["created_at"] = result["created_at"].isoformat()
+        if isinstance(result.get("updated_at"), dt.datetime):
+            result["updated_at"] = result["updated_at"].isoformat()
+        return result
 
     @staticmethod
     def get_source(db: Session, *, tenant_id: str, source_id: str) -> dict[str, Any] | None:
@@ -240,7 +410,9 @@ class LocationService:
                 sources.c.source_id == source_id,
             )
         ).mappings().first()
-        return dict(row) if row else None
+        if not row:
+            return None
+        return LocationService._attach_source_state(db, tenant_id, dict(row))
 
     @staticmethod
     def list_sources(db: Session, *, tenant_id: str) -> list[dict[str, Any]]:
@@ -250,7 +422,7 @@ class LocationService:
             .where(sources.c.tenant_id == tenant_id)
             .order_by(sources.c.source_id)
         ).mappings().all()
-        return [dict(r) for r in rows]
+        return [LocationService._attach_source_state(db, tenant_id, dict(r)) for r in rows]
 
     @staticmethod
     def register_location(
@@ -315,49 +487,16 @@ class LocationService:
         ).mappings().first()
 
         if source_row is None:
-            # Check if source_id is already claimed globally by another tenant
-            global_src = db.execute(
-                sa.select(sources).where(sources.c.source_id == source_id)
-            ).mappings().first()
-            if global_src is not None and global_src["tenant_id"] != tenant_id:
-                raise SourceAlreadyRegisteredError(
-                    f"source_id '{source_id}' is already registered by another tenant"
-                )
-
-            # Check if directory or repo_identity already registered under differing source_id
-            conflicting_root = db.execute(
-                sa.select(sources).where(
-                    sources.c.tenant_id == tenant_id,
-                    sources.c.canonical_root == clean_root,
-                )
-            ).mappings().first()
-            if conflicting_root is not None:
-                raise SourceAlreadyRegisteredError(
-                    f"Same physical folder already registered under source_id '{conflicting_root['source_id']}'"
-                )
-
-            conflicting_repo = db.execute(
-                sa.select(sources).where(
-                    sources.c.tenant_id == tenant_id,
-                    sources.c.repo_identity == repo_ident,
-                )
-            ).mappings().first()
-            if conflicting_repo is not None:
-                raise SourceAlreadyRegisteredError(
-                    f"Same repo_identity already registered under source_id '{conflicting_repo['source_id']}'"
-                )
-
-            # Auto-register source
-            now = dt.datetime.now(dt.UTC)
-            db.execute(
-                sources.insert().values(
-                    source_id=source_id,
-                    tenant_id=tenant_id,
-                    canonical_root=clean_root,
-                    repo_identity=repo_ident,
-                    created_at=now,
-                    updated_at=now,
-                )
+            # Auto-register source via register_source to enforce ownership & share rules (L3)
+            LocationService.register_source(
+                db,
+                tenant_id=tenant_id,
+                source_id=source_id,
+                canonical_root=clean_root,
+                repo_identity=repo_ident,
+                principal_id=principal_id,
+                host_id=model.host_id,
+                host_os=determined_os,
             )
             source_repo_identity = repo_ident
         else:
@@ -565,6 +704,20 @@ class LocationService:
                 f"Location '{location_id}' is in state '{loc['state']}'; only proposed locations can be approved"
             )
 
+        # 4. Check if underlying source is a cross-tenant share requiring approval (L3)
+        share_row = db.execute(
+            sa.select(source_shares).where(
+                source_shares.c.requester_tenant_id == tenant_id,
+                source_shares.c.requester_source_id == loc["source_id"],
+            )
+        ).mappings().first()
+
+        if share_row is not None and share_row["state"] != "approved":
+            raise UnapprovedSourceLocationError(
+                f"Cannot activate location '{location_id}': underlying source '{loc['source_id']}' "
+                f"is in state '{share_row['state']}' and has not been approved by the root owner"
+            )
+
         now = dt.datetime.now(dt.UTC)
         approver_ref = f"principal:{principal.principal_id}"
 
@@ -675,6 +828,326 @@ class LocationService:
             stmt = stmt.where(identity_conflicts.c.project_id == project_id)
         rows = db.execute(stmt).mappings().all()
         return [dict(r) for r in rows]
+
+    @staticmethod
+    def approve_share(
+        db: Session,
+        *,
+        share_id: str,
+        principal: Principal,
+    ) -> dict[str, Any]:
+        """Approve a cross-tenant source share request (L3 Owner decision 2026-11-08).
+
+        Enforces:
+        - Only a principal with role 'owner' in the OWNING tenant may approve (403).
+        - Requesting tenant cannot approve its own request (403).
+        - Cross-tenant / unknown share -> 404.
+        - Emits outbox event and audit line in owning tenant's stream.
+        """
+        share = db.execute(
+            sa.select(source_shares).where(source_shares.c.id == share_id)
+        ).mappings().first()
+
+        if share is None:
+            raise ShareNotFoundError(f"Share request '{share_id}' not found")
+
+        # Requesting tenant cannot approve own request (403)
+        if principal.tenant_id == share["requester_tenant_id"]:
+            raise ShareApprovalForbiddenError(
+                f"Requesting tenant '{principal.tenant_id}' cannot approve own share request"
+            )
+
+        # Cross-tenant check: must belong to owning tenant (404)
+        if principal.tenant_id != share["owner_tenant_id"]:
+            raise ShareNotFoundError(f"Share request '{share_id}' not found")
+
+        # Authority check: only owner in owning tenant (403)
+        if "owner" not in principal.roles:
+            raise ShareApprovalForbiddenError(
+                f"Principal '{principal.principal_id}' lacks owner role in owning tenant required to approve share"
+            )
+
+        now = dt.datetime.now(dt.UTC)
+        db.execute(
+            source_shares.update()
+            .where(source_shares.c.id == share_id)
+            .values(
+                state="approved",
+                decided_at=now,
+                decided_by_principal_id=principal.principal_id,
+            )
+        )
+
+        _emit_outbox_event(
+            db,
+            tenant_id=share["owner_tenant_id"],
+            event_type="ppm.source_share.approved",
+            stream_id=f"tenant-{share['owner_tenant_id']}",
+            payload={
+                "share_id": share_id,
+                "owner_tenant_id": share["owner_tenant_id"],
+                "requester_tenant_id": share["requester_tenant_id"],
+                "requester_source_id": share["requester_source_id"],
+                "decided_by_principal_id": principal.principal_id,
+                "state": "approved",
+            },
+        )
+        _emit_outbox_event(
+            db,
+            tenant_id=share["requester_tenant_id"],
+            event_type="ppm.source_share.approved",
+            stream_id=f"tenant-{share['requester_tenant_id']}",
+            payload={
+                "share_id": share_id,
+                "requester_source_id": share["requester_source_id"],
+                "state": "approved",
+            },
+        )
+
+        logger.info(
+            "Source share %s approved by %s for requester tenant %s",
+            share_id,
+            principal.principal_id,
+            share["requester_tenant_id"],
+            extra={
+                "tenant_id": share["owner_tenant_id"],
+                "principal_id": principal.principal_id,
+            },
+        )
+        db.commit()
+
+        updated = db.execute(
+            sa.select(source_shares).where(source_shares.c.id == share_id)
+        ).mappings().first()
+        assert updated is not None
+        return LocationService._format_share_dict(dict(updated), caller_tenant_id=principal.tenant_id)
+
+    @staticmethod
+    def reject_share(
+        db: Session,
+        *,
+        share_id: str,
+        principal: Principal,
+    ) -> dict[str, Any]:
+        """Reject a cross-tenant source share request (L3)."""
+        share = db.execute(
+            sa.select(source_shares).where(source_shares.c.id == share_id)
+        ).mappings().first()
+
+        if share is None:
+            raise ShareNotFoundError(f"Share request '{share_id}' not found")
+
+        if principal.tenant_id == share["requester_tenant_id"]:
+            raise ShareApprovalForbiddenError(
+                f"Requesting tenant '{principal.tenant_id}' cannot reject own share request"
+            )
+
+        if principal.tenant_id != share["owner_tenant_id"]:
+            raise ShareNotFoundError(f"Share request '{share_id}' not found")
+
+        if "owner" not in principal.roles:
+            raise ShareApprovalForbiddenError(
+                f"Principal '{principal.principal_id}' lacks owner role in owning tenant required to reject share"
+            )
+
+        now = dt.datetime.now(dt.UTC)
+        db.execute(
+            source_shares.update()
+            .where(source_shares.c.id == share_id)
+            .values(
+                state="rejected",
+                decided_at=now,
+                decided_by_principal_id=principal.principal_id,
+            )
+        )
+
+        _emit_outbox_event(
+            db,
+            tenant_id=share["owner_tenant_id"],
+            event_type="ppm.source_share.rejected",
+            stream_id=f"tenant-{share['owner_tenant_id']}",
+            payload={
+                "share_id": share_id,
+                "owner_tenant_id": share["owner_tenant_id"],
+                "requester_tenant_id": share["requester_tenant_id"],
+                "requester_source_id": share["requester_source_id"],
+                "decided_by_principal_id": principal.principal_id,
+                "state": "rejected",
+            },
+        )
+
+        logger.info(
+            "Source share %s rejected by %s",
+            share_id,
+            principal.principal_id,
+            extra={
+                "tenant_id": share["owner_tenant_id"],
+                "principal_id": principal.principal_id,
+            },
+        )
+        db.commit()
+
+        updated = db.execute(
+            sa.select(source_shares).where(source_shares.c.id == share_id)
+        ).mappings().first()
+        assert updated is not None
+        return LocationService._format_share_dict(dict(updated), caller_tenant_id=principal.tenant_id)
+
+    @staticmethod
+    def revoke_share(
+        db: Session,
+        *,
+        share_id: str,
+        principal: Principal,
+    ) -> dict[str, Any]:
+        """Revoke an approved share, moving requester's active locations to suspended (L3)."""
+        share = db.execute(
+            sa.select(source_shares).where(source_shares.c.id == share_id)
+        ).mappings().first()
+
+        if share is None:
+            raise ShareNotFoundError(f"Share request '{share_id}' not found")
+
+        if principal.tenant_id == share["requester_tenant_id"]:
+            raise ShareApprovalForbiddenError(
+                f"Requesting tenant '{principal.tenant_id}' cannot revoke share request"
+            )
+
+        if principal.tenant_id != share["owner_tenant_id"]:
+            raise ShareNotFoundError(f"Share request '{share_id}' not found")
+
+        if "owner" not in principal.roles:
+            raise ShareApprovalForbiddenError(
+                f"Principal '{principal.principal_id}' lacks owner role in owning tenant required to revoke share"
+            )
+
+        now = dt.datetime.now(dt.UTC)
+        db.execute(
+            source_shares.update()
+            .where(source_shares.c.id == share_id)
+            .values(
+                state="revoked",
+                revoked_at=now,
+                revoked_by_principal_id=principal.principal_id,
+            )
+        )
+
+        # Revocation moves requester's active locations on that source to suspended (L3)
+        db.execute(
+            location_registrations.update()
+            .where(
+                location_registrations.c.tenant_id == share["requester_tenant_id"],
+                location_registrations.c.source_id == share["requester_source_id"],
+                location_registrations.c.state == "active",
+            )
+            .values(
+                state="suspended",
+                updated_at=now,
+            )
+        )
+        db.execute(
+            project_scopes.update()
+            .where(
+                project_scopes.c.tenant_id == share["requester_tenant_id"],
+                project_scopes.c.source_id == share["requester_source_id"],
+                project_scopes.c.status == "active",
+            )
+            .values(
+                status="suspended",
+                updated_at=now,
+            )
+        )
+
+        _emit_outbox_event(
+            db,
+            tenant_id=share["owner_tenant_id"],
+            event_type="ppm.source_share.revoked",
+            stream_id=f"tenant-{share['owner_tenant_id']}",
+            payload={
+                "share_id": share_id,
+                "owner_tenant_id": share["owner_tenant_id"],
+                "requester_tenant_id": share["requester_tenant_id"],
+                "requester_source_id": share["requester_source_id"],
+                "revoked_by_principal_id": principal.principal_id,
+                "state": "revoked",
+            },
+        )
+        _emit_outbox_event(
+            db,
+            tenant_id=share["requester_tenant_id"],
+            event_type="ppm.source_share.revoked",
+            stream_id=f"tenant-{share['requester_tenant_id']}",
+            payload={
+                "share_id": share_id,
+                "requester_source_id": share["requester_source_id"],
+                "state": "revoked",
+            },
+        )
+
+        logger.info(
+            "Source share %s revoked by %s; suspended active locations",
+            share_id,
+            principal.principal_id,
+            extra={
+                "tenant_id": share["owner_tenant_id"],
+                "principal_id": principal.principal_id,
+            },
+        )
+        db.commit()
+
+        updated = db.execute(
+            sa.select(source_shares).where(source_shares.c.id == share_id)
+        ).mappings().first()
+        assert updated is not None
+        return LocationService._format_share_dict(dict(updated), caller_tenant_id=principal.tenant_id)
+
+    @staticmethod
+    def get_share(db: Session, *, share_id: str, principal: Principal) -> dict[str, Any]:
+        """Retrieve share details ensuring owner identity is never leaked to requester (L3)."""
+        share = db.execute(
+            sa.select(source_shares).where(source_shares.c.id == share_id)
+        ).mappings().first()
+
+        if share is None:
+            raise ShareNotFoundError(f"Share request '{share_id}' not found")
+
+        is_owner = principal.tenant_id == share["owner_tenant_id"]
+        is_requester = principal.tenant_id == share["requester_tenant_id"]
+
+        if not (is_owner or is_requester):
+            raise ShareNotFoundError(f"Share request '{share_id}' not found")
+
+        return LocationService._format_share_dict(dict(share), caller_tenant_id=principal.tenant_id)
+
+    @staticmethod
+    def list_shares(db: Session, *, principal: Principal) -> list[dict[str, Any]]:
+        """List share requests visible to the authenticated principal."""
+        rows = db.execute(
+            sa.select(source_shares).where(
+                sa.or_(
+                    source_shares.c.owner_tenant_id == principal.tenant_id,
+                    source_shares.c.requester_tenant_id == principal.tenant_id,
+                )
+            ).order_by(source_shares.c.created_at.desc())
+        ).mappings().all()
+
+        return [
+            LocationService._format_share_dict(dict(r), caller_tenant_id=principal.tenant_id)
+            for r in rows
+        ]
+
+    @staticmethod
+    def _format_share_dict(share_row: dict[str, Any], caller_tenant_id: str) -> dict[str, Any]:
+        """Format share record and mask owner identity if requested by the requester (L3)."""
+        res = dict(share_row)
+        for ts_key in ("created_at", "decided_at", "revoked_at"):
+            if isinstance(res.get(ts_key), dt.datetime):
+                res[ts_key] = res[ts_key].isoformat()
+
+        if res.get("requester_tenant_id") == caller_tenant_id and res.get("owner_tenant_id") != caller_tenant_id:
+            res.pop("owner_tenant_id", None)
+            res.pop("owner_source_id", None)
+        return res
 
     @staticmethod
     def _to_contract_dict(row: dict[str, Any]) -> dict[str, Any]:
