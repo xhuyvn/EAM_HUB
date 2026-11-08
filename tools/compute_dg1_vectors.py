@@ -32,6 +32,23 @@ from eap.contracts.keys import (
     validate_identifier,
 )
 
+__all__ = [
+    "HEX_64_PATTERN",
+    "NEGATIVE_VECTORS",
+    "TEST_VECTORS",
+    "KeyDerivationError",
+    "compute_dispatch_idempotency_key",
+    "compute_operation_key",
+    "compute_payload_hash",
+    "compute_task_intent_key",
+    "derive_dispatch_idempotency_key",
+    "derive_operation_key",
+    "derive_payload_hash",
+    "derive_task_intent_key",
+    "validate_component",
+    "validate_identifier",
+]
+
 
 class VectorCase(NamedTuple):
     name: str

@@ -1,4 +1,4 @@
-> Translated from docs/04_PPM_INTEGRATION.md @ fb857f4
+> Translated from docs/04_PPM_INTEGRATION.md @ a36d44e
 
 # PPM v2 như một managed domain agent
 ## Các capability

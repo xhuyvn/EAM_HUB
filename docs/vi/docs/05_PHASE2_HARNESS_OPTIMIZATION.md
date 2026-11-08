@@ -1,4 +1,4 @@
-> Translated from docs/05_PHASE2_HARNESS_OPTIMIZATION.md @ fb857f4
+> Translated from docs/05_PHASE2_HARNESS_OPTIMIZATION.md @ a36d44e
 
 # Phase 2 — Harness Engineering & Optimization
 ## Charter

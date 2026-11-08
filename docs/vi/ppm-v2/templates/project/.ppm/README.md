@@ -1,4 +1,4 @@
-> Translated from ppm-v2/templates/project/.ppm/README.md @ fb857f4
+> Translated from ppm-v2/templates/project/.ppm/README.md @ a36d44e
 
 # PPM 2.0
 Thư mục này chứa metadata portable và báo cáo tự khai. Đọc contract trước khi dùng.

@@ -1,4 +1,4 @@
-> Translated from ppm-v2/guides/ADOPTION_GUIDE.md @ fb857f4
+> Translated from ppm-v2/guides/ADOPTION_GUIDE.md @ a36d44e
 
 # Hướng dẫn áp dụng
 

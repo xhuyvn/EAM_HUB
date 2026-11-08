@@ -1,4 +1,4 @@
-> Translated from ppm-v2/docs/ARCHITECTURE_REVIEW.md @ fb857f4
+> Translated from ppm-v2/docs/ARCHITECTURE_REVIEW.md @ a36d44e
 
 # Architecture Review — PPM v2 Agent (Project–Program–Portfolio Management)
 

@@ -1,4 +1,4 @@
-> Translated from ppm-v2/standards/PROJECT_MANAGEMENT_CONTRACT.md @ fb857f4
+> Translated from ppm-v2/standards/PROJECT_MANAGEMENT_CONTRACT.md @ a36d44e
 
 # Project Management Contract 2.1 (tương thích 2.0)
 

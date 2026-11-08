@@ -15,7 +15,7 @@ import sys
 from importlib.metadata import version
 from pathlib import Path
 
-from jsonschema import Draft202012Validator, FormatChecker, ValidationError
+from jsonschema import Draft202012Validator, FormatChecker, ValidationError  # type: ignore[import-untyped]
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,7 +45,7 @@ def read_json(path):
 
 
 def ts(value):
-    return dt.datetime.fromisoformat(value.replace('Z', '+00:00'))
+    return dt.datetime.fromisoformat(value)
 
 
 def jcs(obj):
@@ -69,7 +69,7 @@ def semantic_checks(kind, value):
             if p['from_state'] in TERMINAL:
                 raise ValueError('terminal run state cannot be left')
             if (p['from_state'], p['to_state']) not in ALLOWED:
-                raise ValueError('illegal run transition %s->%s' % (p['from_state'], p['to_state']))
+                raise ValueError(f"illegal run transition {p['from_state']}->{p['to_state']}")
         if value['event_type'] == 'usage.reported':
             p = value['payload']
             if (p['cost_status'] == 'unknown') != (p['cost_usd'] is None):
@@ -125,9 +125,10 @@ def semantic_checks(kind, value):
         if len(ids) != len(set(ids)):
             raise ValueError('duplicate criterion in assessment')
         req = [c for c in crits if c['required']]
-        if value['verification'] == 'verified':
-            if not crits or any(c['status'] not in ('verified', 'waived') for c in req) or value['missing_evidence'] or value['validity'] != 'current':
-                raise ValueError('verified project requires all required criteria verified, no missing evidence, current validity')
+        if value['verification'] == 'verified' and (
+            not crits or any(c['status'] not in ('verified', 'waived') for c in req) or value['missing_evidence'] or value['validity'] != 'current'
+        ):
+            raise ValueError('verified project requires all required criteria verified, no missing evidence, current validity')
         if any(c['status'] == 'contradicted' for c in crits) and value['verification'] != 'contradicted':
             raise ValueError('contradicting evidence must surface as contradicted')
         if value['acceptance_readiness'] == 'ready_for_review' and value['verification'] != 'verified':
@@ -165,9 +166,8 @@ def semantic_checks(kind, value):
             pr = row['project']
             if pr and pr['verified_weight'] is not None and pr['total_weight'] is not None and pr['verified_weight'] > pr['total_weight']:
                 raise ValueError('project verified weight exceeds denominator')
-    if kind == 'action-proposal':
-        if action_digest(value) != value['action_digest']:
-            raise ValueError('action digest does not match canonical proposal fields')
+    if kind == 'action-proposal' and action_digest(value) != value['action_digest']:
+        raise ValueError('action digest does not match canonical proposal fields')
     if kind == 'location-registration':
         root = value['root_path']
         if not (root.startswith('/') or (len(root) > 2 and root[1] == ':' and root[2] in '/\\')):
@@ -177,9 +177,8 @@ def semantic_checks(kind, value):
                 raise ValueError('duplicate alias for ' + key)
         if value['state'] == 'active' and not value['approved_by_ref']:
             raise ValueError('active location requires approval')
-    if kind == 'run-command':
-        if (value['state'] == 'rejected') != (value['rejection_code'] is not None):
-            raise ValueError('rejection_code only for rejected commands')
+    if kind == 'run-command' and (value['state'] == 'rejected') != (value['rejection_code'] is not None):
+        raise ValueError('rejection_code only for rejected commands')
 
 
 def check_approval_pair(proposal, decision):
@@ -262,7 +261,7 @@ def git_revision():
         rev = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
         dirty = subprocess.run(['git', 'status', '--porcelain'], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
         return rev + (' (working tree has uncommitted changes)' if dirty else '')
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return 'unavailable'
 
 
@@ -450,7 +449,7 @@ def main():
     for event in events:
         validate('event', event)
     check_event_stream(events)
-    checks.append('typed event fixtures passed (%d events, transitions legal, producer_seq ordered)' % len(events))
+    checks.append(f'typed event fixtures passed ({len(events)} events, transitions legal, producer_seq ordered)')
     proposal = read_json(ROOT / 'templates/actions/action-proposal.example.json')
     decision = read_json(ROOT / 'examples/approval-decision.json')
     check_approval_pair(proposal, decision)
@@ -498,7 +497,7 @@ def main():
     for loc in locs:
         validate('location-registration', loc)
     check_location_set(locs)
-    checks.append('monorepo: %d projects share one repository with distinct metadata_root' % len(locs))
+    checks.append(f'monorepo: {len(locs)} projects share one repository with distinct metadata_root')
     for name, ls in build_location_negatives(locs):
         try:
             check_location_set(ls)
@@ -537,7 +536,7 @@ def main():
     checks.append('local schema refs, Python syntax and Markdown fences passed')
 
     ppm = subprocess.run([sys.executable, str(ROOT / 'ppm-v2/tools/run_negative_cases.py')],
-                         cwd=ROOT / 'ppm-v2', capture_output=True, text=True)
+                         check=False, cwd=ROOT / 'ppm-v2', capture_output=True, text=True)
     if ppm.returncode != 0:
         raise AssertionError('PPM contract checks failed:\n' + ppm.stdout + ppm.stderr)
     checks.extend('ppm-v2: ' + line for line in ppm.stdout.strip().splitlines())
@@ -550,10 +549,10 @@ def main():
         if marker in existing_text:
             preserved_suffix = existing_text.split(marker, 1)[1]
 
-    now = dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    now = dt.datetime.now(dt.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
     report = '# Package validation report\n\n'
-    report += 'Generated by `python tools/validate_package.py` at %s.\n' % now
-    report += 'Source revision: %s. Python %s. jsonschema %s.\n\n' % (git_revision(), platform.python_version(), version('jsonschema'))
+    report += f'Generated by `python tools/validate_package.py` at {now}.\n'
+    report += f'Source revision: {git_revision()}. Python {platform.python_version()}. jsonschema {version("jsonschema")}.\n\n'
     report += '## Executed\n' + '\n'.join('- ' + item for item in checks)
     report += '\n\n## Not run (no runtime exists yet)\n'
     report += '- Runtime conformance cases C01-C39 (evals/CONFORMANCE_CASES.md)\n'

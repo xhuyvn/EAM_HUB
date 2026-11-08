@@ -1,4 +1,4 @@
-> Translated from ppm-v2/guides/SCANNER_IMPLEMENTATION.md @ fb857f4
+> Translated from ppm-v2/guides/SCANNER_IMPLEMENTATION.md @ a36d44e
 
 # Thiết kế scanner cho coder
 

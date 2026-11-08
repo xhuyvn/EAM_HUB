@@ -1,4 +1,4 @@
-> Translated from ppm-v2/prompts/05_END_SESSION.md @ fb857f4
+> Translated from ppm-v2/prompts/05_END_SESSION.md @ a36d44e
 
 # Prompt — kết thúc phiên
 Hãy bàn giao công việc phiên này theo PPM 2.0.

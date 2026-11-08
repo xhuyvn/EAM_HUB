@@ -1,4 +1,4 @@
-> Translated from ppm-v2/prompts/06_REVIEW_PROJECT.md @ fb857f4
+> Translated from ppm-v2/prompts/06_REVIEW_PROJECT.md @ a36d44e
 
 # Prompt — quét/review thủ công
 PROJECT_ROOT=<đường dẫn>; REVIEW_SCOPE=<milestone hoặc toàn dự án>.

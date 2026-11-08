@@ -1,4 +1,4 @@
-> Translated from docs/IMPLEMENTATION_PLAN.md @ fb857f4
+> Translated from docs/IMPLEMENTATION_PLAN.md @ d7c9e91
 
 # Implementation Plan — Enterprise Agent Platform 1.1 (plan revision 1.5)
 
@@ -199,7 +199,7 @@ P0 có hai trạng thái: **`P0 ready_for_owner_review`** khi coder hoàn tất 
 
 **P1a-WP5 Bootstrap identity** — 1 ngày: loopback-only; principal owner + principal thứ hai cho C30 local; request có trusted fields → 422; bind 0.0.0.0 bị từ chối.
 **P1a-WP6 Logging/redaction** — 0.5–1 ngày: SC-04; trace local_only.
-**P1a-WP7 Ingest baseline (đo, không ngưỡng)** — 0.5–1 ngày: 200 events/s × 10 phút; p50/p95 ingest→projection; byte thực/event (`pg_total_relation_size` trước/sau), WAL (`pg_current_wal_lsn` diff), throughput relay. Báo cáo SC-07.
+**P1a-WP7 Ingest baseline (đo; ngưỡng relay theo DG1-C4)** — 0.5–1 ngày: 200 events/s × 10 phút, nghiệm thu yêu cầu duy trì ≥ 200 events/s với 0 lost/duplicated events (điều kiện owner DG1-C4, 07/11/2026; các số đo khác giữ không ngưỡng cho tới DG-5); p50/p95 ingest→projection; byte thực/event (`pg_total_relation_size` trước/sau), WAL (`pg_current_wal_lsn` diff), throughput relay. Báo cáo SC-07.
 
 ### P2a — PPM sources, collector, verifier, scheduler, reducer, orchestrator (15–22 ngày; reducer core ở PPM-M0)
 **P2a-WP1 Sources và project scopes** — 2–2.5 ngày

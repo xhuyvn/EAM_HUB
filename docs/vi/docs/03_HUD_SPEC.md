@@ -1,4 +1,4 @@
-> Translated from docs/03_HUD_SPEC.md @ fb857f4
+> Translated from docs/03_HUD_SPEC.md @ a36d44e
 
 # Agent Operations HUD
 ## Màn hình và hành vi

@@ -1,4 +1,4 @@
-> Translated from docs/01_DECISIONS_AND_SOURCE_RECONCILIATION.md @ fb857f4
+> Translated from docs/01_DECISIONS_AND_SOURCE_RECONCILIATION.md @ d7c9e91
 
 # Quyết định hợp nhất và migration
 ## Thứ tự thẩm quyền
@@ -63,7 +63,7 @@ Thay đổi contract (vẫn là 1.1 vì chưa phát hành cho consumer): `ppm-ou
 | ADR | Quyết định | Phương án bị loại |
 |---|---|---|
 | ADR-020 | Offset HUD/event do một outbox relay cấp sau commit (thứ tự commit), không cấp trong transaction ghi. | bigserial trong transaction ghi: lấy offset 10/11 rồi commit ngược thứ tự làm mất event khi replay. |
-| ADR-021 | Con trỏ assessment hiện hành chỉ tiến theo `snapshot_seq` (CAS); assessment trễ của snapshot cũ thành lịch sử. Bước model là tùy chọn; reducer vẫn chạy khi model lỗi (`analysis_status`). | "Ghi đè bản xong sau cùng": lỗi khi scan hoàn tất ngược thứ tự. Chặn toàn bộ assessment khi model lỗi: mất verdict deterministic. |
+| ADR-021 (rev 2) | Con trỏ assessment hiện hành chỉ tiến theo `basis_seq` (CAS) được cấp lúc tạo assessment-task cho mọi trigger (`snapshot`, `baseline_changed`, `evidence_ttl_expired`, `model_recovered`, `manual`), khóa input lúc tạo; assessment trễ của `basis_seq` cũ thành lịch sử (C34, C39). Bước model là tùy chọn; reducer vẫn chạy khi model lỗi (`analysis_status`). *(Ghi chú sửa đổi: cập nhật từ CAS snapshot_seq ban đầu sang CAS basis_seq rev 2 để giữ thứ tự deterministic khi đánh giá lại trên cùng snapshot; contracts, examples, và `eap.contracts.rules.apply_assessment` đồng thuận).* | "Ghi đè bản xong sau cùng": lỗi khi scan hoàn tất ngược thứ tự. Chặn toàn bộ assessment khi model lỗi: mất verdict deterministic. CAS chỉ theo `snapshot_seq`: không thể sắp thứ tự đánh giá lại trên cùng snapshot (C39). |
 | ADR-022 | Tách `source` vật lý (`source_id`) khỏi project scope; Scan Scheduler và Assessment Orchestrator là module PPM chạy trên Task/Run Service. | Gộp location = project (chặn monorepo); cron hệ điều hành (scheduler thứ hai, không audit). |
 Contract (vẫn 1.1, chưa có consumer): `ppm-output` thêm `snapshot_seq`, `analysis_status`; `location-registration` thêm `source_id`. Fixture `examples/ppm-output.json` dùng cùng AC-001 cho note "đã xong" + PASS rev-r1 + FAIL rev-r2.
 
@@ -75,6 +75,13 @@ Contract (vẫn 1.1, chưa có consumer): `ppm-output` thêm `snapshot_seq`, `an
 - ADR-023: chỉ `verifier_observed` hoặc `ci_attested` verify criterion; report trong repo là `reported_artifact`. Contract `ppm-output` thêm `evidence_trust` (vẫn 1.1, chưa có consumer). Thêm P2a-WP9 Verifier. Phương án bị loại: tin file report trong repo khi khớp revision (producer tự viết được file đó).
 - ADR-024: waiver lưu ở PPM DB, `status=waived` + `waiver_ref`, ra khỏi mẫu số. Phương án bị loại: biểu diễn waiver bằng `verified` (che criterion bị bỏ qua) hoặc giữ trong mẫu số (tiến độ không bao giờ đạt dù được duyệt).
 - PPM contract 2.1 (tương thích 2.0): `verification_refs`, `criterion_ids`, `test_ids`, `uses_component`; registry YAML là định dạng import sang `location-registration`.
+
+### Đóng P0 — Ký duyệt DG-1 và DG-2 (07/11/2026)
+Owner xhuyvn (Huynn), chủ dự án đã phê duyệt toàn bộ quyết định trong `docs/adr/DG-1.md` (DG-1.1 sinh khóa và tính idempotent, DG-1.2 thẩm quyền action slot, DG-1.3 offset outbox relay, DG-1.4 source và project scope) và `docs/adr/DG-2.md` (DG-2.1–DG-2.5 scheduler, thứ tự, chính sách vận hành, trigger, khóa input). Các điều kiện ràng buộc DG1-C1…C5 và DG2-C1 được liệt kê tại §0.1 của mỗi biên bản và là yêu cầu nghiệm thu của các gói công việc nêu tên. Hiệu lực: **P0 closed**; P1a-WP1 có thể bắt đầu.
+Tu chính A1 (owner phê duyệt 2026-11-07): toàn bộ khóa ngoại là composite key trong phạm vi tenant (tenant_id, <col>) tham chiếu cha (tenant_id, <pk_col>); phát hiện trong đợt review P1a-WP1.
+
+### D-01 — Quyết định sử dụng LangGraph (07/11/2026)
+Owner xhuyvn (Huynn) chọn **phương án (b)** từ `docs/spikes/P0-WP4.md`: LangGraph (ghim cứng `langgraph==1.2.20`, `langgraph-checkpoint==4.3.1`) chỉ có thể điều phối các bước agent **bên trong một lần chạy duy nhất (single run attempt)**, với `thread_id = "<run_id>:<attempt>"`. Tính năng resume/replay của LangGraph bị **vô hiệu hóa đối với các workflow có tác dụng phụ (side effects)**; phục hồi và thử lại do journal của Run Service quản lý (ADR-011), tạo ra attempt mới, và Action Service khử trùng lặp tác dụng phụ qua `action_slot` + `operation_key` (DG-1). Bằng chứng: resume nguyên bản nhân đôi tác dụng phụ trong 20/20 lần thử; bọc qua DG-1 tạo chính xác một tác dụng phụ trong 20/20 lần thử (chủ dự án chạy lại đã xác nhận). Bị loại bỏ: (a) resume LangGraph cho workflow có tác dụng phụ (nhân đôi, hai nơi nắm giữ trạng thái); (c) không dùng LangGraph (hạn chế không cần thiết). Bằng chứng bền vững về exactly-once thuộc về P1a-WP4 (C29, C29b). Xem xét lại nếu LangGraph có được tính nguyên tử giữa checkpoint và tác dụng phụ qua transaction, hoặc nếu độ trễ khởi động lại từ attempt vượt quá 10 phút cho các workflow chỉ đọc (khi đó resume có thể được cho phép chỉ cho các phân đoạn chỉ đọc).
 
 ### Chuẩn bị triển khai (06/11/2026, plan rev 1.5)
 - ADR-025 Ngôn ngữ repo: tiếng Anh là bản gốc từ P0-WP0; agent đọc và sửa bản tiếng Anh. Bản tiếng Việt lưu ở `docs/vi/<đường dẫn gốc>` với header `Translated from <path> @ <sha>`, chỉ để owner review, agent không đọc (`AGENTS.md`). SC-08 báo bản dịch cũ. Phương án bị loại: hai bản song song cùng là gốc (lệch nhau, tái tạo lỗi "hai blueprint cạnh tranh"); giữ tiếng Việt là gốc và chỉ dịch prompt (agent vẫn đọc review/plan/docs bằng tiếng Việt, tốn token hơn — mức tiết kiệm thật sẽ đo ở P0-WP0).

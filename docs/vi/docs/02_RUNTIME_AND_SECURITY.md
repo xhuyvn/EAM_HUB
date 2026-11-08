@@ -1,4 +1,4 @@
-> Translated from docs/02_RUNTIME_AND_SECURITY.md @ fb857f4
+> Translated from docs/02_RUNTIME_AND_SECURITY.md @ a36d44e
 
 # Runtime, persistence và kiểm soát hành động
 ## Request admission
