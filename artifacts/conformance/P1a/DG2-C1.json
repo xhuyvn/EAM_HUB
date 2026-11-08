@@ -1,0 +1,20 @@
+{
+  "condition_id": "DG2-C1",
+  "milestone": "P1a",
+  "work_package": "P1a-WP7",
+  "status": "partial",
+  "observed_outcome": "Benchmark and concurrency under load evaluated against real parallel connections on PostgreSQL 18.6 (P1a-WP7 SC-07 baseline). Concurrency, lease/fencing (C15, P1a-WP4), commit-order outbox relay (C33, P1a-WP3), and 20-stream concurrent relay/producer execution verified. Full production gate P5 remains pending P2a-WP5 (C35), P2a-WP6 (C34, C39), and DG-5 performance threshold evaluation.",
+  "counts": {
+    "concurrent_producers": 4,
+    "concurrent_streams": 20,
+    "concurrent_relays": 2,
+    "total_events": 120283
+  },
+  "evidence_refs": [
+    "docs/measurements/P1a-WP7.md",
+    "artifacts/measurements/P1a-WP7.json",
+    "tests/events/test_concurrent_relays_lock.py",
+    "tests/events/test_c33_relay_commit_order.py",
+    "tests/events/test_ingest_baseline.py"
+  ]
+}

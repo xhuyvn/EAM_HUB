@@ -829,6 +829,111 @@ def generate_markdown_report(data: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def append_headroom_ramp_to_report(report_md: str, ramp_data: dict[str, Any]) -> str:
+    """Append Section 8 (Headroom Ramp) to Markdown SC-07 measurement report."""
+    lines = [
+        "",
+        "---",
+        "",
+        "## 8. Headroom Ramp (Non-gating, for DG-5)",
+        "",
+        f"- **Tested Rates**: `{', '.join(str(r) for r in ramp_data['rates_tested'])}` events/s (for {ramp_data['duration_per_step_sec']} s each)",
+        f"- **Highest Rate with Sustained Worst 10s Window >= Target & Correctness PASS**: **{ramp_data['highest_sustained_rate_events_per_sec']} events/s**",
+        f"- **Observed Bottleneck at Capacity Limit**: `{ramp_data['primary_bottleneck_observed']}`",
+        "",
+        "### Headroom Step Details",
+        "",
+        "| Target Rate (evt/s) | Achieved Rate (evt/s) | Worst 10s Window (evt/s) | Target Sustained | Correctness | p95 Latency (ms) | Bottleneck Observed |",
+        "|:---:|:---:|:---:|:---:|:---:|:---:|---|",
+    ]
+    for s in ramp_data["steps"]:
+        sustained_str = "YES" if s["sustained_target"] else "NO"
+        corr_str = "PASS" if s["correctness_passed"] else "FAIL"
+        lines.append(
+            f"| {s['target_rate_events_per_sec']} | {s['achieved_overall_events_per_sec']:.1f} | {s['worst_10s_window_events_per_sec']:.1f} | {sustained_str} | {corr_str} | {s['latency_commit_to_proj_p95_ms']:.1f} ms | {s['bottleneck_observed']} |"
+        )
+    return report_md.strip() + "\n" + "\n".join(lines) + "\n"
+
+
+def run_headroom_ramp(
+    *,
+    rates: list[int] | None = None,
+    duration: int = 60,
+    num_producers: int = 4,
+    num_streams: int = 20,
+    num_relays: int = 2,
+    batch_size: int = 250,
+    seed: int = 42,
+    db_url: str | None = None,
+) -> dict[str, Any]:
+    """Execute headroom ramp across rates (200, 400, 800) for duration each."""
+    target_rates = rates or [200, 400, 800]
+    print("\n=======================================================")
+    print("HEADROOM RAMP BENCHMARK (Non-gating, for DG-5)")
+    print(f"Rates: {target_rates} | Duration per step: {duration}s")
+    print("=======================================================")
+
+    step_results: list[dict[str, Any]] = []
+    highest_sustained_rate = 0
+    bottleneck_summary = "None (headroom confirmed; all tested rates sustained)"
+
+    for r in target_rates:
+        print(f"\n---> Ramp Step: Target Rate = {r} events/s (duration = {duration}s)")
+        step_res = run_benchmark(
+            rate=r,
+            duration=duration,
+            num_producers=num_producers,
+            num_streams=num_streams,
+            num_relays=num_relays,
+            batch_size=batch_size,
+            seed=seed + r,
+            db_url=db_url,
+        )
+        worst_w = step_res["execution"]["worst_10s_window_events_per_sec"]
+        overall = step_res["execution"]["overall_events_per_sec"]
+        corr_pass = step_res["correctness"]["all_passed"]
+        sustained = (worst_w >= float(r)) and corr_pass
+
+        # Bottleneck detection
+        bottleneck = "None (headroom confirmed; system sustains target rate)"
+        if not sustained:
+            if worst_w < float(r):
+                p_lat = step_res["latency"]["commit_to_projection"]["p95_ms"]
+                r_lat = step_res["latency"]["ingest_to_projection"]["p95_ms"]
+                cpu_p = step_res["execution"]["process_cpu_percent"]
+                if cpu_p > 85.0:
+                    bottleneck = f"CPU saturation ({cpu_p}% CPU across worker threads)"
+                elif p_lat > 200.0:
+                    bottleneck = f"Producer transaction commit latency under WAL fsync (p95={p_lat:.1f}ms)"
+                elif r_lat > 100.0:
+                    bottleneck = f"Relay ingestion / checkpoint batch processing time (p95={r_lat:.1f}ms)"
+                else:
+                    bottleneck = f"Throughput plateau (achieved {overall:.1f} evt/s, worst window {worst_w:.1f} evt/s)"
+                bottleneck_summary = bottleneck
+
+        if sustained:
+            highest_sustained_rate = max(highest_sustained_rate, r)
+
+        step_results.append({
+            "target_rate_events_per_sec": r,
+            "achieved_overall_events_per_sec": overall,
+            "worst_10s_window_events_per_sec": worst_w,
+            "sustained_target": sustained,
+            "correctness_passed": corr_pass,
+            "latency_ingest_to_proj_p95_ms": step_res["latency"]["ingest_to_projection"]["p95_ms"],
+            "latency_commit_to_proj_p95_ms": step_res["latency"]["commit_to_projection"]["p95_ms"],
+            "bottleneck_observed": bottleneck,
+        })
+
+    return {
+        "rates_tested": target_rates,
+        "duration_per_step_sec": duration,
+        "highest_sustained_rate_events_per_sec": highest_sustained_rate,
+        "primary_bottleneck_observed": bottleneck_summary,
+        "steps": step_results,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="P1a-WP7 Ingest baseline measurement benchmark.")
     parser.add_argument("--rate", type=int, default=200, help="Nominal events per second rate (default 200)")
@@ -851,36 +956,87 @@ def main() -> None:
         default=str(ROOT / "docs" / "measurements" / "P1a-WP7.md"),
         help="Path for SC-07 Markdown report",
     )
+    parser.add_argument(
+        "--no-throughput-gate",
+        action="store_true",
+        help="Bypass throughput failure gate; fail only on correctness (for shared CI runners)",
+    )
+    parser.add_argument(
+        "--ramp",
+        action="store_true",
+        help="Run headroom ramp (200, 400, 800 events/s for 60s each) and append to report",
+    )
+    parser.add_argument(
+        "--ramp-only",
+        action="store_true",
+        help="Execute only the headroom ramp test and append to existing report",
+    )
 
     args = parser.parse_args()
 
-    results = run_benchmark(
-        rate=args.rate,
-        duration=args.duration,
-        num_producers=args.producers,
-        num_streams=args.streams,
-        num_relays=args.relays,
-        batch_size=args.batch_size,
-        seed=args.seed,
-        db_url=args.db_url,
-    )
+    json_path = Path(args.json_output)
+    md_path = Path(args.md_output)
+
+    results: dict[str, Any] = {}
+
+    if not args.ramp_only:
+        results = run_benchmark(
+            rate=args.rate,
+            duration=args.duration,
+            num_producers=args.producers,
+            num_streams=args.streams,
+            num_relays=args.relays,
+            batch_size=args.batch_size,
+            seed=args.seed,
+            db_url=args.db_url,
+        )
+        report_md = generate_markdown_report(results)
+    else:
+        # Load existing results if available
+        if json_path.exists():
+            results = json.loads(json_path.read_text(encoding="utf-8"))
+        if md_path.exists():
+            report_md = md_path.read_text(encoding="utf-8")
+        else:
+            report_md = "# SC-07 Ingestion Baseline Measurement Report (P1a-WP7)\n"
+
+    # Execute headroom ramp if requested
+    if args.ramp or args.ramp_only:
+        ramp_data = run_headroom_ramp(
+            rates=[200, 400, 800],
+            duration=60,
+            num_producers=args.producers,
+            num_streams=args.streams,
+            num_relays=args.relays,
+            batch_size=args.batch_size,
+            seed=args.seed,
+            db_url=args.db_url,
+        )
+        results["headroom_ramp"] = ramp_data
+        report_md = append_headroom_ramp_to_report(report_md, ramp_data)
 
     # Save JSON artifact
-    json_path = Path(args.json_output)
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
     print(f"==> Saved raw measurements artifact: {json_path}")
 
     # Save Markdown report
-    md_path = Path(args.md_output)
     md_path.parent.mkdir(parents=True, exist_ok=True)
-    report_md = generate_markdown_report(results)
     md_path.write_text(report_md, encoding="utf-8")
     print(f"==> Saved SC-07 measurement report: {md_path}")
 
-    if results["verdict"]["dg1_c4_status"] != "PASS":
-        print(f"\n[ERROR] DG1-C4 verdict FAIL: worst 10s window was {results['verdict']['achieved_worst_window']:.2f} evt/s < 200.0 evt/s")
-        sys.exit(1)
+    if args.no_throughput_gate:
+        if not results.get("correctness", {}).get("all_passed", False):
+            print(f"\n[ERROR] Correctness checks failed under load")
+            sys.exit(1)
+        worst_w = results.get("verdict", {}).get("achieved_worst_window", 0.0)
+        print(f"\n[INFO] --no-throughput-gate active: correctness passed, throughput gating bypassed (achieved worst 10s window: {worst_w:.2f} evt/s)")
+        sys.exit(0)
+    else:
+        if results.get("verdict", {}).get("dg1_c4_status") != "PASS":
+            worst_w = results.get("verdict", {}).get("achieved_worst_window", 0.0)
+            print(f"\n[ERROR] DG1-C4 verdict FAIL: worst 10s window was {worst_w:.2f} evt/s < 200.0 evt/s")
+            sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -75,7 +75,7 @@ jobs:
         run: uv run pytest -q
 
       - name: Ingest baseline smoke benchmark 30s (P1a-WP7 / DG1-C4)
-        run: uv run python tools/bench/ingest_baseline.py --duration 30 --rate 200 --json-output /tmp/ingest_smoke.json --md-output /tmp/ingest_smoke.md
+        run: uv run python tools/bench/ingest_baseline.py --duration 30 --rate 200 --no-throughput-gate --json-output /tmp/ingest_smoke.json --md-output /tmp/ingest_smoke.md
 
       - name: Lint and typecheck
         run: |

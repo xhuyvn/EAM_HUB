@@ -1,0 +1,23 @@
+{
+  "condition_id": "DG1-C4",
+  "milestone": "P1a",
+  "work_package": "P1a-WP7",
+  "status": "failed",
+  "observed_outcome": "Formal 600s measurement run on PostgreSQL 18.6 processed 120,283 events across 20 streams with 4 producers and 2 relays. All correctness checks PASSED under load (0 lost, 0 duplicates, strictly contiguous per-stream offsets, 20/20 full rebuild projection state hash parity). However, sustained throughput degraded after 100s from 204 events/s down to a worst 10s window of 50.00 events/s (below the >= 200.0 events/s threshold). Root cause identified as sequential scan on outbox table during relay polling due to missing composite index (tenant_id, stream_id, id) and WAL fsync write amplification. Recorded in ISS-024.",
+  "counts": {
+    "total_events_ingested": 120283,
+    "achieved_overall_rate": 66.34,
+    "worst_10s_window_rate": 50.00,
+    "required_rate": 200.0,
+    "zero_lost": true,
+    "zero_duplicated": true,
+    "contiguous_offsets": true,
+    "projection_hash_match": true
+  },
+  "evidence_refs": [
+    "docs/measurements/P1a-WP7.md",
+    "artifacts/measurements/P1a-WP7.json",
+    "tools/bench/ingest_baseline.py",
+    "docs/ISSUES.md#ISS-024"
+  ]
+}
