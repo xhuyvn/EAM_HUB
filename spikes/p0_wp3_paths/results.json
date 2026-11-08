@@ -1,0 +1,543 @@
+{
+  "timestamp": "2026-11-08T05:06:28.398260+00:00",
+  "host": {
+    "platform": "win32",
+    "python_version": "3.12.13 (main, Jun 11 2026, 04:05:29) [MSC v.1944 64 bit (AMD64)]",
+    "is_windows": true,
+    "is_admin": false
+  },
+  "windows": {
+    "is_admin": false,
+    "matrix_ctypes": [
+      {
+        "case_id": "V01",
+        "name": "Symlink file/dir pointing outside root",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Non-admin creation prevented OR runtime rejection",
+        "observed": "Blocked at OS level: Unprivileged creation blocked: [WinError 1314] A required privilege is not held by the client: 'C:\\\\Users\\\\xhuy\\\\AppData\\\\Local\\\\Temp\\\\tmpn7_ag3oe\\\\outside\\\\secret.txt' -> 'C:\\\\Users\\\\xhuy\\\\AppData\\\\Local\\\\Temp\\\\tmpn7_ag3oe\\\\root\\\\sym_outside.txt'",
+        "status": "PASS",
+        "notes": "Windows non-admin lacks SeCreateSymbolicLinkPrivilege without Developer Mode"
+      },
+      {
+        "case_id": "V02",
+        "name": "Directory junction outside root",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (PathTraversalError: Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpn7_ag3oe\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpn7_ag3oe\\root\\'.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V03",
+        "name": "Junction chain (j1 -> j2 -> outside)",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (PathTraversalError: Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpn7_ag3oe\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmpn7_ag3oe\\root\\'.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V04",
+        "name": "Hardlink to a file outside root",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Reject: HardlinkNotAllowedError",
+        "observed": "Rejected (HardlinkNotAllowedError: Hardlinked files disallowed: link count 2 > 1.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V05",
+        "name": "NTFS alternate data stream (legit.txt:secret)",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (PathTraversalError: Colons (alternate data streams or drive specifiers) are not permitted.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V06a",
+        "name": "8.3 short name resolving outside (PROGRA~1)",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Reject or FileNotFoundError (contained)",
+        "observed": "Rejected (FileNotFoundError: Cannot open 'PROGRA~1\\something.txt': Win32 error 3)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V06b",
+        "name": "8.3 short name inside root (VERYLO~1/target.txt)",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Allow legitimate file with normalized handle",
+        "observed": "Read success: 'normalized 8.3 data'",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V07",
+        "name": "UNC, device, and drive prefixes in rel",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Reject all: PathTraversalError or InvalidPathError",
+        "observed": "All 8 rejected: \\\\localhost\\c$\\Windows\\win.ini: rejected, //localhost/c$/Windows/win.ini: rejected, \\\\?\\C:\\Windows\\win.ini: rejected...",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V08",
+        "name": ".. and mixed separators traversal",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Reject all: PathTraversalError",
+        "observed": "All 6 rejected: ../outside/secret.txt: rejected, ..\\outside\\secret.txt: rejected, foo/../../outside/secret.txt: rejected...",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V09",
+        "name": "Case-variant paths on case-insensitive volumes",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Allow legitimate case variations without containment failure",
+        "observed": "All case variants accessed successfully and contained",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V10",
+        "name": "TOCTOU swap (directory replaced with junction/symlink)",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "0 escapes over 1,000 iterations (handle-first verification)",
+        "observed": "Verified in toctou_race.py harness",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V11a",
+        "name": "Directory opened as file",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Reject: FileTypeNotAllowedError",
+        "observed": "Rejected (FileTypeNotAllowedError)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V11b",
+        "name": "Junction node opened directly as file",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Reject: FileTypeNotAllowedError",
+        "observed": "Rejected (FileTypeNotAllowedError)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V12a",
+        "name": "Very long path (495 chars > 260)",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Allow legitimate path > 260 chars with \\\\?\\ handle",
+        "observed": "Read success (22 bytes)",
+        "status": "PASS",
+        "notes": "Path length: 495 chars"
+      },
+      {
+        "case_id": "V12b",
+        "name": "Long path traversal escaping root",
+        "engine": "ctypes",
+        "platform": "win32",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (PathTraversalError)",
+        "status": "PASS",
+        "notes": ""
+      }
+    ],
+    "matrix_pywin32": [
+      {
+        "case_id": "V01",
+        "name": "Symlink file/dir pointing outside root",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Non-admin creation prevented OR runtime rejection",
+        "observed": "Blocked at OS level: Unprivileged creation blocked: [WinError 1314] A required privilege is not held by the client: 'C:\\\\Users\\\\xhuy\\\\AppData\\\\Local\\\\Temp\\\\tmp42lwaa3u\\\\outside\\\\secret.txt' -> 'C:\\\\Users\\\\xhuy\\\\AppData\\\\Local\\\\Temp\\\\tmp42lwaa3u\\\\root\\\\sym_outside.txt'",
+        "status": "PASS",
+        "notes": "Windows non-admin lacks SeCreateSymbolicLinkPrivilege without Developer Mode"
+      },
+      {
+        "case_id": "V02",
+        "name": "Directory junction outside root",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (PathTraversalError: Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmp42lwaa3u\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmp42lwaa3u\\root\\'.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V03",
+        "name": "Junction chain (j1 -> j2 -> outside)",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (PathTraversalError: Final path '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmp42lwaa3u\\outside\\secret.txt' escapes root '\\\\?\\C:\\Users\\xhuy\\AppData\\Local\\Temp\\tmp42lwaa3u\\root\\'.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V04",
+        "name": "Hardlink to a file outside root",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Reject: HardlinkNotAllowedError",
+        "observed": "Rejected (HardlinkNotAllowedError: Hardlinked files disallowed: link count 2 > 1.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V05",
+        "name": "NTFS alternate data stream (legit.txt:secret)",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (PathTraversalError: Colons (alternate data streams or drive specifiers) are not permitted.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V06a",
+        "name": "8.3 short name resolving outside (PROGRA~1)",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Reject or FileNotFoundError (contained)",
+        "observed": "Rejected (FileNotFoundError: Cannot open 'PROGRA~1\\something.txt': (3, 'CreateFile', 'The system cannot find the path specified.'))",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V06b",
+        "name": "8.3 short name inside root (VERYLO~1/target.txt)",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Allow legitimate file with normalized handle",
+        "observed": "Read success: 'normalized 8.3 data'",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V07",
+        "name": "UNC, device, and drive prefixes in rel",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Reject all: PathTraversalError or InvalidPathError",
+        "observed": "All 8 rejected: \\\\localhost\\c$\\Windows\\win.ini: rejected, //localhost/c$/Windows/win.ini: rejected, \\\\?\\C:\\Windows\\win.ini: rejected...",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V08",
+        "name": ".. and mixed separators traversal",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Reject all: PathTraversalError",
+        "observed": "All 6 rejected: ../outside/secret.txt: rejected, ..\\outside\\secret.txt: rejected, foo/../../outside/secret.txt: rejected...",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V09",
+        "name": "Case-variant paths on case-insensitive volumes",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Allow legitimate case variations without containment failure",
+        "observed": "All case variants accessed successfully and contained",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V10",
+        "name": "TOCTOU swap (directory replaced with junction/symlink)",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "0 escapes over 1,000 iterations (handle-first verification)",
+        "observed": "Verified in toctou_race.py harness",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V11a",
+        "name": "Directory opened as file",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Reject: FileTypeNotAllowedError",
+        "observed": "Rejected (FileTypeNotAllowedError)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V11b",
+        "name": "Junction node opened directly as file",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Reject: FileTypeNotAllowedError",
+        "observed": "Rejected (FileTypeNotAllowedError)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V12a",
+        "name": "Very long path (495 chars > 260)",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Allow legitimate path > 260 chars with \\\\?\\ handle",
+        "observed": "Read success (22 bytes)",
+        "status": "PASS",
+        "notes": "Path length: 495 chars"
+      },
+      {
+        "case_id": "V12b",
+        "name": "Long path traversal escaping root",
+        "engine": "pywin32",
+        "platform": "win32",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (PathTraversalError)",
+        "status": "PASS",
+        "notes": ""
+      }
+    ],
+    "toctou_ctypes": {
+      "iterations": 1000,
+      "safe_reads": 8,
+      "blocked_traversals": 727,
+      "file_not_found": 265,
+      "escapes": 0,
+      "errors": 0,
+      "engine": "ctypes",
+      "platform": "win32"
+    },
+    "toctou_pywin32": {
+      "iterations": 1000,
+      "safe_reads": 4,
+      "blocked_traversals": 718,
+      "file_not_found": 278,
+      "escapes": 0,
+      "errors": 0,
+      "engine": "pywin32",
+      "platform": "win32"
+    },
+    "benchmark_10k": {
+      "baseline_open": {
+        "total_sec": 4.852,
+        "us_per_file": 485.2,
+        "files_per_sec": 2061.0
+      },
+      "safe_open_ctypes": {
+        "total_sec": 0.7928,
+        "us_per_file": 79.28,
+        "overhead_us_over_baseline": -405.92,
+        "files_per_sec": 12613.9
+      },
+      "safe_open_pywin32": {
+        "total_sec": 1.0306,
+        "us_per_file": 103.06,
+        "overhead_us_over_baseline": -382.14,
+        "files_per_sec": 9703.1
+      }
+    }
+  },
+  "linux_docker": {
+    "docker_version": "Docker version 29.9.2, build a82e528",
+    "matrix": [
+      {
+        "case_id": "V01a",
+        "name": "Symlink file pointing outside root",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "Reject: PathTraversalError or FileTypeNotAllowedError",
+        "observed": "Rejected (FileTypeNotAllowedError: openat2: Symlink rejected in 'sym_outside.txt'.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V01b",
+        "name": "File inside symlink directory pointing outside",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (FileTypeNotAllowedError: openat2: Symlink rejected in 'sym_dir_outside/secret.txt'.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V02",
+        "name": "Directory junction outside root",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "N/A on Linux (covered by directory symlink V01b)",
+        "observed": "N/A on Linux",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V03",
+        "name": "Junction chain",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "N/A on Linux (symlink chain covered)",
+        "observed": "N/A on Linux",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V04",
+        "name": "Hardlink to a file outside root",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "Reject: HardlinkNotAllowedError",
+        "observed": "Rejected (HardlinkNotAllowedError: Hardlinked files disallowed: link count 2 > 1.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V05",
+        "name": "NTFS alternate data stream (legit.txt:secret)",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (PathTraversalError: Colons (alternate data streams or drive specifiers) are not permitted.)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V06a",
+        "name": "8.3 short name resolving outside (PROGRA~1)",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "Reject or FileNotFoundError (contained)",
+        "observed": "Rejected (FileNotFoundError: File not found: 'PROGRA~1/something.txt')",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V06b",
+        "name": "8.3 short name normalization inside root",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "N/A on Linux",
+        "observed": "N/A on Linux",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V07",
+        "name": "UNC, device, and drive prefixes in rel",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "Reject all: PathTraversalError or InvalidPathError",
+        "observed": "All 8 rejected: \\\\localhost\\c$\\Windows\\win.ini: rejected, //localhost/c$/Windows/win.ini: rejected, \\\\?\\C:\\Windows\\win.ini: rejected...",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V08",
+        "name": ".. and mixed separators traversal",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "Reject all: PathTraversalError",
+        "observed": "All 6 rejected: ../outside/secret.txt: rejected, ..\\outside\\secret.txt: rejected, foo/../../outside/secret.txt: rejected...",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V09",
+        "name": "Case-variant paths on case-sensitive volumes",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "FileNotFoundError on mismatch",
+        "observed": "FileNotFoundError (clean case enforcement)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V10",
+        "name": "TOCTOU swap (directory replaced with junction/symlink)",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "0 escapes over 1,000 iterations (handle-first verification)",
+        "observed": "Verified in toctou_race.py harness",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V11a",
+        "name": "Directory opened as file",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "Reject: FileTypeNotAllowedError",
+        "observed": "Rejected (FileTypeNotAllowedError)",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V11b",
+        "name": "Reparse point inside root",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "N/A on Linux",
+        "observed": "N/A on Linux",
+        "status": "PASS",
+        "notes": ""
+      },
+      {
+        "case_id": "V12a",
+        "name": "Very long path (467 chars > 260)",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "Allow legitimate path > 260 chars with \\\\?\\ handle",
+        "observed": "Read success (22 bytes)",
+        "status": "PASS",
+        "notes": "Path length: 467 chars"
+      },
+      {
+        "case_id": "V12b",
+        "name": "Long path traversal escaping root",
+        "engine": "ctypes",
+        "platform": "linux",
+        "expected": "Reject: PathTraversalError",
+        "observed": "Rejected (PathTraversalError)",
+        "status": "PASS",
+        "notes": ""
+      }
+    ],
+    "toctou": {
+      "iterations": 1000,
+      "safe_reads": 168,
+      "blocked_traversals": 774,
+      "file_not_found": 58,
+      "escapes": 0,
+      "errors": 0,
+      "engine": "ctypes",
+      "platform": "linux"
+    },
+    "benchmark_10k": {
+      "baseline_open": {
+        "total_sec": 0.0905,
+        "us_per_file": 9.05,
+        "files_per_sec": 110457.4
+      },
+      "safe_open_ctypes": {
+        "total_sec": 0.1363,
+        "us_per_file": 13.63,
+        "overhead_us_over_baseline": 4.57,
+        "files_per_sec": 73387.2
+      }
+    }
+  }
+}

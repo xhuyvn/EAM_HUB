@@ -1,0 +1,8 @@
+[project]
+name = "p0-wp3-paths-spike"
+version = "0.1.0"
+description = "P0-WP3 Windows path containment spike"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pywin32==312",
+]
