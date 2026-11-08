@@ -4,7 +4,7 @@
 - **Work Package**: P1a-WP7 Ingest baseline (measurement) per `STATUS.md`, `docs/IMPLEMENTATION_PLAN.md` §5 SC-07 and §6 P1a-WP7, `docs/adr/DG-1.md` §0.1 DG1-C4, `docs/adr/DG-2.md` §0.1 DG2-C1.
 - **Target State**: `ready_for_review` (Blocked on owner architectural decision `ISS-024`)
 - **Branch**: `wp/P1a-WP7` (branched from `main` at `06a3015`)
-- **Code Commit under Review**: `8b6d29b`
+- **Code Commit under Review**: `61ce209`
 - **Base Commit**: `06a3015` ("accept P1a-WP6: logging and redaction (SC-04)")
 - **Parallel Work Packages Respected**:
   - No database migrations added (zero schema changes).
@@ -163,6 +163,7 @@ Execution Time: 15.042 ms
 | Static Typecheck | `uv run mypy src tests ppm-v2/reducer` | **PASS** (0 errors in 118 files) |
 | Web HUD Build | `npm --prefix web/hud run build` | **PASS** (built in 396ms) |
 | Checksums | `sha256sum -c SHA256SUMS.txt` | **PASS** |
+| GitHub Actions CI | Run ID `42433354388` | **PASS** (https://github.com/xhuyvn/EAM_HUB/actions/runs/42433354388) |
 
 ---
 
