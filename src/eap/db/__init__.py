@@ -7,6 +7,12 @@ from eap.db.event_tables import (
     security_events,
     stream_heads,
 )
+from eap.db.location_tables import (
+    host_root_ownership,
+    identity_conflicts,
+    location_registrations,
+    source_shares,
+)
 from eap.db.session import get_engine, get_session_factory
 from eap.db.tables import (
     action_executions,
@@ -37,7 +43,10 @@ __all__ = [
     "event_quarantine",
     "get_engine",
     "get_session_factory",
+    "host_root_ownership",
+    "identity_conflicts",
     "leases",
+    "location_registrations",
     "metadata",
     "outbox",
     "outbox_relay_marks",
@@ -48,6 +57,7 @@ __all__ = [
     "run_attempt_history",
     "runs",
     "security_events",
+    "source_shares",
     "sources",
     "stream_heads",
     "task_intents",

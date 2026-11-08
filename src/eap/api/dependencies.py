@@ -15,7 +15,7 @@ from eap.config import ConfiguredPrincipal, Settings, get_settings
 from eap.db.session import get_session_factory
 from eap.observability.logging import principal_id_var, register_secret, tenant_id_var
 
-# Single source of truth for forbidden identity field tokens (P2-1)
+# Single source of truth for forbidden identity and client-supplied field tokens (P2-1, L2)
 FORBIDDEN_IDENTITY_TOKENS: tuple[str, ...] = ("tenant", "principal")
 
 
@@ -25,19 +25,39 @@ def is_forbidden_identity_name(name: str) -> bool:
     return any(token in normalized for token in FORBIDDEN_IDENTITY_TOKENS)
 
 
+def is_forbidden_client_field(name: str) -> bool:
+    """Check if field is forbidden from client declaration (tenant, principal, host_os)."""
+    normalized = name.lower().replace("-", "_")
+    if "host_os" in normalized or "hostos" in normalized:
+        return True
+    return is_forbidden_identity_name(name)
+
+
 def check_forbidden_headers_and_query(request: Request) -> None:
-    """Inspect request headers and query parameters for forbidden tenant or principal inputs."""
-    # Enforce: No client-supplied tenant or principal in headers (P2-1)
+    """Inspect request headers and query parameters for forbidden tenant, principal, or host_os inputs."""
+    # Enforce: No client-supplied tenant, principal, or host_os in headers (P2-1, L2)
     for header_name in request.headers:
-        if is_forbidden_identity_name(header_name):
+        if is_forbidden_client_field(header_name):
+            norm = header_name.lower().replace("-", "_")
+            if "host_os" in norm or "hostos" in norm:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Header '{header_name}' is forbidden: host_os is server-side resolved",
+                )
             raise HTTPException(
                 status_code=422,
                 detail=f"Header '{header_name}' is forbidden: tenant/principal is server-side resolved",
             )
 
-    # Enforce: No client-supplied tenant or principal in query parameters
+    # Enforce: No client-supplied tenant, principal, or host_os in query parameters
     for param_name in request.query_params:
-        if is_forbidden_identity_name(param_name):
+        if is_forbidden_client_field(param_name):
+            norm = param_name.lower().replace("-", "_")
+            if "host_os" in norm or "hostos" in norm:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Query parameter '{param_name}' is forbidden: host_os is server-side resolved",
+                )
             raise HTTPException(
                 status_code=422,
                 detail=f"Query parameter '{param_name}' is forbidden: tenant/principal is server-side resolved",
@@ -113,7 +133,9 @@ def get_principal(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Set correlation context for structured logging
+    # Set correlation context on request.state (survives middleware dispatch boundaries, L4)
+    request.state.tenant_id = matched_principal.tenant_id
+    request.state.principal_id = matched_principal.principal_id
     tenant_id_var.set(matched_principal.tenant_id)
     principal_id_var.set(matched_principal.principal_id)
 
@@ -125,7 +147,7 @@ def get_principal(
 
 
 async def check_forbidden_body_fields(request: Request) -> dict[str, Any]:
-    """Inspect request body for forbidden client-declared tenant or principal fields."""
+    """Inspect request body for forbidden client-declared tenant, principal, or host_os fields (P2-1, L2)."""
     check_forbidden_headers_and_query(request)
 
     content_type = request.headers.get("content-type", "")
@@ -137,7 +159,13 @@ async def check_forbidden_body_fields(request: Request) -> dict[str, Any]:
 
         if isinstance(body, dict):
             for field in body:
-                if is_forbidden_identity_name(field):
+                if is_forbidden_client_field(field):
+                    norm = field.lower().replace("-", "_")
+                    if "host_os" in norm or "hostos" in norm:
+                        raise HTTPException(
+                            status_code=422,
+                            detail=f"Field '{field}' in request body is forbidden: host_os is derived server-side",
+                        )
                     raise HTTPException(
                         status_code=422,
                         detail=f"Field '{field}' in request body is forbidden: tenant/principal is server-side resolved",
