@@ -135,6 +135,10 @@ npm --prefix web/hud run build
 # 7. Pytest Full Suite on PostgreSQL 18.6
 uv run pytest -q
 # Result: 558 passed, 3 warnings in 156.30s
+
+# 8. GitHub Actions Continuous Integration (Run 42468298048)
+# URL: https://github.com/xhuyvn/EAM_HUB/actions/runs/42468298048
+# Result: ALL 18 STEPS PASSED (validate-and-test in 2m40s)
 ```
 
 ---
