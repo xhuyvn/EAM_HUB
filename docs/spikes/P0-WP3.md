@@ -172,15 +172,16 @@ While `safe_open` achieves 100% containment across the attack matrix, several re
 
 Decision Gate 3 (`DG-3`) serves as the gate immediately preceding the Local-pilot milestone. Per `docs/IMPLEMENTATION_PLAN.md` §3 and `docs/01_DECISIONS_AND_SOURCE_RECONCILIATION.md`, DG-3 requires three prerequisites:
 
-1. **P0-WP3 Windows Path Containment Spike**: **PASSED & COMPLETE**
-   - Native Windows 11 containment demonstrated with 0 escapes across 12 attack vectors and 1,000 TOCTOU iterations.
+1. **P0-WP3 & P0-WP3b Windows Path Containment Spike**: **PASSED & COMPLETE**
+   - Native Windows 11 containment demonstrated with 0 escapes across all 12 base attack vectors, all symlink topologies (file/dir symlinks outside with absolute/relative targets, symlink chains, internal symlink rejection via `follow_symlinks=false`, and git clone with `core.symlinks=true`), and 2,000 combined TOCTOU race iterations (1,000 junction swap + 1,000 symlink swap).
    - `safe_open` algorithm verified for implementation in `P2a-WP2`.
+   - **ISS-026 Closed for DG-3**: Runtime rejection of real filesystem symlinks on Windows 11 is empirically verified (see §10); the owner may resolve ISS-026 upon merging `wp/P0-WP3b`.
 2. **P0-WP6 Ollama Throughput Spike**: **PENDING**
    - Requires measurement of tokens/s and p95 latency at concurrency 1 and 2 on the pilot GPU using the owner's selected model (`docs/IMPLEMENTATION_PLAN.md` §6).
 3. **Egress Local-Only Policy (`D-06`)**: **PENDING / DESIGN COMPLETE**
    - Architectural guardrail: Model Gateway must strictly enforce loopback/local egress only, preventing billable provider calls or external telemetry during Local-pilot.
 
-With `P0-WP3` complete, the platform team is unblocked to implement `P2a-WP1` (Sources and project scopes) and `P2a-WP2` (Collector `safe_open`).
+With `P0-WP3` and `P0-WP3b` complete, the platform team has closed all path containment test gaps for DG-3, unblocking `P2a-WP2` (Collector `safe_open`).
 
 ---
 
@@ -191,3 +192,65 @@ Per the spike constraints, `docs/ISSUES.md` was not modified directly (P2a-WP1 o
 - **`ISS-NEW-1` (Platform / Collector)**: *Windows unprivileged symlink creation limitation*. Standard non-admin Windows environments prohibit creating symbolic links without Developer Mode enabled. Repositories checked out on Windows with `core.symlinks=false` store symlinks as plain text files containing the target path. The collector in `P2a-WP2` must identify git-symlink text artifacts and treat them as unreadable links rather than analyzing them as normal code files.
 - **`ISS-NEW-2` (Platform / Collector)**: *Hardlink detection requires MFT link count inspection*. Standard path canonicalization (`os.path.realpath`) cannot distinguish a hardlink pointing to an external file from a legitimate local file because both share the exact same filesystem inode. `safe_open` must strictly enforce `nNumberOfLinks == 1` to uphold `allow_hardlinked_files: false` from `location-registration.schema.json`.
 - **`ISS-NEW-3` (Platform / Collector)**: *Handle transfer safety via `msvcrt.open_osfhandle`*. On Windows, transferring raw Win32 handles to C runtime file descriptors via `msvcrt.open_osfhandle` permanently transfers handle closing responsibility to the CRT file descriptor. `safe_open` must guard against handle double-close or leak if `open_osfhandle` fails.
+
+---
+
+## 10. Native Windows 11 Symlink Runtime Verification (P0-WP3b / ISS-026)
+
+- **Work Package**: `P0-WP3b`
+- **Issue Tracked**: `ISS-026` ("Windows symlink vector V01 runtime rejection untested")
+- **Gate**: Serves `DG-3` sign-off and `P2a-WP2` collector design
+- **Execution Date**: 2026-11-08
+- **Branch**: `wp/P0-WP3b` (from `main` @ `ee28a86`)
+- **Host Configuration**: Windows 11 Pro (Build 26100.3194, AMD64), CPython 3.12.13
+- **Prerequisite Mode**: **Developer Mode enabled** (`Settings > System > For developers`, `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock\AllowDevelopmentWithoutDevLicense = 0x1`), executed as a standard non-admin account (`is_admin: False`).
+- **Artifacts**: `spikes/p0_wp3_paths/test_symlink_runtime.py`, `spikes/p0_wp3_paths/toctou_race.py`, `spikes/p0_wp3_paths/symlink_verification_results.json`
+
+### 10.1 Background & Objective
+In the initial P0-WP3 spike, attack vector V01 (symlinks pointing outside location root) was blocked on Windows at symlink creation time with `[WinError 1314] A required privilege is not held by the client` because standard Windows accounts lack `SeCreateSymbolicLinkPrivilege`. This left `ISS-026` open: verifying that `safe_open`'s runtime defenses actively detect and reject existing symlinks inside a repository (e.g. from git checkouts with `core.symlinks=true` or systems with Developer Mode enabled).
+
+Under P0-WP3b, Developer Mode was enabled on the Windows 11 test machine, granting unprivileged processes native symlink creation rights via `SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE`. We executed an exhaustive test matrix covering 11 symlink topologies and a 1,000-iteration TOCTOU symlink swap race against both `ctypes` and `pywin32` engines.
+
+### 10.2 Empirical Attack Matrix Results (ctypes & pywin32)
+
+All tests were performed in isolated temporary directories with strict teardown.
+
+| Vector ID | Attack Vector / Scenario | Expected Behavior | Observed `ctypes` | Observed `pywin32` | Verdict |
+|---|---|---|---|---|---|
+| **V01-A1** | File symlink outside root (absolute target) | Reject: `FileTypeNotAllowedError` (`follow_symlinks=false`) | Rejected: `Target is a reparse point / symlink.` | Rejected: `Target is a reparse point / symlink.` | **PASS** |
+| **V01-A2** | File symlink outside root (relative target) | Reject: `FileTypeNotAllowedError` (`follow_symlinks=false`) | Rejected: `Target is a reparse point / symlink.` | Rejected: `Target is a reparse point / symlink.` | **PASS** |
+| **V01-B1** | Directory symlink outside root (absolute target, read child) | Reject: `PathTraversalError` (escapes root boundary) | Rejected: `Final path '...\outside\secret.txt' escapes root` | Rejected: `Final path '...\outside\secret.txt' escapes root` | **PASS** |
+| **V01-B2** | Directory symlink outside root (relative target, read child) | Reject: `PathTraversalError` (escapes root boundary) | Rejected: `Final path '...\outside\secret.txt' escapes root` | Rejected: `Final path '...\outside\secret.txt' escapes root` | **PASS** |
+| **V01-B3** | Directory symlink opened directly as file | Reject: `FileTypeNotAllowedError` (directory) | Rejected: `Target is a directory.` | Rejected: `Target is a directory.` | **PASS** |
+| **V01-C1** | File symlink chain pointing outside (`f1 -> f2 -> outside`) | Reject: `FileTypeNotAllowedError` (reparse point) | Rejected: `Target is a reparse point / symlink.` | Rejected: `Target is a reparse point / symlink.` | **PASS** |
+| **V01-C2** | Directory symlink chain pointing outside (`d1 -> d2 -> outside`) | Reject: `PathTraversalError` (escapes root boundary) | Rejected: `Final path '...\outside\secret.txt' escapes root` | Rejected: `Final path '...\outside\secret.txt' escapes root` | **PASS** |
+| **V01-D1** | Symlink to file inside root (absolute target) | Reject: `FileTypeNotAllowedError` (`follow_symlinks=false`) | Rejected: `Target is a reparse point / symlink.` | Rejected: `Target is a reparse point / symlink.` | **PASS** |
+| **V01-D2** | Symlink to file inside root (relative target) | Reject: `FileTypeNotAllowedError` (`follow_symlinks=false`) | Rejected: `Target is a reparse point / symlink.` | Rejected: `Target is a reparse point / symlink.` | **PASS** |
+| **V01-E1** | Git clone (`core.symlinks=true`) with symlink to outside | Reject: `FileTypeNotAllowedError` (reparse point) | Rejected: `Target is a reparse point / symlink.` (`islink=True`) | Rejected: `Target is a reparse point / symlink.` (`islink=True`) | **PASS** |
+| **V01-E2** | Git clone (`core.symlinks=true`) with symlink inside root | Reject: `FileTypeNotAllowedError` (reparse point) | Rejected: `Target is a reparse point / symlink.` (`islink=True`) | Rejected: `Target is a reparse point / symlink.` (`islink=True`) | **PASS** |
+
+### 10.3 TOCTOU Race with Directory Symlink Swap (1,000 Iterations)
+
+A dedicated concurrency test (`spikes/p0_wp3_paths/toctou_race.py` and `test_symlink_runtime.py`) ran 1,000 rapid iterations where a background thread continuously swapped `root/swap_dir` between a legitimate directory (`safe_dir/target.txt`) and an NTFS directory symlink pointing to an unauthorized external directory (`outside/target.txt`).
+
+| Metric | `ctypes` Engine | `pywin32` Engine | Security Significance |
+|---|---|---|---|
+| **Total Iterations** | **1,000** | **1,000** | High-pressure stress test |
+| **Safe Reads (`SAFE_LEGITIMATE_DATA`)** | 5 | 4 | Legitimate file accessed when dir was safe |
+| **Blocked Traversals (`PathTraversalError` / `FileTypeNotAllowedError`)** | **683** | **726** | Kernel handle resolved to outside path; trapped immediately |
+| **Transient `FileNotFoundError` (unlinked/in-transit)** | 312 | 270 | Normal atomic swap transition handling |
+| **Unhandled / Inconsistent Errors** | **0** | **0** | Clean exception mapping |
+| **Escapes (`CONFIDENTIAL_SECRET_DATA` leaked)** | **0 (0.00%)** | **0 (0.00%)** | **100% containment; zero data leakage** |
+
+### 10.4 Architectural & Implementation Verification
+1. **Handle-First Pinning Eliminates Symlink Escapes**: Calling Win32 `CreateFileW` with `FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS` ensures that if a file itself is a symlink, the link handle is opened and immediately flagged by `BY_HANDLE_FILE_INFORMATION.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT`, raising `FileTypeNotAllowedError`.
+2. **Directory Symlink Traversal Trapped by `GetFinalPathNameByHandleW`**: When a file is accessed through an intermediate directory symlink, the operating system kernel resolves the path to its true filesystem location. `GetFinalPathNameByHandleW` returns the normalized volume/NT path, which fails the `final_path.casefold().startswith(canon_root.casefold())` prefix check and raises `PathTraversalError`.
+3. **Internal Symlinks Safely Disallowed (`follow_symlinks=false`)**: Even when a symlink targets a file residing inside the approved location root, `safe_open` rejects it (`V01-D1`, `V01-D2`, `V01-E2`). This prevents subtle alias-based bypasses, circular link loops, or mutable link redirection attacks.
+4. **Git Interoperability**: In repositories checked out with `git config core.symlinks true`, git writes true NTFS reparse points (`mode 120000`). Both inside and outside symlinks are rejected deterministically by `safe_open`.
+
+### 10.5 Conclusion & Closure of ISS-026
+The runtime behavior of `safe_open` against real Windows 11 symlinks is completely verified:
+- **Zero escapes** across all symlink topologies and 1,000-iteration TOCTOU races.
+- **Both `ctypes` and `pywin32`** engines pass 100% of cases.
+- **`ISS-026` is fully resolved** from a technical and empirical perspective. The owner can mark `ISS-026` as `resolved` in `docs/ISSUES.md` at branch merge.
+
