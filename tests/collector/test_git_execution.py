@@ -241,6 +241,8 @@ def test_submodule_filter_never_executed(tmp_path: Path):
     py_cmd = _make_py_marker_cmd(marker, "submodule_filter_ran\n")
 
     sub_worktree = main_repo / "mysub"
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=str(sub_worktree), check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=str(sub_worktree), check=True, capture_output=True)
     (sub_worktree / ".gitattributes").write_text("* filter=subevil\n", encoding="utf-8")
     subprocess.run(["git", "add", ".gitattributes"], cwd=str(sub_worktree), check=True, capture_output=True)
     subprocess.run(["git", "commit", "-m", "add sub attr"], cwd=str(sub_worktree), check=True, capture_output=True)
