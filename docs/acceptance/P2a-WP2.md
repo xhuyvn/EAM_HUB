@@ -15,7 +15,8 @@
   - Resolved `ISS-027`: `safe_open` handle-first containment on Windows ctypes and Linux openat2 / procfs fallback, single handle close safety verified.
   - Resolved `ISS-028`: Physical root filesystem identity derived from open directory handle (Windows volume serial + file index; Linux st_dev + st_ino); root replacement between scans detected and refused.
   - Logged `ISS-029` in `docs/ISSUES.md` (label `contract`): `contracts/event.schema.json` event_type enum lacks collector event type `ppm.snapshot.captured` (handled via outbox per ISS-025 pattern).
-  - Next free issue ID is `ISS-030`.
+  - Resolved `ISS-030` (Critical Finding C2-1): Arbitrary command execution from untrusted git repository configurations during `git status` fully neutralized across 9 attack vectors (clean filter, process filter, .git/info/attributes, include, includeIf, submodules, fsmonitor, hooks, textconv/diff).
+  - Next free issue ID is `ISS-031`.
 
 ---
 
@@ -42,22 +43,21 @@
 - On first scan of a source, persists physical identity in `source_physical_identities` table.
 - On subsequent scans, verifies current physical identity matches recorded identity; directory swaps/moves raise `RootReplacedSecurityError` and refuse scan.
 
-### 2.3 Safe Git Execution (`src/eap/ppm/collector/git.py`)
-- Executes git via strict `list[str]` arguments (never shell).
-- Scrubbed execution environment:
-  - `GIT_CONFIG_NOSYSTEM = "1"`
-  - `GIT_CONFIG_GLOBAL = <empty_temp_file>`
-  - `GIT_CONFIG_SYSTEM = <empty_temp_file>`
-  - `HOME = <empty_temp_dir>`
+### 2.3 Safe Git Execution & Command Neutralization (`src/eap/ppm/collector/git.py`)
+- **Direct safe_open HEAD Parsing**: Reads `.git/HEAD` and symbolic refs (loose or `.git/packed-refs`) directly without subprocess invocation.
+- **Scrubbed Environment**:
+  - `GIT_CONFIG_NOSYSTEM = "1"`, `GIT_ATTR_NOSYSTEM = "1"`
+  - `GIT_CONFIG_GLOBAL = <empty_temp_file>`, `GIT_CONFIG_SYSTEM = <empty_temp_file>`
+  - `HOME = <empty_temp_dir>`, `USERPROFILE = <empty_temp_dir>`
   - `GIT_TERMINAL_PROMPT = "0"`
-- Mandatory command-line overrides:
-  - `-c core.fsmonitor=false`
-  - `-c core.hooksPath=<empty_temp_dir>`
-  - `-c core.untrackedCache=false`
-  - `-c protocol.allow=never`
-  - `-c safe.directory=*`
-- Strict read-only operations: `rev-parse HEAD`, `--no-optional-locks status --porcelain=v2 -z`.
-- Non-git fallback: falls back to full file manifest hash (`manifest` containing path, size, mtime, sha256) via `safe_open`.
+- **Arbitrary Command Execution Neutralization (C2-1 / ISS-030)**:
+  - Top-level `--attr-source=<empty_tree>` (SHA-1 `4b825dc...` or SHA-256 `6ef19b4...` based on `objectformat` detection), neutralizing worktree `.gitattributes` anywhere in the tree.
+  - Automatic discovery of all declared filters (`filter.<name>.*`) and diff drivers (`diff.<name>.*`) across `.git/config`, `.git/info/attributes`, root `.gitattributes`, submodule configs in `.git/modules/**`, and `git config --list`.
+  - Overrides every discovered filter: `-c filter.<name>.clean=`, `-c filter.<name>.smudge=`, `-c filter.<name>.process=`, `-c filter.<name>.required=false`.
+  - Overrides every discovered diff driver: `-c diff.<driver>.textconv=`, `-c diff.<driver>.command=`.
+  - Blocks submodule recursion and execution: `--ignore-submodules=all`, `-c submodule.recurse=false`, `-c status.submodulesummary=false`.
+  - Blocks fsmonitor and hooks: `-c core.fsmonitor=false`, `-c core.hooksPath=<empty_temp_dir>`, `-c core.untrackedCache=false`, `-c protocol.allow=never`, `-c core.attributesFile=`.
+  - Uncertainty Principle: Any failure or uncertainty in determining git status marks `is_dirty=True` and `is_unknown=True`, producing a partial snapshot with reason `git_state_unknown`. Non-git repositories fallback cleanly to file manifests via `safe_open`.
 
 ### 2.4 Safe Parsers (`src/eap/ppm/collector/parser.py`)
 - Safe YAML loading via `yaml.SafeLoader` with customized constructor that raises `DuplicateKeyError` on duplicate dictionary keys.
@@ -91,7 +91,7 @@
 | **P0-WP3 V01–V12 Matrix** | Full path containment attack regression matrix | **PASS** | `tests/collector/test_safe_open.py` (15/15 PASS): V01 symlink, V02 junction outside, V03 junction chain, V04 hardlink, V05 NTFS ADS, V06a short name escape, V06b short name inside, V07 UNC/NT prefixes, V08 parent traversal, V09 case sensitivity, V10 TOCTOU directory swap, V11 directory as file, V12 long paths (>260 chars). |
 | **ISS-027: Handle Ownership** | Handle closed exactly once upon context exit | **PASS** | `tests/collector/test_safe_open.py::test_iss027_handle_closed_exactly_once`<br>Observed: File handle closed exactly once; target file writable immediately after with no lock leaks. |
 | **ISS-028: Physical Identity** | Moved or swapped root directory between scans refused | **PASS** | `tests/collector/test_collector_conformance.py::test_root_replaced_between_scans_refused`<br>Observed: `RootReplacedSecurityError: Root physical identity changed for source... Refusing scan.` |
-| **Git Execution Safety** | Malicious `.git/config` setting `core.fsmonitor` and hooks | **PASS** | `tests/collector/test_git_execution.py::test_fsmonitor_injection_script_never_executed`<br>`tests/collector/test_git_execution.py::test_hooks_path_injection_never_executed`<br>Observed: Injected scripts never executed; marker file never created. |
+| **Git Execution Safety & Neutralization (C2-1 / ISS-030)** | Complete 9-vector attack regression suite neutralizing arbitrary command execution | **PASS** | `tests/collector/test_git_execution.py` (12/12 PASS):<br>1. Clean filter via `.gitattributes`: PASS (0 marker)<br>2. Process filter via `.gitattributes`: PASS (0 marker)<br>3. Attributes in `.git/info/attributes`: PASS (0 marker)<br>4. Filter via `[include] path=other.cfg`: PASS (0 marker)<br>5. Filter via `[includeIf "gitdir:..."]`: PASS (0 marker)<br>6. Submodule filter in own config: PASS (0 marker)<br>7. `core.fsmonitor`: PASS (0 marker)<br>8. `core.hooksPath`: PASS (0 marker)<br>9. `textconv` / diff driver: PASS (0 marker)<br>10. Clean/dirty detection: PASS<br>11. Corrupt/uncertain config -> dirty/unknown: PASS<br>12. Non-git fallback: PASS. |
 | **10,000-File Throughput** | Benchmark on 10,000 files across 100 directories | **PASS** | `tests/collector/test_collector_conformance.py::test_10000_file_throughput`<br>Observed: `Scanned 10004 files in 52.776 s (189.6 files/s)`. |
 | **Safety Boundary Root Gate** | Collector refuses roots outside OS temp when `allow_real_roots=False` | **PASS** | `tests/collector/test_collector_conformance.py::test_safety_boundary_refuses_root_outside_temp`<br>Observed: `RootNotPermittedSecurityError` raised. |
 | **Share Permissions Gate** | `pending_share` and revoked shares unreadable | **PASS** | `tests/collector/test_collector_conformance.py::test_pending_and_revoked_shares_are_unreadable`<br>Observed: `PermissionError` raised for pending and revoked shares. |
@@ -134,7 +134,7 @@ npm --prefix web/hud run build
 
 # 7. Pytest Full Suite on PostgreSQL 18.6
 uv run pytest -q
-# Result: 558 passed, 3 warnings in 156.30s
+# Result: 566 passed, 3 warnings in 160.83s
 
 # 8. GitHub Actions Continuous Integration (Run 42468298048)
 # URL: https://github.com/xhuyvn/EAM_HUB/actions/runs/42468298048
