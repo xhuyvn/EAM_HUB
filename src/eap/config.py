@@ -115,6 +115,10 @@ class Settings(BaseSettings):
     eap_principals_json: SecretStr | None = Field(default=None, alias="EAP_PRINCIPALS_JSON")
     local_principals: list[ConfiguredPrincipal] | None = Field(default=None, exclude=True)
 
+    # Collector safety boundary (P2a-WP2 / DG-3)
+    eap_collector_allow_real_roots: bool = Field(default=False, alias="EAP_COLLECTOR_ALLOW_REAL_ROOTS")
+    eap_collector_fixtures_root: str | None = Field(default=None, alias="EAP_COLLECTOR_FIXTURES_ROOT")
+
     @field_validator(
         "redis_url",
         "qdrant_url",
@@ -127,6 +131,7 @@ class Settings(BaseSettings):
         "eap_owner_token_hash",
         "eap_second_token_hash",
         "eap_principals_json",
+        "eap_collector_fixtures_root",
         mode="before",
     )
     @classmethod
