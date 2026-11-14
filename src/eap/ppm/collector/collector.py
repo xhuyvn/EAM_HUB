@@ -513,7 +513,19 @@ class PpmCollector:
             is_mixed_snapshot = True
             all_partial_reasons.append(f"git_state_changed_during_scan: pre={git_pre} post={git_post}")
         if (git_pre and git_pre.is_unknown) or (git_post and git_post.is_unknown):
-            all_partial_reasons.append("git_state_unknown: dirty state could not be determined safely")
+            unknown_reasons: list[str] = []
+            if git_pre and git_pre.is_unknown and git_pre.reason:
+                unknown_reasons.append(git_pre.reason)
+            if git_post and git_post.is_unknown and git_post.reason and git_post.reason not in unknown_reasons:
+                unknown_reasons.append(git_post.reason)
+            if unknown_reasons:
+                for reason in unknown_reasons:
+                    if reason == "git_state_unknown":
+                        all_partial_reasons.append("git_state_unknown: dirty state could not be determined safely")
+                    else:
+                        all_partial_reasons.append(reason)
+            else:
+                all_partial_reasons.append("git_state_unknown: dirty state could not be determined safely")
 
         # Compute overall tree hash
         tree_hasher = hashlib.sha256()
