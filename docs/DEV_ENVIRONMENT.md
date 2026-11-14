@@ -23,6 +23,7 @@ Four core components are pinned per owner specification. All Docker images pin e
 | Redis | `redis:8.10.1-trixie` | Derived cache/rate limiting (see below) | No | 8.10.1 security patch August 2026 ([release notes](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/release-notes/redisce/redisos-8.10-release-notes/)); image tag verified in P0-WP1 |
 | Qdrant | `qdrant/qdrant:v1.20.0` | Derived vector index for retrieval | No | Python client v1.20.0 released 22/10/2026 supporting Qdrant 1.20 ([qdrant-client](https://github.com/qdrant/qdrant-client/releases/tag/v1.20.0)); server release page verification in P0-WP1 |
 | Node | 26 LTS | `web/hud` (Vite + React + TS) | Yes | Node 26 Active LTS entered 28/10/2026, EOL 30/04/2029 ([DevX](https://www.devx.com/coding/nodejs-26-lts-new-features-release-date/)) |
+| Git | `>= 2.41.0` | Collector read-only git inspection (`--attr-source`, `--git-dir`, `--work-tree`) | Yes | `--attr-source=<tree>` introduced in Git 2.41.0 ([RelNotes/2.41.0.adoc](https://github.com/git/git/blob/master/Documentation/RelNotes/2.41.0.adoc), accessed 2026-11-14); probed once per process (`git_version_unsupported` below 2.41.0) |
 | Ollama | local installation | Local model provider | No (fake model in D1) | Spike P0-WP6 |
 
 PostgreSQL 18 replaces 16 (plan rev 1.5, ADR-026); P0-WP1 executes SC-06 (migration up/down/up) on 18.6. Redis 8 is licensed under AGPL-3.0/RSAL/SSPL; internal evaluation is generally uninhibited, but bank software licensing policies must be cross-checked prior to private server deployment.

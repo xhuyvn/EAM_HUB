@@ -286,6 +286,106 @@ if sys.platform == "win32":
             if not handle_transferred:
                 kernel32.CloseHandle(h)
 
+    def _safe_resolve_dir_windows(root: str | Path, rel: str | Path) -> tuple[Path, str]:
+        validate_relative_path(rel)
+        canon_root = canonicalize_root_windows(root)
+        norm_rel = str(rel).replace("/", "\\").lstrip("\\")
+        target_path = canon_root + norm_rel
+
+        h = kernel32.CreateFileW(
+            target_path,
+            FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            None,
+            OPEN_EXISTING,
+            FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
+            None,
+        )
+        if h == INVALID_HANDLE_VALUE or h == 0:
+            err = ctypes.GetLastError()
+            raise FileNotFoundError(f"Cannot open directory '{norm_rel}': Win32 error {err}")
+
+        try:
+            final_path = _win_get_final_path_ctypes(h)
+            if not final_path.casefold().startswith(canon_root.casefold()):
+                raise PathTraversalError(
+                    f"Final path '{final_path}' escapes root '{canon_root}'."
+                )
+            sub_path = final_path[len(canon_root):]
+            if not sub_path:
+                raise PathTraversalError("Resolved directory cannot be the root directory itself.")
+            if ":" in sub_path:
+                raise PathTraversalError(f"Alternate data stream detected in final path: '{final_path}'")
+
+            info = BY_HANDLE_FILE_INFORMATION()
+            if not kernel32.GetFileInformationByHandle(h, ctypes.byref(info)):
+                err = ctypes.GetLastError()
+                raise OSError(err, f"GetFileInformationByHandle failed: error {err}")
+
+            attrs = info.dwFileAttributes
+            if attrs & FILE_ATTRIBUTE_REPARSE_POINT:
+                raise FileTypeNotAllowedError("Target directory is a reparse point / symlink.")
+            if not (attrs & FILE_ATTRIBUTE_DIRECTORY):
+                raise FileTypeNotAllowedError("Target is not a directory.")
+
+            rel_posix = sub_path.replace("\\", "/")
+            return Path(os.path.abspath(str(root))) / sub_path, rel_posix
+        finally:
+            kernel32.CloseHandle(h)
+
+    def _resolve_contained_dir_windows(root: str | Path, target: str | Path) -> tuple[Path, str]:
+        target_str = str(target)
+        if not target_str or "\0" in target_str:
+            raise InvalidPathError("Empty or NUL-containing directory target.")
+        if target_str.startswith(("\\\\", "//")):
+            raise PathTraversalError("UNC paths are not permitted.")
+
+        canon_root = canonicalize_root_windows(root)
+        candidate = Path(target_str) if os.path.isabs(target_str) else Path(root) / target_str
+        norm_candidate = os.path.normpath(str(candidate))
+        win_target = norm_candidate if norm_candidate.startswith("\\\\?\\") else f"\\\\?\\{norm_candidate}"
+
+        h = kernel32.CreateFileW(
+            win_target,
+            FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            None,
+            OPEN_EXISTING,
+            FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
+            None,
+        )
+        if h == INVALID_HANDLE_VALUE or h == 0:
+            err = ctypes.GetLastError()
+            raise FileNotFoundError(f"Cannot open directory '{target_str}': Win32 error {err}")
+
+        try:
+            final_path = _win_get_final_path_ctypes(h)
+            if not final_path.casefold().startswith(canon_root.casefold()):
+                raise PathTraversalError(
+                    f"Target directory '{final_path}' escapes root '{canon_root}'."
+                )
+            sub_path = final_path[len(canon_root):]
+            if not sub_path:
+                raise PathTraversalError("Target directory cannot be the root directory itself.")
+            if ":" in sub_path:
+                raise PathTraversalError(f"Alternate data stream detected in final path: '{final_path}'")
+
+            info = BY_HANDLE_FILE_INFORMATION()
+            if not kernel32.GetFileInformationByHandle(h, ctypes.byref(info)):
+                err = ctypes.GetLastError()
+                raise OSError(err, f"GetFileInformationByHandle failed: error {err}")
+
+            attrs = info.dwFileAttributes
+            if attrs & FILE_ATTRIBUTE_REPARSE_POINT:
+                raise FileTypeNotAllowedError("Target directory is a reparse point / symlink.")
+            if not (attrs & FILE_ATTRIBUTE_DIRECTORY):
+                raise FileTypeNotAllowedError("Target is not a directory.")
+        finally:
+            kernel32.CloseHandle(h)
+
+        # Re-verify component-by-component from root
+        return _safe_resolve_dir_windows(root, sub_path)
+
 
 # --- Linux Implementation (openat2 & /proc/self/fd) ---
 
@@ -470,6 +570,146 @@ if sys.platform != "win32":
                     pass
             raise
 
+    def _safe_resolve_dir_linux(root: str | Path, rel: str | Path) -> tuple[Path, str]:
+        validate_relative_path(rel)
+        canon_root = canonicalize_root_linux(root)
+        norm_rel = str(rel).lstrip("/")
+
+        fd = -1
+        dir_fd = -1
+        used_openat2 = False
+
+        if HAS_LIBC:
+            try:
+                dir_fd = os.open(canon_root, os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)
+                how = open_how(
+                    flags=os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC,
+                    mode=0,
+                    resolve=RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS,
+                )
+                res = libc.syscall(
+                    SYS_openat2,
+                    ctypes.c_int(dir_fd),
+                    norm_rel.encode("utf-8"),
+                    ctypes.byref(how),
+                    ctypes.c_size_t(ctypes.sizeof(how)),
+                )
+                if res >= 0:
+                    fd = int(res)
+                    used_openat2 = True
+                else:
+                    err = ctypes.get_errno()
+                    if err == errno.EXDEV:
+                        raise PathTraversalError(f"openat2: Path '{norm_rel}' escapes beneath root boundary.")
+                    elif err == errno.ELOOP:
+                        raise FileTypeNotAllowedError(f"openat2: Symlink rejected in '{norm_rel}'.")
+                    elif err == errno.ENOENT:
+                        raise FileNotFoundError(f"openat2: Directory not found: '{norm_rel}'")
+                    elif err == errno.ENOTDIR:
+                        raise FileTypeNotAllowedError(f"openat2: Component is not a directory: '{norm_rel}'")
+                    elif err != errno.ENOSYS:
+                        raise OSError(err, f"openat2 syscall failed with errno {err}")
+            finally:
+                if dir_fd >= 0:
+                    try:
+                        os.close(dir_fd)
+                    except OSError:
+                        pass
+
+        if not used_openat2:
+            current_fd = os.open(canon_root, os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)
+            parts = norm_rel.split("/")
+            try:
+                for part in parts:
+                    flags = os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+                    try:
+                        next_fd = os.open(part, flags, dir_fd=current_fd)
+                    except OSError as e:
+                        if e.errno == errno.ELOOP:
+                            raise FileTypeNotAllowedError(f"Symlink rejected: '{part}'") from e
+                        elif e.errno == errno.ENOENT:
+                            raise FileNotFoundError(f"Not found: '{part}'") from e
+                        elif e.errno == errno.ENOTDIR:
+                            raise FileTypeNotAllowedError(f"Not a directory: '{part}'") from e
+                        raise
+                    os.close(current_fd)
+                    current_fd = next_fd
+                fd = current_fd
+            except BaseException:
+                if current_fd >= 0:
+                    try:
+                        os.close(current_fd)
+                    except OSError:
+                        pass
+                raise
+
+        try:
+            try:
+                proc_target = os.readlink(f"/proc/self/fd/{fd}")
+                if not proc_target.startswith(canon_root):
+                    raise PathTraversalError(
+                        f"Target path '{proc_target}' escapes root '{canon_root}'"
+                    )
+                rel_posix = proc_target[len(canon_root):].rstrip("/")
+            except OSError:
+                rel_posix = norm_rel.rstrip("/")
+
+            st = os.fstat(fd)
+            if not stat.S_ISDIR(st.st_mode):
+                raise FileTypeNotAllowedError("Target is not a directory.")
+
+            return Path(canon_root) / rel_posix, rel_posix
+        finally:
+            if fd >= 0:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+
+    def _resolve_contained_dir_linux(root: str | Path, target: str | Path) -> tuple[Path, str]:
+        target_str = str(target)
+        if not target_str or "\0" in target_str:
+            raise InvalidPathError("Empty or NUL-containing directory target.")
+        if target_str.startswith(("//", "\\\\")):
+            raise PathTraversalError("UNC paths are not permitted.")
+
+        canon_root = canonicalize_root_linux(root)
+        candidate = Path(target_str) if os.path.isabs(target_str) else Path(root) / target_str
+        norm_candidate = os.path.normpath(str(candidate))
+
+        try:
+            fd = os.open(norm_candidate, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        except OSError as e:
+            if e.errno == errno.ELOOP:
+                raise FileTypeNotAllowedError(f"Symlink rejected: '{target_str}'") from e
+            elif e.errno == errno.ENOENT:
+                raise FileNotFoundError(f"Not found: '{target_str}'") from e
+            elif e.errno == errno.ENOTDIR:
+                raise FileTypeNotAllowedError(f"Not a directory: '{target_str}'") from e
+            raise
+
+        try:
+            try:
+                proc_target = os.readlink(f"/proc/self/fd/{fd}")
+                if not proc_target.startswith(canon_root):
+                    raise PathTraversalError(
+                        f"Target directory '{proc_target}' escapes root '{canon_root}'."
+                    )
+                rel_posix = proc_target[len(canon_root):].rstrip("/")
+            except OSError:
+                rel_posix = os.path.relpath(norm_candidate, canon_root.rstrip("/"))
+                if rel_posix == "." or rel_posix.startswith("..") or os.path.isabs(rel_posix):
+                    raise PathTraversalError(
+                        f"Target directory '{norm_candidate}' escapes root '{canon_root}'."
+                    ) from None
+            if not rel_posix:
+                raise PathTraversalError("Target directory cannot be the root directory itself.")
+        finally:
+            os.close(fd)
+
+        # Re-verify component-by-component from root via openat2 / O_NOFOLLOW
+        return _safe_resolve_dir_linux(root, rel_posix)
+
 
 # --- Unified safe_open Entrypoint ---
 
@@ -520,6 +760,22 @@ def safe_open(
         )
 
 
+def safe_resolve_dir(root: str | Path, rel: str | Path) -> tuple[Path, str]:
+    """Verify a relative directory is a real directory strictly beneath root without symlinks/reparse points."""
+    if sys.platform == "win32":
+        return _safe_resolve_dir_windows(root, rel)
+    else:
+        return _safe_resolve_dir_linux(root, rel)
+
+
+def resolve_contained_dir(root: str | Path, target: str | Path) -> tuple[Path, str]:
+    """Verify an absolute or relative target directory resolves strictly beneath root without symlinks/reparse points."""
+    if sys.platform == "win32":
+        return _resolve_contained_dir_windows(root, target)
+    else:
+        return _resolve_contained_dir_linux(root, target)
+
+
 __all__ = [
     "FileTooLargeError",
     "FileTypeNotAllowedError",
@@ -528,6 +784,8 @@ __all__ = [
     "PathTraversalError",
     "SafeOpenError",
     "canonicalize_root_windows",
+    "resolve_contained_dir",
     "safe_open",
+    "safe_resolve_dir",
     "validate_relative_path",
 ]
