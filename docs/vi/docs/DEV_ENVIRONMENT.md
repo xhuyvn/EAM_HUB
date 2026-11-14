@@ -1,4 +1,4 @@
-> Translated from docs/DEV_ENVIRONMENT.md @ d7c9e91
+> Translated from docs/DEV_ENVIRONMENT.md @ 6f07f13
 
 # EAM_HUB — Dev Environment
 
@@ -25,6 +25,7 @@ Bốn thành phần được chốt theo yêu cầu của owner. Mọi image Doc
 | Redis | `redis:8.10.1-trixie` | Cache/rate limit dẫn xuất (xem mục sau) | Không | 8.10.1 là bản vá bảo mật tháng 8/2026 ([release notes](https://redis.io/docs/latest/operate/oss_and_stack/stack-with-enterprise/release-notes/redisce/redisos-8.10-release-notes/)); tag image chưa kiểm |
 | Qdrant | `qdrant/qdrant:v1.20.0` | Vector index dẫn xuất cho retrieval | Không | Client Python v1.20.0 phát hành 22/10/2026, hỗ trợ Qdrant 1.20 ([qdrant-client](https://github.com/qdrant/qdrant-client/releases/tag/v1.20.0)); release server v1.20.0 chưa mở trang kiểm |
 | Node | 26 LTS | `web/hud` (Vite + React + TS) | Có | Node 26 vào Active LTS 28/10/2026, EOL 30/04/2029 ([DevX](https://www.devx.com/coding/nodejs-26-lts-new-features-release-date/)) |
+| Git | `>= 2.41.0` | Collector đọc trạng thái git ở chế độ chỉ đọc (`--attr-source`, `--git-dir`, `--work-tree`) | Có | `--attr-source=<tree>` có từ Git 2.41.0 ([RelNotes/2.41.0.adoc](https://github.com/git/git/blob/master/Documentation/RelNotes/2.41.0.adoc), truy cập 2026-11-14); kiểm tra phiên bản một lần mỗi process (dưới 2.41.0 trả về `git_version_unsupported`) |
 | Ollama | bản cài local | Model local | Không (fake model ở D1) | Spike P0-WP6 |
 
 PostgreSQL 18 thay cho 16 (plan rev 1.5, ADR-026); P0-WP1 chạy SC-06 (migration up/down/up) trên 18.6. Redis 8 phân phối theo bộ license AGPL-3.0/RSAL/SSPL; dùng nội bộ thường không vướng, nhưng cần đối chiếu chính sách license của ngân hàng trước khi lên private server.
