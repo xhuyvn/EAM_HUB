@@ -119,6 +119,9 @@ class Settings(BaseSettings):
     eap_collector_allow_real_roots: bool = Field(default=False, alias="EAP_COLLECTOR_ALLOW_REAL_ROOTS")
     eap_collector_fixtures_root: str | None = Field(default=None, alias="EAP_COLLECTOR_FIXTURES_ROOT")
 
+    # PPM Ingest feature flag / rollback (P2a-WP3)
+    ppm_ingest_enabled: bool = Field(default=True, alias="PPM_INGEST_ENABLED")
+
     @field_validator(
         "redis_url",
         "qdrant_url",

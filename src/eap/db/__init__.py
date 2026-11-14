@@ -7,6 +7,12 @@ from eap.db.event_tables import (
     security_events,
     stream_heads,
 )
+from eap.db.ingest_tables import (
+    ppm_ingest_checkpoints,
+    ppm_ingested_artifacts,
+    ppm_notes,
+    ppm_updates,
+)
 from eap.db.location_tables import (
     host_root_ownership,
     identity_conflicts,
@@ -57,7 +63,11 @@ __all__ = [
     "metadata",
     "outbox",
     "outbox_relay_marks",
+    "ppm_ingest_checkpoints",
+    "ppm_ingested_artifacts",
+    "ppm_notes",
     "ppm_scan_schedules",
+    "ppm_updates",
     "project_current_assessment",
     "project_scopes",
     "project_snapshot_sequences",

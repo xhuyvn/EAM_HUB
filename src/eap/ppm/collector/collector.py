@@ -120,6 +120,7 @@ class PpmCollector:
         *,
         allow_real_roots: bool | None = None,
         fixtures_root: str | None = None,
+        ingest_enabled: bool | None = None,
     ) -> None:
         settings = get_settings()
         self.allow_real_roots = (
@@ -131,6 +132,11 @@ class PpmCollector:
             fixtures_root
             if fixtures_root is not None
             else settings.eap_collector_fixtures_root
+        )
+        self.ingest_enabled = (
+            ingest_enabled
+            if ingest_enabled is not None
+            else settings.ppm_ingest_enabled
         )
 
     def scan_source(
@@ -451,9 +457,15 @@ class PpmCollector:
                         scope_partial_reasons.append(reason)
                         all_partial_reasons.append(reason)
 
-            # 7.5 Read updates and status claims
-            for rel_file in scope_files:
-                if rel_file.startswith(f"{m_root}/updates/") and rel_file.endswith(".yaml"):
+            # 7.5 Read updates and status/project/acceptance claims
+            metadata_claim_paths = {
+                f"{m_root}/project.yaml".replace("//", "/"),
+                f"{m_root}/status.yaml".replace("//", "/"),
+                f"{m_root}/acceptance.yaml".replace("//", "/"),
+            }
+            for rel_file, file_hash in scope_files.items():
+                is_update_yaml = rel_file.startswith(f"{m_root}/updates/") and rel_file.endswith(".yaml")
+                if is_update_yaml or rel_file in metadata_claim_paths:
                     try:
                         with safe_open(canonical_root, rel_file, mode="r", encoding="utf-8") as uf:
                             raw_upd = uf.read()
@@ -461,6 +473,7 @@ class PpmCollector:
                         upd_data = safe_load_yaml(str_upd)
                         claims.append({
                             "path": rel_file,
+                            "content_hash": file_hash,
                             "data": upd_data,
                         })
                     except (DuplicateKeyError, SafeParseError) as pe:
@@ -546,6 +559,7 @@ class PpmCollector:
         )
 
         # 9.2 For each active scope, issue monotonic snapshot_seq and insert project_snapshots
+        proj_snap_ids: list[str] = []
         for p_id, s_res in scope_results.items():
             # Atomically increment or initialize snapshot_seq
             seq_row = db.execute(
@@ -583,6 +597,7 @@ class PpmCollector:
 
             s_res.snapshot_seq = new_seq
             proj_snap_id = f"psnap-{uuid.uuid4().hex[:16]}"
+            proj_snap_ids.append(proj_snap_id)
 
             db.execute(
                 project_snapshots.insert().values(
@@ -627,6 +642,14 @@ class PpmCollector:
             )
 
         db.commit()
+
+        # 10. Post-commit ingest (P2a-WP3), behind ppm.ingest.enabled
+        if self.ingest_enabled and proj_snap_ids:
+            from eap.ppm.ingest import ingest_snapshot
+
+            for proj_snap_id in proj_snap_ids:
+                ingest_snapshot(db, tenant_id, proj_snap_id)
+            db.commit()
 
         return CollectorScanResult(
             snapshot_id=snapshot_id,
