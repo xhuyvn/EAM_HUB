@@ -62,6 +62,17 @@ class GitState:
     reason: str | None = None
 
 
+class GitArchiveContainmentError(RuntimeError):
+    """Raised when git containment checks prevent safe archive export."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(f"Git archive refused ({reason})")
+
+
+_SAFE_GIT_REV_RE = re.compile(r"^[0-9A-Za-z_./-]+$")
+
+
 EMPTY_TREE_SHA1 = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 EMPTY_TREE_SHA256 = "6ef19b41225c5369f1c104d45d8d85efa9b057b53b14b4b9b939ec74decc5310"
 
@@ -418,6 +429,72 @@ def _discover_filter_and_diff_names(
     return filter_names, diff_names
 
 
+def _prepare_neutralized_git_exec(
+    root: str | Path,
+    args: list[str],
+    sandbox_dir: str,
+    *,
+    gitdir: str | Path | None = None,
+    gitdir_rel: str = ".git",
+) -> tuple[list[str], str, dict[str, str]]:
+    """Build neutralized git argv, cwd, and scrubbed env inside a temporary sandbox."""
+    root_path = Path(root).resolve()
+    root_str = str(root_path)
+    resolved_gitdir = Path(gitdir).resolve() if gitdir is not None else (root_path / ".git")
+    gitdir_str = str(resolved_gitdir)
+
+    empty_global_config = os.path.join(sandbox_dir, "empty_gitconfig")
+    Path(empty_global_config).touch()
+
+    empty_hooks_dir = os.path.join(sandbox_dir, "hooks")
+    os.makedirs(empty_hooks_dir, exist_ok=True)
+
+    clean_env = _build_clean_git_env(root_path, sandbox_dir, empty_global_config)
+
+    empty_tree = _detect_empty_tree(root_path, gitdir_rel=gitdir_rel)
+    filter_names, diff_names = _discover_filter_and_diff_names(
+        root_path,
+        sandbox_dir,
+        gitdir_path=resolved_gitdir,
+        gitdir_rel=gitdir_rel,
+    )
+
+    # Mandatory safe core flags neutralizing all execution vectors and containment escapes
+    overrides: list[str] = [
+        f"--git-dir={gitdir_str}",
+        f"--work-tree={root_str}",
+        f"--attr-source={empty_tree}",
+        "-c", f"core.worktree={root_str}",
+        "-c", "core.fsmonitor=false",
+        "-c", f"core.hooksPath={empty_hooks_dir}",
+        "-c", "core.untrackedCache=false",
+        "-c", "protocol.allow=never",
+        "-c", f"safe.directory={root_str}",
+        "-c", "safe.directory=*",
+        "-c", "submodule.recurse=false",
+        "-c", "status.submodulesummary=false",
+        "-c", "core.attributesFile=",
+    ]
+
+    # Neutralize all discovered filters
+    for fname in sorted(filter_names):
+        overrides.extend([
+            "-c", f"filter.{fname}.clean=",
+            "-c", f"filter.{fname}.smudge=",
+            "-c", f"filter.{fname}.process=",
+            "-c", f"filter.{fname}.required=false",
+        ])
+
+    # Neutralize all discovered diff drivers
+    for dname in sorted(diff_names):
+        overrides.extend([
+            "-c", f"diff.{dname}.textconv=",
+            "-c", f"diff.{dname}.command=",
+        ])
+
+    return ["git", *overrides, *args], root_str, clean_env
+
+
 def run_git_read_only(
     root: str | Path,
     args: list[str],
@@ -427,63 +504,14 @@ def run_git_read_only(
     timeout: float = 15.0,
 ) -> subprocess.CompletedProcess[str]:
     """Execute a read-only git command with scrubbed environment and all execution vectors neutralized."""
-    root_path = Path(root).resolve()
-    root_str = str(root_path)
-    resolved_gitdir = Path(gitdir).resolve() if gitdir is not None else (root_path / ".git")
-    gitdir_str = str(resolved_gitdir)
-
     with tempfile.TemporaryDirectory(prefix="eap_git_sandbox_") as sandbox_dir:
-        empty_global_config = os.path.join(sandbox_dir, "empty_gitconfig")
-        Path(empty_global_config).touch()
-
-        empty_hooks_dir = os.path.join(sandbox_dir, "hooks")
-        os.makedirs(empty_hooks_dir, exist_ok=True)
-
-        clean_env = _build_clean_git_env(root_path, sandbox_dir, empty_global_config)
-
-        empty_tree = _detect_empty_tree(root_path, gitdir_rel=gitdir_rel)
-        filter_names, diff_names = _discover_filter_and_diff_names(
-            root_path,
+        cmd, root_str, clean_env = _prepare_neutralized_git_exec(
+            root,
+            args,
             sandbox_dir,
-            gitdir_path=resolved_gitdir,
+            gitdir=gitdir,
             gitdir_rel=gitdir_rel,
         )
-
-        # Mandatory safe core flags neutralizing all execution vectors and containment escapes
-        overrides: list[str] = [
-            f"--git-dir={gitdir_str}",
-            f"--work-tree={root_str}",
-            f"--attr-source={empty_tree}",
-            "-c", f"core.worktree={root_str}",
-            "-c", "core.fsmonitor=false",
-            "-c", f"core.hooksPath={empty_hooks_dir}",
-            "-c", "core.untrackedCache=false",
-            "-c", "protocol.allow=never",
-            "-c", f"safe.directory={root_str}",
-            "-c", "safe.directory=*",
-            "-c", "submodule.recurse=false",
-            "-c", "status.submodulesummary=false",
-            "-c", "core.attributesFile=",
-        ]
-
-        # Neutralize all discovered filters
-        for fname in sorted(filter_names):
-            overrides.extend([
-                "-c", f"filter.{fname}.clean=",
-                "-c", f"filter.{fname}.smudge=",
-                "-c", f"filter.{fname}.process=",
-                "-c", f"filter.{fname}.required=false",
-            ])
-
-        # Neutralize all discovered diff drivers
-        for dname in sorted(diff_names):
-            overrides.extend([
-                "-c", f"diff.{dname}.textconv=",
-                "-c", f"diff.{dname}.command=",
-            ])
-
-        cmd = ["git", *overrides, *args]
-
         return subprocess.run(
             cmd,
             cwd=root_str,
@@ -494,6 +522,74 @@ def run_git_read_only(
             timeout=timeout,
             check=False,
         )
+
+
+def export_git_archive_tar(
+    root: str | Path,
+    revision: str,
+    *,
+    timeout: float = 15.0,
+) -> bytes:
+    """Safely export a committed tree tar archive after ISS-030/ISS-031 containment checks.
+
+    Never writes into ``root`` and neutralizes filters, diff drivers, hooks, and .gitattributes.
+    """
+    rev = revision.strip()
+    if not rev or rev.startswith("-") or ".." in rev or not _SAFE_GIT_REV_RE.fullmatch(rev):
+        raise ValueError(f"Invalid git revision specifier: {revision!r}")
+
+    root_path = Path(root).resolve()
+    resolved = _resolve_gitdir(root_path)
+    if resolved is None:
+        raise GitArchiveContainmentError("not_a_git_repository")
+    if isinstance(resolved, GitState):
+        raise GitArchiveContainmentError(resolved.reason or "gitdir_outside_root")
+
+    gitdir_path, gitdir_rel = resolved
+    metadata_err = _check_gitdir_containment_metadata(root_path, gitdir_path, gitdir_rel)
+    if metadata_err is not None:
+        raise GitArchiveContainmentError(metadata_err.reason or "git_containment_violation")
+
+    git_version = get_git_version()
+    if git_version is None or git_version < MIN_GIT_VERSION:
+        raise GitArchiveContainmentError("git_version_unsupported")
+
+    rev_proc = run_git_read_only(
+        root_path,
+        ["--no-optional-locks", "rev-parse", "--verify", f"{rev}^{{commit}}"],
+        gitdir=gitdir_path,
+        gitdir_rel=gitdir_rel,
+        timeout=timeout,
+    )
+    if rev_proc.returncode != 0:
+        raise GitArchiveContainmentError(f"unknown_revision:{rev}")
+
+    verified_sha = rev_proc.stdout.strip()
+    if len(verified_sha) not in (40, 64) or not all(c in "0123456789abcdefABCDEF" for c in verified_sha):
+        raise GitArchiveContainmentError(f"invalid_resolved_sha:{rev}")
+
+    with tempfile.TemporaryDirectory(prefix="eap_git_archive_") as sandbox_dir:
+        cmd, root_str, clean_env = _prepare_neutralized_git_exec(
+            root_path,
+            ["--no-optional-locks", "archive", "--format=tar", verified_sha],
+            sandbox_dir,
+            gitdir=gitdir_path,
+            gitdir_rel=gitdir_rel,
+        )
+        res = subprocess.run(
+            cmd,
+            cwd=root_str,
+            env=clean_env,
+            shell=False,
+            capture_output=True,
+            text=False,
+            timeout=timeout,
+            check=False,
+        )
+        if res.returncode != 0:
+            err_msg = res.stderr.decode("utf-8", errors="replace").strip()
+            raise RuntimeError(f"git archive failed for revision {verified_sha}: {err_msg}")
+        return bytes(res.stdout)
 
 
 def _read_head_direct(root: Path, gitdir_rel: str = ".git") -> str | None:
@@ -630,7 +726,9 @@ def get_git_state(root: str | Path) -> GitState | None:
 
 __all__ = [
     "MIN_GIT_VERSION",
+    "GitArchiveContainmentError",
     "GitState",
+    "export_git_archive_tar",
     "get_git_state",
     "get_git_version",
     "is_git_repository",

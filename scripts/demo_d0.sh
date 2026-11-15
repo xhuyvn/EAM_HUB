@@ -4,6 +4,15 @@ set -euo pipefail
 # D0 thin slice demo script (fixtures-only, idempotent, safe to rerun).
 # Never prints bearer tokens or token hashes.
 
+USE_REAL_VERIFIER="${D0_REAL_VERIFIER:-false}"
+for arg in "$@"; do
+  case "$arg" in
+    --real-verifier)
+      USE_REAL_VERIFIER="true"
+      ;;
+  esac
+done
+
 TENANT_ID="${EAP_OWNER_TENANT_ID:-tenant-owner}"
 PROJECT_ID="${D0_PROJECT_ID:-proj-d0-demo}"
 SOURCE_ID="${D0_SOURCE_ID:-src-d0-demo}"
@@ -56,7 +65,7 @@ REPO_DIR="$DEMO_ROOT/repo"
 META_DIR="$DEMO_ROOT/meta"
 
 rm -rf "$DEMO_ROOT"
-mkdir -p "$REPO_DIR/.ppm/updates" "$REPO_DIR/.ppm/notes" "$REPO_DIR/reports" "$REPO_DIR/src" "$META_DIR"
+mkdir -p "$REPO_DIR/.ppm/updates" "$REPO_DIR/.ppm/notes" "$REPO_DIR/reports" "$REPO_DIR/src" "$REPO_DIR/tests" "$META_DIR"
 
 export GIT_AUTHOR_NAME="D0 Demo"
 export GIT_AUTHOR_EMAIL="d0-demo@example.invalid"
@@ -185,6 +194,14 @@ def export_csv() -> str:
     return "id,name\n1,example\n"
 EOF
 
+cat > "$REPO_DIR/tests/test_d0.py" <<'EOF'
+from src.export import export_csv
+
+
+def test_ac001_export():
+    assert export_csv() == "id,name\n1,example\n"
+EOF
+
 export GIT_AUTHOR_DATE="2026-11-15T08:00:00Z"
 export GIT_COMMITTER_DATE="2026-11-15T08:00:00Z"
 git -C "$REPO_DIR" add -A >/dev/null
@@ -264,10 +281,17 @@ cat > "$META_DIR/evidence_r1.json" <<EOF
 }
 EOF
 
-uv run python -m eap.ppm.cli load-evidence \
-  --tenant "$TENANT_ID" \
-  --project "$PROJECT_ID" \
-  --fixture "$META_DIR/evidence_r1.json" >/dev/null
+if [ "$USE_REAL_VERIFIER" = "true" ]; then
+  PPM_VERIFIER_ENABLED=true uv run python -m eap.ppm.cli verify \
+    --tenant "$TENANT_ID" \
+    --project "$PROJECT_ID" \
+    --revision "$REV_R1" >/dev/null
+else
+  uv run python -m eap.ppm.cli load-evidence \
+    --tenant "$TENANT_ID" \
+    --project "$PROJECT_ID" \
+    --fixture "$META_DIR/evidence_r1.json" >/dev/null
+fi
 
 uv run python -m eap.ppm.cli scan \
   --tenant "$TENANT_ID" \
@@ -282,10 +306,28 @@ A1_JSON="$(uv run python -m eap.ppm.cli assess \
   --skip-if-revision-exists)"
 A1_ID="$(echo "$A1_JSON" | uv run python -c "import json, sys; print(json.load(sys.stdin)['assessment_id'])")"
 
-# --- Step 4: Commit rev-r2, load simulated evidence, scan, assess -> A2 ---
+# --- Step 4: Commit rev-r2, load simulated/real evidence, scan, assess -> A2 ---
+cat > "$REPO_DIR/src/export.py" <<'EOF'
+def export_csv() -> str:
+    return "broken\n"
+EOF
+
 cat > "$REPO_DIR/src/login.py" <<'EOF'
 def login(user: str) -> bool:
     return bool(user)
+EOF
+
+cat > "$REPO_DIR/tests/test_d0.py" <<'EOF'
+from src.export import export_csv
+from src.login import login
+
+
+def test_ac001_export():
+    assert export_csv() == "id,name\n1,example\n"
+
+
+def test_ac002_login():
+    assert login("alice") is True
 EOF
 
 cat > "$REPO_DIR/.ppm/updates/upd-0002.yaml" <<EOF
@@ -384,10 +426,40 @@ cat > "$META_DIR/evidence_r2.json" <<EOF
 }
 EOF
 
-uv run python -m eap.ppm.cli load-evidence \
-  --tenant "$TENANT_ID" \
-  --project "$PROJECT_ID" \
-  --fixture "$META_DIR/evidence_r2.json" >/dev/null
+if [ "$USE_REAL_VERIFIER" = "true" ]; then
+  cat > "$META_DIR/evidence_r2_reported_only.json" <<EOF
+{
+  "evidence": [
+    {
+      "evidence_id": "ev-r2-ac003-reported",
+      "trust_class": "reported_artifact",
+      "producer": "collector",
+      "revision": "${REV_R2}",
+      "observed_at": "${NOW_R2}",
+      "test_id": "test_ac003_audit",
+      "covered_test_ids": ["test_ac003_audit"],
+      "result": "passed",
+      "artifact_path": "reports/ac003-junit.xml",
+      "simulated": false
+    }
+  ],
+  "waivers": []
+}
+EOF
+  uv run python -m eap.ppm.cli load-evidence \
+    --tenant "$TENANT_ID" \
+    --project "$PROJECT_ID" \
+    --fixture "$META_DIR/evidence_r2_reported_only.json" >/dev/null
+  PPM_VERIFIER_ENABLED=true uv run python -m eap.ppm.cli verify \
+    --tenant "$TENANT_ID" \
+    --project "$PROJECT_ID" \
+    --revision "$REV_R2" >/dev/null
+else
+  uv run python -m eap.ppm.cli load-evidence \
+    --tenant "$TENANT_ID" \
+    --project "$PROJECT_ID" \
+    --fixture "$META_DIR/evidence_r2.json" >/dev/null
+fi
 
 uv run python -m eap.ppm.cli scan \
   --tenant "$TENANT_ID" \

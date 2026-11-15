@@ -1,0 +1,15 @@
+{
+  "case_id": "C40",
+  "milestone": "P2a",
+  "work_package": "P2a-WP9",
+  "status": "passed",
+  "observed_outcome": "In-repo coding-agent JUnit XML files (reports/ac001-junit.xml, reports/ac003-junit.xml) remain trust_class='reported_artifact' and cannot verify any criterion. Sandboxed verifier checks out the assessed revision read-only into a fresh temp workspace, executes mapped baseline tests via allowlisted argv, writes trust_class='verifier_observed' producer='eap-verifier' simulated=false evidence with real exit_status, duration_ms, output_hash, and honest network_isolation flag, contradicts AC-001 despite agent PASS claim/XML, verifies AC-002 only at current revision, leaves AC-003 (XML only, unexecuted test) unverified with reason_code='reported_artifact_only', and removes temp workspace in finally.",
+  "counts": {
+    "passed_tests": 2,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/ppm/test_verifier_sandbox.py::test_C40_in_repo_junit_pass_cannot_override_failed_real_verifier_execution",
+    "tests/ppm/test_demo_d0_smoke.py::test_demo_d0_script_real_verifier_mode"
+  ]
+}

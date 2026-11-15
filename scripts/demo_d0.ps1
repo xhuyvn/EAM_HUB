@@ -1,7 +1,14 @@
+param(
+    [switch]$RealVerifier,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$ExtraArgs
+)
+
 $ErrorActionPreference = "Stop"
 
 # D0 thin slice demo script (fixtures-only, idempotent, safe to rerun).
 # Never prints bearer tokens or token hashes.
+
+$UseRealVerifier = $RealVerifier.IsPresent -or ($ExtraArgs -contains "--real-verifier") -or ($env:D0_REAL_VERIFIER -eq "true")
 
 $TenantId = if ($env:EAP_OWNER_TENANT_ID) { $env:EAP_OWNER_TENANT_ID } else { "tenant-owner" }
 $ProjectId = if ($env:D0_PROJECT_ID) { $env:D0_PROJECT_ID } else { "proj-d0-demo" }
@@ -72,6 +79,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $RepoDir ".ppm/updates") | 
 New-Item -ItemType Directory -Force -Path (Join-Path $RepoDir ".ppm/notes") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $RepoDir "reports") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $RepoDir "src") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $RepoDir "tests") | Out-Null
 New-Item -ItemType Directory -Force -Path $MetaDir | Out-Null
 
 $env:GIT_AUTHOR_NAME = "D0 Demo"
@@ -206,6 +214,14 @@ def export_csv() -> str:
     return "id,name\n1,example\n"
 '@
 
+Write-Utf8NoBom (Join-Path $RepoDir "tests/test_d0.py") @'
+from src.export import export_csv
+
+
+def test_ac001_export():
+    assert export_csv() == "id,name\n1,example\n"
+'@
+
 $env:GIT_AUTHOR_DATE = "2026-11-15T08:00:00Z"
 $env:GIT_COMMITTER_DATE = "2026-11-15T08:00:00Z"
 Invoke-Checked { git -C $RepoDir add -A | Out-Null } "git add rev-r1 failed"
@@ -291,12 +307,27 @@ Write-Utf8NoBom $EvR1File @"
 }
 "@
 
-Invoke-Checked {
-    uv run python -m eap.ppm.cli load-evidence `
-        --tenant $TenantId `
-        --project $ProjectId `
-        --fixture $EvR1File | Out-Null
-} "load-evidence rev-r1 failed"
+if ($UseRealVerifier) {
+    $prevVerifierFlag = $env:PPM_VERIFIER_ENABLED
+    $env:PPM_VERIFIER_ENABLED = "true"
+    try {
+        Invoke-Checked {
+            uv run python -m eap.ppm.cli verify `
+                --tenant $TenantId `
+                --project $ProjectId `
+                --revision $RevR1 | Out-Null
+        } "real verifier rev-r1 failed"
+    } finally {
+        $env:PPM_VERIFIER_ENABLED = $prevVerifierFlag
+    }
+} else {
+    Invoke-Checked {
+        uv run python -m eap.ppm.cli load-evidence `
+            --tenant $TenantId `
+            --project $ProjectId `
+            --fixture $EvR1File | Out-Null
+    } "load-evidence rev-r1 failed"
+}
 
 Invoke-Checked {
     uv run python -m eap.ppm.cli scan `
@@ -314,10 +345,28 @@ $A1Json = uv run python -m eap.ppm.cli assess `
 if ($LASTEXITCODE -ne 0) { throw "assess rev-r1 failed" }
 $A1Id = ($A1Json | ConvertFrom-Json).assessment_id
 
-# --- Step 4: Commit rev-r2, load simulated evidence, scan, assess -> A2 ---
+# --- Step 4: Commit rev-r2, load simulated/real evidence, scan, assess -> A2 ---
+Write-Utf8NoBom (Join-Path $RepoDir "src/export.py") @'
+def export_csv() -> str:
+    return "broken\n"
+'@
+
 Write-Utf8NoBom (Join-Path $RepoDir "src/login.py") @'
 def login(user: str) -> bool:
     return bool(user)
+'@
+
+Write-Utf8NoBom (Join-Path $RepoDir "tests/test_d0.py") @'
+from src.export import export_csv
+from src.login import login
+
+
+def test_ac001_export():
+    assert export_csv() == "id,name\n1,example\n"
+
+
+def test_ac002_login():
+    assert login("alice") is True
 '@
 
 Write-Utf8NoBom (Join-Path $RepoDir ".ppm/updates/upd-0002.yaml") @"
@@ -417,12 +466,54 @@ Write-Utf8NoBom $EvR2File @"
 }
 "@
 
-Invoke-Checked {
-    uv run python -m eap.ppm.cli load-evidence `
-        --tenant $TenantId `
-        --project $ProjectId `
-        --fixture $EvR2File | Out-Null
-} "load-evidence rev-r2 failed"
+if ($UseRealVerifier) {
+    $EvR2ReportedOnlyFile = Join-Path $MetaDir "evidence_r2_reported_only.json"
+    Write-Utf8NoBom $EvR2ReportedOnlyFile @"
+{
+  "evidence": [
+    {
+      "evidence_id": "ev-r2-ac003-reported",
+      "trust_class": "reported_artifact",
+      "producer": "collector",
+      "revision": "$RevR2",
+      "observed_at": "$NowR2",
+      "test_id": "test_ac003_audit",
+      "covered_test_ids": ["test_ac003_audit"],
+      "result": "passed",
+      "artifact_path": "reports/ac003-junit.xml",
+      "simulated": false
+    }
+  ],
+  "waivers": []
+}
+"@
+    Invoke-Checked {
+        uv run python -m eap.ppm.cli load-evidence `
+            --tenant $TenantId `
+            --project $ProjectId `
+            --fixture $EvR2ReportedOnlyFile | Out-Null
+    } "load-evidence reported_artifact rev-r2 failed"
+
+    $prevVerifierFlag = $env:PPM_VERIFIER_ENABLED
+    $env:PPM_VERIFIER_ENABLED = "true"
+    try {
+        Invoke-Checked {
+            uv run python -m eap.ppm.cli verify `
+                --tenant $TenantId `
+                --project $ProjectId `
+                --revision $RevR2 | Out-Null
+        } "real verifier rev-r2 failed"
+    } finally {
+        $env:PPM_VERIFIER_ENABLED = $prevVerifierFlag
+    }
+} else {
+    Invoke-Checked {
+        uv run python -m eap.ppm.cli load-evidence `
+            --tenant $TenantId `
+            --project $ProjectId `
+            --fixture $EvR2File | Out-Null
+    } "load-evidence rev-r2 failed"
+}
 
 Invoke-Checked {
     uv run python -m eap.ppm.cli scan `
