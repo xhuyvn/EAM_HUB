@@ -27,6 +27,11 @@ from eap.db.location_tables import (
     location_registrations,
     source_shares,
 )
+from eap.db.policy_tables import (
+    principal_grant_epochs,
+    principal_project_grants,
+    stream_retention_floors,
+)
 from eap.db.scheduler_tables import (
     ppm_scan_occurrences,
     ppm_scan_source_status,
@@ -89,6 +94,8 @@ __all__ = [
     "ppm_scan_source_status",
     "ppm_updates",
     "ppm_waivers",
+    "principal_grant_epochs",
+    "principal_project_grants",
     "project_current_assessment",
     "project_scopes",
     "project_snapshot_sequences",
@@ -101,6 +108,7 @@ __all__ = [
     "source_shares",
     "sources",
     "stream_heads",
+    "stream_retention_floors",
     "task_intents",
     "tasks",
     "usage_ledger",
