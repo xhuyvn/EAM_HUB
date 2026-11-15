@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import sqlalchemy as sa
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from eap.api.dependencies import Principal
@@ -89,6 +90,8 @@ class CollectorScanResult:
     tree_hash: str
     scopes: dict[str, ScopeScanResult] = field(default_factory=dict)
     quarantined_scopes: list[str] = field(default_factory=list)
+    ingest_status: str = "disabled"
+    already_ingested: bool = False
 
 
 def _emit_outbox_event(
@@ -655,13 +658,47 @@ class PpmCollector:
 
         db.commit()
 
-        # 10. Post-commit ingest (P2a-WP3), behind ppm.ingest.enabled
+        # 10. Post-commit ingest (P2a-WP3 / ISS-033), behind ppm.ingest.enabled
+        ingest_status = "disabled"
+        already_ingested = False
         if self.ingest_enabled and proj_snap_ids:
             from eap.ppm.ingest import ingest_snapshot
 
+            ingest_status = "ok"
             for proj_snap_id in proj_snap_ids:
-                ingest_snapshot(db, tenant_id, proj_snap_id)
-            db.commit()
+                try:
+                    try:
+                        rep = ingest_snapshot(db, tenant_id, proj_snap_id)
+                        db.commit()
+                    except IntegrityError:
+                        # Concurrent first ingest lost the checkpoint insert: rollback and retry once
+                        db.rollback()
+                        rep = ingest_snapshot(db, tenant_id, proj_snap_id)
+                        db.commit()
+                    if rep.already_ingested:
+                        already_ingested = True
+                except Exception as exc:
+                    db.rollback()
+                    ingest_status = "failed"
+                    logger.exception("Post-commit ingest failed for snapshot %s", proj_snap_id)
+                    try:
+                        _emit_outbox_event(
+                            db,
+                            tenant_id=tenant_id,
+                            event_type="ppm.ingest.failed",
+                            stream_id=f"ingest:{proj_snap_id}",
+                            payload={
+                                "project_snapshot_id": proj_snap_id,
+                                "snapshot_id": snapshot_id,
+                                "source_id": source_id,
+                                "reason": f"{type(exc).__name__}: {exc}"[:500],
+                            },
+                        )
+                        db.commit()
+                    except Exception:
+                        db.rollback()
+                        logger.exception("Failed to record ppm.ingest.failed outbox event for %s", proj_snap_id)
+                    break
 
         return CollectorScanResult(
             snapshot_id=snapshot_id,
@@ -675,6 +712,8 @@ class PpmCollector:
             tree_hash=tree_hash,
             scopes=scope_results,
             quarantined_scopes=quarantined_scopes,
+            ingest_status=ingest_status,
+            already_ingested=already_ingested,
         )
 
     def _find_candidate_files(

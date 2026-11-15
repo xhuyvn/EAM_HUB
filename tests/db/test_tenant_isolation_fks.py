@@ -78,7 +78,9 @@ def test_catalog_every_fk_includes_tenant_id(db_conn: sa.Connection) -> None:
                 f"Live DB FK '{con_name}' on table '{table_name}' does not include 'tenant_id' in referred columns: {referred_cols}"
             )
 
-    assert fk_count == 16, f"Expected exactly 16 foreign keys in schema (7 core + 9 ingest), found {fk_count}"
+    assert fk_count == 18, (
+        f"Expected exactly 18 foreign keys in schema (7 core + 9 ingest + 2 assessments), found {fk_count}"
+    )
 
 
 def test_cross_tenant_fk_runs_rejected(db_conn: sa.Connection) -> None:

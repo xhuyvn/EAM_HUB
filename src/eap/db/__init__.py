@@ -1,5 +1,12 @@
 """EAP database connection, session handling, and schema definitions."""
 
+from eap.db.assessment_tables import (
+    ppm_assessments,
+    ppm_baselines,
+    ppm_basis_seq,
+    ppm_evidence,
+    ppm_waivers,
+)
 from eap.db.event_tables import (
     event_quarantine,
     outbox_relay_marks,
@@ -63,11 +70,16 @@ __all__ = [
     "metadata",
     "outbox",
     "outbox_relay_marks",
+    "ppm_assessments",
+    "ppm_baselines",
+    "ppm_basis_seq",
+    "ppm_evidence",
     "ppm_ingest_checkpoints",
     "ppm_ingested_artifacts",
     "ppm_notes",
     "ppm_scan_schedules",
     "ppm_updates",
+    "ppm_waivers",
     "project_current_assessment",
     "project_scopes",
     "project_snapshot_sequences",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,13 @@ from eap.api.dependencies import (
     get_principal,
 )
 from eap.config import Settings, get_settings
+from eap.ppm.assessments import (
+    AssessmentNotFoundError,
+    AssessmentProjectMismatchError,
+    diff_assessments,
+    get_assessment_detail,
+    list_project_assessments,
+)
 from eap.ppm.path import PathValidationError
 from eap.ppm.service import (
     DuplicateLocationError,
@@ -344,3 +351,57 @@ async def list_shares(
     db: Annotated[Session, Depends(get_db)],
 ) -> list[dict[str, Any]]:
     return LocationService.list_shares(db, principal=principal)
+
+
+@ppm_router.get(
+    "/assessments/{assessment_id}",
+    summary="Get assessment output with Reported and Verified per-criterion explanations",
+)
+async def get_assessment(
+    assessment_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    try:
+        return get_assessment_detail(db, principal.tenant_id, assessment_id)
+    except AssessmentNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assessment not found",
+        ) from exc
+
+
+@ppm_router.get(
+    "/assessments/{assessment_id}/diff",
+    summary="Diff per-criterion status between two assessments of the same tenant and project",
+)
+async def get_assessment_diff(
+    assessment_id: str,
+    against: Annotated[str, Query(min_length=1)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    try:
+        return diff_assessments(db, principal.tenant_id, assessment_id, against)
+    except AssessmentNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assessment not found",
+        ) from exc
+    except AssessmentProjectMismatchError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+
+@ppm_router.get(
+    "/projects/{project_id}/assessments",
+    summary="List assessments for a project (id, basis_seq, created_at, is_current)",
+)
+async def list_assessments_for_project(
+    project_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> list[dict[str, Any]]:
+    return list_project_assessments(db, principal.tenant_id, project_id)
