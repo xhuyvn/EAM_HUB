@@ -24,6 +24,7 @@ from eap.ppm.assessments import (
     list_project_assessments,
 )
 from eap.ppm.path import PathValidationError
+from eap.ppm.scheduler import PpmScanScheduler, validate_schedule_config
 from eap.ppm.service import (
     DuplicateLocationError,
     InvalidLocationStateError,
@@ -127,6 +128,99 @@ async def get_source(
             detail=f"Source '{source_id}' not found",
         )
     return src
+
+
+class ScheduleUpdateRequest(BaseModel):
+    interval_seconds: int = Field(default=300)
+    debounce_seconds: int = Field(default=5)
+
+
+@ppm_router.get(
+    "/sources/{source_id}/schedule",
+    summary="Get scan scheduler state and observability for a source (HUD-readable)",
+)
+async def get_source_schedule(
+    source_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    obs = PpmScanScheduler.get_source_observability(
+        db,
+        tenant_id=principal.tenant_id,
+        source_id=source_id,
+    )
+    if obs is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Source '{source_id}' not found",
+        )
+    return obs.to_dict()
+
+
+@ppm_router.put(
+    "/sources/{source_id}/schedule",
+    summary="Configure scan interval (>= 60s) and debounce for a source",
+)
+async def update_source_schedule(
+    source_id: str,
+    body: Annotated[dict[str, Any], Depends(check_forbidden_body_fields)],
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    src = LocationService.get_source(db, tenant_id=principal.tenant_id, source_id=source_id)
+    if src is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Source '{source_id}' not found",
+        )
+    try:
+        req = ScheduleUpdateRequest.model_validate(body)
+        validate_schedule_config(req.interval_seconds, req.debounce_seconds)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid schedule configuration: {exc}",
+        ) from exc
+
+    scheduler = PpmScanScheduler()
+    scheduler.ensure_schedule(
+        db,
+        tenant_id=principal.tenant_id,
+        source_id=source_id,
+        interval_seconds=req.interval_seconds,
+        debounce_seconds=req.debounce_seconds,
+    )
+    obs = PpmScanScheduler.get_source_observability(
+        db,
+        tenant_id=principal.tenant_id,
+        source_id=source_id,
+    )
+    assert obs is not None
+    return obs.to_dict()
+
+
+@ppm_router.post(
+    "/sources/{source_id}/scan",
+    summary="Trigger a manual scan for a source (works even when scheduler is disabled)",
+)
+async def trigger_manual_source_scan(
+    source_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    scheduler = PpmScanScheduler()
+    try:
+        res = scheduler.trigger_manual(
+            db,
+            tenant_id=principal.tenant_id,
+            source_id=source_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Source '{source_id}' not found",
+        ) from exc
+    return res.to_dict()
 
 
 @ppm_router.post(

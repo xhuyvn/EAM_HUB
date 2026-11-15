@@ -23,7 +23,9 @@ from eap.db import (
     artifacts,
     commands,
     metadata,
+    ppm_scan_occurrences,
     ppm_scan_schedules,
+    ppm_scan_source_status,
     project_scopes,
     run_attempt_history,
     runs,
@@ -80,8 +82,8 @@ def test_catalog_every_fk_includes_tenant_id(db_conn: sa.Connection) -> None:
                 f"Live DB FK '{con_name}' on table '{table_name}' does not include 'tenant_id' in referred columns: {referred_cols}"
             )
 
-    assert fk_count == 19, (
-        f"Expected exactly 19 foreign keys in schema (7 core + 9 ingest + 2 assessments + 1 agents), found {fk_count}"
+    assert fk_count == 21, (
+        f"Expected exactly 21 foreign keys in schema (7 core + 9 ingest + 2 assessments + 1 agents + 2 scheduler), found {fk_count}"
     )
 
 
@@ -482,5 +484,79 @@ def test_cross_tenant_fk_agent_bindings_rejected(db_conn: sa.Connection) -> None
             egress_policy_ref="egress:local-only",
             secret_ref=None,
             endpoint_ref="runtime:mock",
+        )
+    )
+
+
+def test_cross_tenant_fk_ppm_scan_source_status_rejected(db_conn: sa.Connection) -> None:
+    """(b.9) ppm_scan_source_status -> sources: Cross-tenant reference rejected."""
+    tenant_a = "tenant-a-sched-stat"
+    tenant_b = "tenant-b-sched-stat"
+    source_id = "src-sched-stat-iso-1"
+
+    db_conn.execute(
+        sources.insert().values(
+            source_id=source_id,
+            tenant_id=tenant_a,
+            canonical_root="/repos/tenant_a_sched_stat_repo",
+            repo_identity="git@example.com:tenant_a_sched_stat.git",
+        )
+    )
+
+    with pytest.raises(IntegrityError) as exc_info, db_conn.begin_nested():
+        db_conn.execute(
+            ppm_scan_source_status.insert().values(
+                tenant_id=tenant_b,
+                source_id=source_id,
+                last_fencing_token=1,
+            )
+        )
+    _assert_constraint(exc_info, "fk_ppm_scan_source_status_source")
+
+    db_conn.execute(
+        ppm_scan_source_status.insert().values(
+            tenant_id=tenant_a,
+            source_id=source_id,
+            last_fencing_token=1,
+        )
+    )
+
+
+def test_cross_tenant_fk_ppm_scan_occurrences_rejected(db_conn: sa.Connection) -> None:
+    """(b.10) ppm_scan_occurrences -> sources: Cross-tenant reference rejected."""
+    tenant_a = "tenant-a-sched-occ"
+    tenant_b = "tenant-b-sched-occ"
+    source_id = "src-sched-occ-iso-1"
+
+    db_conn.execute(
+        sources.insert().values(
+            source_id=source_id,
+            tenant_id=tenant_a,
+            canonical_root="/repos/tenant_a_sched_occ_repo",
+            repo_identity="git@example.com:tenant_a_sched_occ.git",
+        )
+    )
+
+    with pytest.raises(IntegrityError) as exc_info, db_conn.begin_nested():
+        db_conn.execute(
+            ppm_scan_occurrences.insert().values(
+                tenant_id=tenant_b,
+                source_id=source_id,
+                occurrence_id="occ-cross-tenant-1",
+                trigger="interval",
+                status="running",
+                fencing_token=1,
+            )
+        )
+    _assert_constraint(exc_info, "fk_ppm_scan_occurrences_source")
+
+    db_conn.execute(
+        ppm_scan_occurrences.insert().values(
+            tenant_id=tenant_a,
+            source_id=source_id,
+            occurrence_id="occ-same-tenant-1",
+            trigger="interval",
+            status="running",
+            fencing_token=1,
         )
     )

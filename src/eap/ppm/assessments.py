@@ -28,8 +28,10 @@ from eap.db import (
     ppm_basis_seq,
     ppm_evidence,
     ppm_notes,
+    ppm_scan_source_status,
     ppm_waivers,
     project_current_assessment,
+    project_scopes,
     project_snapshots,
 )
 from eap.ppm.assessment_inputs import build_assessment_inputs
@@ -823,13 +825,30 @@ def get_assessment_detail(
             },
         }
 
-    last_scan_dt = conn.execute(
+    last_snap_dt = conn.execute(
         sa.select(sa.func.max(project_snapshots.c.created_at)).where(
             project_snapshots.c.tenant_id == tenant_id,
             project_snapshots.c.project_id == project_id,
             project_snapshots.c.status == "captured",
         )
     ).scalar_one_or_none()
+    source_ids_for_project = sa.select(project_scopes.c.source_id).where(
+        project_scopes.c.tenant_id == tenant_id,
+        project_scopes.c.project_id == project_id,
+    ).union(
+        sa.select(project_snapshots.c.source_id).where(
+            project_snapshots.c.tenant_id == tenant_id,
+            project_snapshots.c.project_id == project_id,
+        )
+    )
+    last_sched_dt = conn.execute(
+        sa.select(sa.func.max(ppm_scan_source_status.c.last_successful_scan_at)).where(
+            ppm_scan_source_status.c.tenant_id == tenant_id,
+            ppm_scan_source_status.c.source_id.in_(source_ids_for_project),
+        )
+    ).scalar_one_or_none()
+    dt_candidates = [d for d in (last_snap_dt, last_sched_dt) if isinstance(d, dt.datetime)]
+    last_scan_dt = max(dt_candidates) if dt_candidates else (last_snap_dt or last_sched_dt)
     last_scan_iso = (
         last_scan_dt.isoformat()
         if isinstance(last_scan_dt, dt.datetime)

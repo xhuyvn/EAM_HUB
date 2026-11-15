@@ -1,0 +1,21 @@
+{
+  "case_id": "C35",
+  "milestone": "P2a",
+  "work_package": "P2a-WP5",
+  "status": "passed",
+  "observed_outcome": "Registered fixture sources run automatic startup/interval/debounced-watcher scans and manual scans through TaskService (`ppm.inventory.scan`) under a DB lease + monotonically increasing `fencing_token` across `ppm_scan_schedules` and `leases`. Redelivered `occurrence_id` executes once (`duplicate_occurrence`). Two racing schedulers execute at most one scan (`lease_busy`), and an overtaken worker with a stale fencing token cannot commit a snapshot (`StaleFencingTokenError`). Rescans of unchanged data compute identical semantic `inputs_hash` (`ISS-034`), creating 0 new assessments and 0 new notes/updates/artifacts rows while updating `last_successful_scan_at`. Clock jump past 12 intervals runs a single catch-up scan. `PPM_SCHEDULER_ENABLED=false` blocks automatic triggers while preserving manual scans. ISS-028 root replacement / runtime failure records redacted `last_error`, creates 0 assessments, and advances `next_due_at` without a tight retry loop.",
+  "counts": {
+    "passed_tests": 8,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/ppm/test_scan_scheduler_c35.py::test_c35_config_validation_enforces_60s_minimum_in_production",
+    "tests/ppm/test_scan_scheduler_c35.py::test_c35_auto_scan_on_fixture_modification_within_debounce_and_interval",
+    "tests/ppm/test_scan_scheduler_c35.py::test_c35_same_occurrence_delivered_twice_runs_one_scan",
+    "tests/ppm/test_scan_scheduler_c35.py::test_c35_rescan_unchanged_data_zero_new_assessments_and_domain_rows",
+    "tests/ppm/test_scan_scheduler_c35.py::test_c35_two_schedulers_race_and_stale_fencing_token_cannot_commit",
+    "tests/ppm/test_scan_scheduler_c35.py::test_c35_host_sleep_clock_jump_produces_single_catchup_scan",
+    "tests/ppm/test_scan_scheduler_c35.py::test_c35_scheduler_disabled_blocks_auto_triggers_but_manual_works",
+    "tests/ppm/test_scan_scheduler_c35.py::test_c35_scan_failure_iss028_records_redacted_error_schedules_next_attempt"
+  ]
+}

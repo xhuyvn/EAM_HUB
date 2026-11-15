@@ -34,8 +34,10 @@ from eap.config import get_settings
 from eap.db import (
     collector_snapshots,
     identity_conflicts,
+    leases,
     location_registrations,
     outbox,
+    ppm_scan_schedules,
     project_scopes,
     project_snapshot_sequences,
     project_snapshots,
@@ -58,6 +60,7 @@ from eap.ppm.collector.safe_open import (
     SafeOpenError,
     safe_open,
 )
+from eap.run.service import StaleFencingTokenError
 
 logger = logging.getLogger("eap.ppm.collector")
 
@@ -90,6 +93,7 @@ class CollectorScanResult:
     tree_hash: str
     scopes: dict[str, ScopeScanResult] = field(default_factory=dict)
     quarantined_scopes: list[str] = field(default_factory=list)
+    project_snapshot_ids: dict[str, str] = field(default_factory=dict)
     ingest_status: str = "disabled"
     already_ingested: bool = False
 
@@ -149,6 +153,7 @@ class PpmCollector:
         tenant_id: str,
         source_id: str,
         principal: Principal | None = None,
+        fencing_token: int | None = None,
     ) -> CollectorScanResult:
         """Scan a physical source root and all associated project scopes."""
         # 1. Retrieve source record
@@ -575,6 +580,7 @@ class PpmCollector:
 
         # 9.2 For each active scope, issue monotonic snapshot_seq and insert project_snapshots
         proj_snap_ids: list[str] = []
+        proj_snap_ids_by_project: dict[str, str] = {}
         for p_id, s_res in scope_results.items():
             # Atomically increment or initialize snapshot_seq
             seq_row = db.execute(
@@ -613,6 +619,7 @@ class PpmCollector:
             s_res.snapshot_seq = new_seq
             proj_snap_id = f"psnap-{uuid.uuid4().hex[:16]}"
             proj_snap_ids.append(proj_snap_id)
+            proj_snap_ids_by_project[p_id] = proj_snap_id
 
             db.execute(
                 project_snapshots.insert().values(
@@ -655,6 +662,47 @@ class PpmCollector:
                     "captured_at": now.isoformat(),
                 },
             )
+
+        if fencing_token is not None:
+            sched_row = db.execute(
+                sa.select(ppm_scan_schedules.c.fencing_token)
+                .where(
+                    ppm_scan_schedules.c.tenant_id == tenant_id,
+                    ppm_scan_schedules.c.source_id == source_id,
+                )
+                .with_for_update()
+            ).mappings().first()
+            lease_row = db.execute(
+                sa.select(leases.c.fencing_token)
+                .where(
+                    leases.c.tenant_id == tenant_id,
+                    leases.c.resource_type == "ppm_source_scan",
+                    leases.c.resource_id == source_id,
+                )
+                .with_for_update()
+            ).mappings().first()
+
+            sched_token = int(sched_row["fencing_token"]) if sched_row is not None else None
+            lease_token = int(lease_row["fencing_token"]) if lease_row is not None else None
+            current_tokens = [t for t in (sched_token, lease_token) if t is not None]
+            current_token = max(current_tokens) if current_tokens else None
+
+            if (
+                sched_row is None
+                or sched_token != int(fencing_token)
+                or (lease_token is not None and lease_token > int(fencing_token))
+            ):
+                db.rollback()
+                logger.warning(
+                    "collector_stale_fencing_token_rejected source_id=%s fencing_token=%s current_fencing_token=%s",
+                    source_id,
+                    fencing_token,
+                    current_token,
+                )
+                raise StaleFencingTokenError(
+                    f"Stale fencing token {fencing_token} for source '{source_id}' "
+                    f"(current={current_token}); snapshot commit aborted."
+                )
 
         db.commit()
 
@@ -712,6 +760,7 @@ class PpmCollector:
             tree_hash=tree_hash,
             scopes=scope_results,
             quarantined_scopes=quarantined_scopes,
+            project_snapshot_ids=proj_snap_ids_by_project,
             ingest_status=ingest_status,
             already_ingested=already_ingested,
         )

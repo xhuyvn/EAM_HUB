@@ -28,6 +28,8 @@ from eap.db import (
     event_log,
     leases,
     outbox,
+    ppm_scan_occurrences,
+    ppm_scan_source_status,
     project_scopes,
     runs,
     sources,
@@ -214,6 +216,28 @@ def seed_fixture_data(db_url: str) -> None:
                 egress_policy_ref="egress:local-only",
                 secret_ref=None,
                 endpoint_ref="runtime:sc06-mock",
+            )
+        )
+        conn.execute(
+            ppm_scan_source_status.insert().values(
+                tenant_id=tenant,
+                source_id="src-sc06-1",
+                last_scan_started_at=now,
+                last_successful_scan_at=now,
+                last_occurrence_id="occ-sc06-1",
+                last_trigger="startup",
+                last_fencing_token=1,
+            )
+        )
+        conn.execute(
+            ppm_scan_occurrences.insert().values(
+                tenant_id=tenant,
+                source_id="src-sc06-1",
+                occurrence_id="occ-sc06-1",
+                trigger="startup",
+                status="succeeded",
+                fencing_token=1,
+                completed_at=now,
             )
         )
 

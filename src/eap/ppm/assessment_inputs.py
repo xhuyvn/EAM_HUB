@@ -1,4 +1,4 @@
-"""Build and lock deterministic reducer inputs from DB state (P2a-WP4).
+"""Build and lock deterministic reducer inputs from DB state (P2a-WP4 / P2a-WP5 ISS-034).
 
 Reads:
 - Locked ``project_snapshots`` row (and its ``claims`` JSONB for status/project/acceptance payloads per ISS-033).
@@ -8,11 +8,22 @@ Reads:
 - ``ppm_waivers`` (approved waivers).
 
 ``ppm_notes`` are context only and NEVER create claims or alter criterion status.
-Same DB state -> byte-identical ``inputs`` and ``inputs_hash``.
+
+``ISS-034`` semantic hashing:
+- ``inputs_hash`` hashes semantic content only (``project_id``, ``scope_hash``,
+  ``assessed_revision``, ``evidence_ttl_days``, approved ``baseline`` without runtime-injected
+  ``previous_status``, ``claims``, ``evidence``, ``waivers``, ``dependency_refs``, ``context``).
+- Snapshot IDs (``snapshot_refs``, ``snapshot_seq``) and snapshot time (``source_as_of`` and
+  snapshot-derived ``now``) stay in ``inputs_dict`` as lineage outside the hash so rescans of
+  unchanged data deduplicate instead of creating duplicate assessments.
+- Migration impact: pre-P2a-WP5 rows in ``ppm_assessments`` retain their stored ``inputs_hash``;
+  the first assessment scan after upgrading may create at most one new assessment row with the
+  semantic hash, after which subsequent unchanged rescans deduplicate cleanly.
 """
 
 from __future__ import annotations
 
+import copy
 import datetime as dt
 from typing import Any
 
@@ -267,6 +278,7 @@ def build_assessment_inputs(
     locked_snapshot_id: str | None = None
     snapshot_seq = 1
     snapshot_refs = ["snap-none"]
+    scope_hash: str | None = None
     source_as_of: str | None = None
     snapshot_created_at: dt.datetime | None = None
     snapshot_claims_raw: list[dict[str, Any]] = []
@@ -275,6 +287,7 @@ def build_assessment_inputs(
         locked_snapshot_id = str(psnap["id"])
         snapshot_seq = int(psnap["snapshot_seq"])
         snapshot_refs = [locked_snapshot_id]
+        scope_hash = str(psnap["scope_hash"]) if psnap.get("scope_hash") is not None else None
         snapshot_created_at = psnap["created_at"]
         source_as_of = _iso_utc(snapshot_created_at)
         snapshot_claims_raw = list(psnap["claims"] or [])
@@ -326,6 +339,7 @@ def build_assessment_inputs(
     ).mappings().first()
 
     baseline: dict[str, Any] | None = None
+    baseline_for_hash: dict[str, Any] | None = None
     baseline_revision: int | None = None
     if bl_row is not None:
         baseline_revision = int(bl_row["baseline_revision"])
@@ -333,6 +347,12 @@ def build_assessment_inputs(
             [dict(c) for c in (bl_row["criteria"] or [])],
             key=lambda c: str(c.get("criterion_id", "")),
         )
+        # Preserve canonical baseline prior to injecting runtime previous_status so
+        # initial scan and first unchanged rescan yield identical semantic hashes (ISS-034).
+        baseline_for_hash = {
+            "baseline_revision": baseline_revision,
+            "criteria": copy.deepcopy(criteria_sorted),
+        }
         for c_item in criteria_sorted:
             if "previous_status" not in c_item and str(c_item.get("criterion_id", "")) in prev_criteria_status:
                 c_item["previous_status"] = prev_criteria_status[str(c_item["criterion_id"])]
@@ -450,16 +470,15 @@ def build_assessment_inputs(
     if context is not None:
         inputs_dict["context"] = context
 
-    # Compute deterministic inputs_hash over the semantic DB state (excluding basis_seq & previous_assessment_id)
+    # Compute deterministic semantic inputs_hash (ISS-034):
+    # Keeps snapshot ids (snapshot_refs, snapshot_seq), snapshot time (source_as_of,
+    # snapshot-derived now), basis_seq, and previous_assessment_id as lineage outside the hash.
     hash_payload = {
         "project_id": project_id,
-        "snapshot_refs": snapshot_refs,
-        "snapshot_seq": snapshot_seq,
+        "scope_hash": scope_hash,
         "assessed_revision": assessed_revision,
-        "now": now_iso,
-        "source_as_of": source_as_of,
         "evidence_ttl_days": evidence_ttl_days,
-        "baseline": baseline,
+        "baseline": baseline_for_hash,
         "claims": claims,
         "evidence": evidence,
         "waivers": waivers,
@@ -471,6 +490,7 @@ def build_assessment_inputs(
     lock_meta = {
         "project_snapshot_id": locked_snapshot_id,
         "snapshot_seq": snapshot_seq,
+        "scope_hash": scope_hash,
         "baseline_revision": baseline_revision,
         "assessed_revision": assessed_revision,
         "previous_assessment_id": previous_assessment_id,

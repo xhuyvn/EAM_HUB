@@ -125,6 +125,12 @@ class Settings(BaseSettings):
     # PPM Verifier feature flag / rollback (P2a-WP9)
     ppm_verifier_enabled: bool = Field(default=False, alias="PPM_VERIFIER_ENABLED")
 
+    # PPM Scan Scheduler configuration & feature flag / rollback (P2a-WP5 / DG-2)
+    ppm_scheduler_enabled: bool = Field(default=False, alias="PPM_SCHEDULER_ENABLED")
+    ppm_scan_interval_seconds: int = Field(default=300, alias="PPM_SCAN_INTERVAL_SECONDS")
+    ppm_scan_debounce_seconds: int = Field(default=5, alias="PPM_SCAN_DEBOUNCE_SECONDS")
+    ppm_scan_lease_ttl_seconds: int = Field(default=60, alias="PPM_SCAN_LEASE_TTL_SECONDS")
+
     # HUD snapshot cursor signing & encryption (P3a-WP1)
     hud_cursor_secret: SecretStr | None = Field(
         default=None,
@@ -159,6 +165,27 @@ class Settings(BaseSettings):
                 return None
             if isinstance(v, SecretStr) and not v.get_secret_value().strip():
                 return None
+        return v
+
+    @field_validator("ppm_scan_interval_seconds")
+    @classmethod
+    def validate_scan_interval_seconds(cls, v: int) -> int:
+        if v < 60:
+            raise ValueError("PPM_SCAN_INTERVAL_SECONDS must be >= 60 seconds (DG-2 policy)")
+        return v
+
+    @field_validator("ppm_scan_debounce_seconds")
+    @classmethod
+    def validate_scan_debounce_seconds(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("PPM_SCAN_DEBOUNCE_SECONDS must be >= 1 second")
+        return v
+
+    @field_validator("ppm_scan_lease_ttl_seconds")
+    @classmethod
+    def validate_scan_lease_ttl_seconds(cls, v: int) -> int:
+        if v < 5:
+            raise ValueError("PPM_SCAN_LEASE_TTL_SECONDS must be >= 5 seconds")
         return v
 
     @property
