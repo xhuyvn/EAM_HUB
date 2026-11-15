@@ -58,7 +58,7 @@ Track A (PPM) and Track B (HUD/agents) can run as two parallel sessions. Migrati
 | P2a-WP7 | Analysis step (fake model) | P2a-WP4, D-01 | not_started | | | Track A; C22, C12 |
 | P2a-WP6 | Assessment orchestrator | P2a-WP5, WP7, WP9 | not_started | | | Track A; C34, C39; wall-clock triggers (ISS-034) |
 | P2a-WP8 | Scan baseline (measurement) | P2a-WP6 | not_started | | | Track A; SC-07 |
-| P3a-WP1 | Snapshot API | P1a-WP3 | not_started | | | Track B |
+| P3a-WP1 | Snapshot API | P1a-WP3 | ready_for_review | wp/P3a-WP1 | `681199b` | Track B; `pytest -q` (633 passed on PG 18.6), `ruff`, `mypy`, SC-01/SC-06/SC-08, `web/hud` test+build PASS; logged `ISS-038`; `docs/acceptance/P3a-WP1.md` |
 | P3a-WP5 | Agent inventory (read-only) [new, ISS-037] | P3a-WP1 | proposed | | | Track B; HUD spec "Agent inventory" panel; register/suspend actions stay in P1b/P4 |
 | P3a-WP2 | SSE replay + revocation | P3a-WP1 | not_started | | | Track B; C09, C10, C28, C30 |
 | P3a-WP3 | HUD UI | P3a-WP2, P3a-WP5, P2a-WP6 | not_started | | | tasks/runs, run inspector, assessment view, agent inventory, attention queue; supersedes D0 page |
@@ -71,6 +71,7 @@ Track A (PPM) and Track B (HUD/agents) can run as two parallel sessions. Migrati
 ## Session log (newest first)
 | Date | WP | Agent/session | Result | Commit |
 |---|---|---|---|---|
+| 2026-11-15 | P3a-WP1 | implementation-lead | ready_for_review; `GET /v1/hud/snapshot` (`REPEATABLE READ`), encrypted/HMAC `ehc1_` cursor (`resync_required`), 10 new HUD tests + full `pytest -q` (633 passed on PG 18.6), `ruff`/`mypy`/SC-01/SC-06/SC-08/`web/hud` PASS; opened `ISS-038` | `681199b` |
 | 2026-11-15 | D0-thin-slice | owner | accepted; no hud-feedback requests; remaining WPs to D1/MVP1 added (P3a-WP5 agent inventory and MVP1-WP1 deploy package proposed, ISS-037) | — |
 | 2026-11-15 | D0-thin-slice | owner review (architecture) | merged, technical review passed: 620 passed / 3 skipped (CI=true, PG 16.2, git 2.47.1), SC-06/SC-01/negative/fixtures/reducer PASS, SC-08 38 up-to-date, ruff/mypy clean, HUD build + vitest 2/2 PASS; demo_d0.sh run twice by owner review: 2 assessments, 1 baseline/source/scope (idempotent), A2: AC-001 contradicted (FAIL rev-r2, PASS rev-r1 excluded revision_mismatch), AC-002 verified at rev-r2, AC-003 reported_artifact_only; CI now also runs `npm --prefix web/hud test`; D0 stays ready_for_review until the owner answers the three questions | merge |
 | 2026-11-15 | D0-thin-slice | coding agent (implementation lead) | ready_for_review; ISS-035 (immutable approved baselines + `BaselineRevisionConflict`), ISS-036 (`excluded_evidence[]` in `get_assessment_detail` + `last_successful_scan_at` + `notes`), CLI `register-source`/`scan`, idempotent `scripts/demo_d0.sh` & `scripts/demo_d0.ps1`, disposable `web/hud/d0.html` (Vite multi-page + proxy, memory-only token, `<script>` inert text, missing denominator `"unknown"`, no approve button), `docs/D0_DEMO.md`, `docs/acceptance/D0-thin-slice.md` + screenshot; 623 pytest PASS on PG 18.6 (`CI=true`), SC-06/SC-01/negative/fixtures/reducer/SC-08/ruff/mypy/vitest/HUD build/sha256sum PASS | `wp/D0-thin-slice` |
