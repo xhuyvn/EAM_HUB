@@ -81,6 +81,9 @@ ppm_evidence = Table(
     Column("duration_ms", Integer, nullable=True),
     Column("network_isolation", String(32), nullable=True),
     Column("reason", String(128), nullable=True),
+    Column("output_truncated", Boolean, nullable=False, server_default="false"),
+    Column("truncated_bytes", BigInteger, nullable=False, server_default="0"),
+    Column("test_config_files", JSONB, nullable=False, server_default="[]"),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     UniqueConstraint("tenant_id", "id", name="uq_ppm_evidence_tenant_id"),
     UniqueConstraint(
@@ -104,6 +107,10 @@ ppm_evidence = Table(
     CheckConstraint(
         "network_isolation IS NULL OR network_isolation IN ('enforced', 'not_enforced')",
         name="ck_ppm_evidence_network_isolation",
+    ),
+    CheckConstraint(
+        "truncated_bytes >= 0",
+        name="ck_ppm_evidence_truncated_bytes_nonneg",
     ),
     Index("ix_ppm_evidence_tenant_project", "tenant_id", "project_id"),
 )

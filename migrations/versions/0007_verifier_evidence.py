@@ -11,6 +11,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0007_verifier_evidence"
 down_revision: str | None = "0006_assessments"
@@ -26,6 +27,23 @@ def upgrade() -> None:
         sa.Column("network_isolation", sa.String(length=32), nullable=True),
     )
     op.add_column("ppm_evidence", sa.Column("reason", sa.String(length=128), nullable=True))
+    op.add_column(
+        "ppm_evidence",
+        sa.Column("output_truncated", sa.Boolean(), server_default="false", nullable=False),
+    )
+    op.add_column(
+        "ppm_evidence",
+        sa.Column("truncated_bytes", sa.BigInteger(), server_default="0", nullable=False),
+    )
+    op.add_column(
+        "ppm_evidence",
+        sa.Column(
+            "test_config_files",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default="[]",
+            nullable=False,
+        ),
+    )
     op.create_check_constraint(
         "ck_ppm_evidence_duration_nonneg",
         "ppm_evidence",
@@ -36,11 +54,20 @@ def upgrade() -> None:
         "ppm_evidence",
         "network_isolation IS NULL OR network_isolation IN ('enforced', 'not_enforced')",
     )
+    op.create_check_constraint(
+        "ck_ppm_evidence_truncated_bytes_nonneg",
+        "ppm_evidence",
+        "truncated_bytes >= 0",
+    )
 
 
 def downgrade() -> None:
+    op.drop_constraint("ck_ppm_evidence_truncated_bytes_nonneg", "ppm_evidence", type_="check")
     op.drop_constraint("ck_ppm_evidence_network_isolation", "ppm_evidence", type_="check")
     op.drop_constraint("ck_ppm_evidence_duration_nonneg", "ppm_evidence", type_="check")
+    op.drop_column("ppm_evidence", "test_config_files")
+    op.drop_column("ppm_evidence", "truncated_bytes")
+    op.drop_column("ppm_evidence", "output_truncated")
     op.drop_column("ppm_evidence", "reason")
     op.drop_column("ppm_evidence", "network_isolation")
     op.drop_column("ppm_evidence", "duration_ms")

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import socket
 import subprocess
 import sys
+import threading
+import time
 import uuid
+import warnings
 from pathlib import Path
 from typing import Any, cast
 
@@ -529,105 +534,126 @@ def test_verifier_network_socket_isolation_or_not_enforced_flag(
     fixtures_root = tmp_path / "fixtures"
     repo_dir = fixtures_root / "net_repo"
 
-    rev_r1 = _init_fixture_repo(
-        repo_dir,
-        project_id,
-        {
-            "tests/test_net.py": (
-                "import socket\n\n"
-                "def test_open_socket():\n"
-                "    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:\n"
-                '        s.bind(("127.0.0.1", 0))\n'
-            ),
-        },
-    )
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(8)
+    listener.settimeout(0.2)
+    listen_port = listener.getsockname()[1]
+    stop_evt = threading.Event()
 
-    with SessionLocal() as db:
-        _register_and_scan_project(
-            db,
-            tenant_id=tenant,
-            project_id=project_id,
-            repo_dir=repo_dir,
-            fixtures_root=fixtures_root,
-        )
-        approve_baseline(
-            db,
-            tenant,
+    def _accept_loop() -> None:
+        while not stop_evt.is_set():
+            try:
+                conn_sock, _ = listener.accept()
+                conn_sock.close()
+            except TimeoutError:
+                continue
+            except OSError:
+                break
+
+    accept_thread = threading.Thread(target=_accept_loop, daemon=True)
+    accept_thread.start()
+
+    try:
+        rev_r1 = _init_fixture_repo(
+            repo_dir,
             project_id,
-            baseline_revision=1,
-            criteria=_baseline_criteria(project_id, [("AC-NET", "test_open_socket", 1)]),
-            approved_by="owner",
-            source="fixture:net",
+            {
+                "tests/test_net.py": (
+                    "import socket\n\n"
+                    "def test_open_socket():\n"
+                    f'    with socket.create_connection(("127.0.0.1", {listen_port}), timeout=1.5):\n'
+                    "        pass\n"
+                ),
+            },
         )
 
-        # 1. Real platform detection (on Windows: not_enforced; on Linux with unshare: enforced)
-        report = run_verifier(
-            db,
-            tenant,
-            project_id,
-            rev_r1,
-            settings=_verifier_settings(fixtures_root),
-        )
-        ev_row = db.execute(
-            sa.select(ppm_evidence).where(
-                ppm_evidence.c.tenant_id == tenant,
-                ppm_evidence.c.project_id == project_id,
-                ppm_evidence.c.test_id == "test_open_socket",
+        with SessionLocal() as db:
+            _register_and_scan_project(
+                db,
+                tenant_id=tenant,
+                project_id=project_id,
+                repo_dir=repo_dir,
+                fixtures_root=fixtures_root,
             )
-        ).mappings().one()
+            approve_baseline(
+                db,
+                tenant,
+                project_id,
+                baseline_revision=1,
+                criteria=_baseline_criteria(project_id, [("AC-NET", "test_open_socket", 1)]),
+                approved_by="owner",
+                source="fixture:net",
+            )
 
-        if report.network_isolation == "enforced":
-            assert report.results[0].outcome == "failed"
-            assert ev_row["network_isolation"] == "enforced"
-        else:
-            assert report.network_isolation == "not_enforced"
-            assert ev_row["network_isolation"] == "not_enforced"
+            # 1. Real platform detection (on Windows: not_enforced; on Linux with unshare: enforced)
+            report = run_verifier(
+                db,
+                tenant,
+                project_id,
+                rev_r1,
+                settings=_verifier_settings(fixtures_root),
+            )
+            ev_row = db.execute(
+                sa.select(ppm_evidence).where(
+                    ppm_evidence.c.tenant_id == tenant,
+                    ppm_evidence.c.project_id == project_id,
+                    ppm_evidence.c.test_id == "test_open_socket",
+                )
+            ).mappings().one()
 
-        # 2. Deterministic check of the enforced isolation path using an unprivileged socket blocker wrapper
-        blocker = tmp_path / "block_net_wrapper.py"
-        blocker.write_text(
-            (
-                "import runpy, socket, sys\n"
-                "def _blocked(*args, **kwargs):\n"
-                '    raise OSError(101, "Network is unreachable (sandbox enforced)")\n'
-                "socket.socket = _blocked\n"
-                "sys.argv = sys.argv[1:]\n"
-                "assert sys.argv[:2] == ['-m', 'pytest']\n"
-                "sys.argv = ['pytest', *sys.argv[2:]]\n"
-                "runpy.run_module('pytest', run_name='__main__')\n"
-            ),
-            encoding="utf-8",
-        )
-        monkeypatch.setattr(
-            verifier_mod,
-            "_detect_network_isolation",
-            lambda: ("enforced", [sys.executable, str(blocker)]),
-        )
-        # Note: _run_single_test_in_workspace prepends netns_prefix before [sys.executable, "-m", ...]
-        # so sys.argv[1] in wrapper is sys.executable; adjust argv shift via sys.argv[2:]
-        blocker.write_text(
-            (
-                "import runpy, socket, sys\n"
-                "def _blocked(*args, **kwargs):\n"
-                '    raise OSError(101, "Network is unreachable (sandbox enforced)")\n'
-                "socket.socket = _blocked\n"
-                "inner = sys.argv[2:]\n"
-                "sys.argv = ['pytest', *inner[2:]]\n"
-                "runpy.run_module('pytest', run_name='__main__')\n"
-            ),
-            encoding="utf-8",
-        )
-        enforced_rep = run_verifier(
-            db,
-            tenant,
-            project_id,
-            rev_r1,
-            settings=_verifier_settings(fixtures_root),
-        )
-        db.commit()
-        assert enforced_rep.network_isolation == "enforced"
-        assert enforced_rep.results[0].outcome == "failed"
-        assert enforced_rep.results[0].network_isolation == "enforced"
+            r0 = report.results[0]
+            warnings.warn(
+                UserWarning(
+                    "VERIFIER_CI_NET_ISOLATION: "
+                    f"platform={sys.platform} mode={report.network_isolation} "
+                    f"outcome={r0.outcome} exit_status={r0.exit_status}"
+                ),
+                stacklevel=1,
+            )
+
+            if report.network_isolation == "enforced":
+                assert r0.outcome == "failed"
+                assert ev_row["network_isolation"] == "enforced"
+            else:
+                assert report.network_isolation == "not_enforced"
+                assert ev_row["network_isolation"] == "not_enforced"
+
+            # 2. Deterministic check of enforced isolation using an unprivileged socket blocker wrapper
+            blocker = tmp_path / "block_net_wrapper.py"
+            monkeypatch.setattr(
+                verifier_mod,
+                "_detect_network_isolation",
+                lambda: ("enforced", [sys.executable, str(blocker)]),
+            )
+            # _run_single_test_in_workspace prepends netns_prefix before [sys.executable, "-m", ...]
+            blocker.write_text(
+                (
+                    "import runpy, socket, sys\n"
+                    "def _blocked(*args, **kwargs):\n"
+                    '    raise OSError(101, "Network is unreachable (sandbox enforced)")\n'
+                    "socket.socket = _blocked\n"
+                    "inner = sys.argv[2:]\n"
+                    "sys.argv = ['pytest', *inner[2:]]\n"
+                    "runpy.run_module('pytest', run_name='__main__')\n"
+                ),
+                encoding="utf-8",
+            )
+            enforced_rep = run_verifier(
+                db,
+                tenant,
+                project_id,
+                rev_r1,
+                settings=_verifier_settings(fixtures_root),
+            )
+            db.commit()
+            assert enforced_rep.network_isolation == "enforced"
+            assert enforced_rep.results[0].outcome == "failed"
+            assert enforced_rep.results[0].network_isolation == "enforced"
+    finally:
+        stop_evt.set()
+        listener.close()
+        accept_thread.join(timeout=2.0)
 
 
 def test_verifier_timeout_is_inconclusive_never_passed(
@@ -1107,8 +1133,9 @@ def test_verifier_flag_off_real_roots_guard_allowlist_and_cli(
 def test_verifier_caps_large_output(
     db_engine: sa.Engine,
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Output exceeding max_output_bytes is truncated safely without OOM or hang."""
+    """Output exceeding max_output_bytes stops disk writes at cap and records truncation."""
     SessionLocal = sessionmaker(bind=db_engine, autoflush=False, autocommit=False)
     tenant = f"tenant-cap-{uuid.uuid4().hex[:8]}"
     project_id = f"proj-cap-{uuid.uuid4().hex[:8]}"
@@ -1126,6 +1153,18 @@ def test_verifier_caps_large_output(
             ),
         },
     )
+
+    observed_log_sizes: list[int] = []
+    real_rmtree = verifier_mod.shutil.rmtree
+
+    def _spy_rmtree(path: Any, *args: Any, **kwargs: Any) -> None:
+        out_dir = Path(path) / "out"
+        if out_dir.is_dir():
+            for log_file in out_dir.glob("*.log"):
+                observed_log_sizes.append(log_file.stat().st_size)
+        real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(verifier_mod.shutil, "rmtree", _spy_rmtree)
 
     with SessionLocal() as db:
         _register_and_scan_project(
@@ -1161,6 +1200,9 @@ def test_verifier_caps_large_output(
         assert r0.reason is None
         assert r0.output_hash is not None
         assert len(r0.output_hash) == 64
+        assert r0.output_truncated is True
+        assert r0.truncated_bytes > 100_000
+        assert observed_log_sizes == [128]
 
         row = db.execute(
             sa.select(ppm_evidence).where(
@@ -1171,8 +1213,10 @@ def test_verifier_caps_large_output(
         ).mappings().one()
         assert row["exit_status"] == 1
         assert row["output_hash"] == r0.output_hash
+        assert row["output_truncated"] is True
+        assert row["truncated_bytes"] == r0.truncated_bytes
 
-        # Second revision with much higher cap yields a different hash (proving 128B cap truncated output)
+        # Second revision with much higher cap captures full output without truncation
         (repo_dir / "tests" / "test_noisy.py").write_text(
             "def test_noisy_fail():\n"
             '    print("NOISE_" * 20000)\n'
@@ -1193,5 +1237,253 @@ def test_verifier_caps_large_output(
         db.commit()
         assert len(rep_full.results) == 1
         assert rep_full.results[0].outcome == "failed"
+        assert rep_full.results[0].output_truncated is False
+        assert rep_full.results[0].truncated_bytes == 0
         assert rep_full.results[0].output_hash != r0.output_hash
+
+
+def test_verifier_conftest_os_exit_zero_and_skip_all_cannot_pass(
+    db_engine: sa.Engine,
+    tmp_path: Path,
+) -> None:
+    """V1: conftest os._exit(0) and skip-all -> inconclusive; normal pass -> passed; XXE rejected."""
+    SessionLocal = sessionmaker(bind=db_engine, autoflush=False, autocommit=False)
+    tenant = f"tenant-v1-{uuid.uuid4().hex[:8]}"
+    project_id = f"proj-v1-{uuid.uuid4().hex[:8]}"
+    fixtures_root = tmp_path / "fixtures"
+    repo_dir = fixtures_root / "v1_conftest_repo"
+
+    conftest_exit0 = (
+        "import os\n\n"
+        "def pytest_sessionstart(session):\n"
+        "    os._exit(0)\n"
+    )
+    failing_test = (
+        "def test_guarded_target():\n"
+        '    assert False, "must never be reported passed via conftest os._exit(0)"\n'
+    )
+    rev_exit0 = _init_fixture_repo(
+        repo_dir,
+        project_id,
+        {
+            "conftest.py": conftest_exit0,
+            "tests/test_guarded.py": failing_test,
+        },
+    )
+
+    expected_conftest_hash_1 = hashlib.sha256(conftest_exit0.encode("utf-8")).hexdigest()
+
+    # Entity expansion / DTD declaration and missing-nodeid XML spoofing must fail closed
+    xxe_path = tmp_path / "xxe.xml"
+    xxe_path.write_bytes(
+        b'<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe "pwn">]>'
+        b'<testsuites><testsuite errors="0" failures="0" skipped="0" tests="1">'
+        b'<testcase classname="tests.test_guarded" name="test_guarded_target"/>'
+        b"</testsuite></testsuites>"
+    )
+    assert verifier_mod._verify_junit_xml_result(
+        xxe_path, "tests/test_guarded.py::test_guarded_target"
+    ) == (False, "no_result_record")
+
+    wrong_tc_path = tmp_path / "wrong_tc.xml"
+    wrong_tc_path.write_bytes(
+        b'<?xml version="1.0"?>'
+        b'<testsuites><testsuite errors="0" failures="0" skipped="0" tests="1">'
+        b'<testcase classname="tests.test_other" name="test_dummy"/>'
+        b"</testsuite></testsuites>"
+    )
+    assert verifier_mod._verify_junit_xml_result(
+        wrong_tc_path, "tests/test_guarded.py::test_guarded_target"
+    ) == (False, "nodeid_not_executed")
+
+    with SessionLocal() as db:
+        _register_and_scan_project(
+            db,
+            tenant_id=tenant,
+            project_id=project_id,
+            repo_dir=repo_dir,
+            fixtures_root=fixtures_root,
+        )
+        approve_baseline(
+            db,
+            tenant,
+            project_id,
+            baseline_revision=1,
+            criteria=_baseline_criteria(project_id, [("AC-V1", "test_guarded_target", 1)]),
+            approved_by="owner",
+            source="fixture:v1",
+        )
+
+        # 1. conftest.py os._exit(0) + failing test -> inconclusive (no_result_record)
+        rep_exit0 = run_verifier(
+            db,
+            tenant,
+            project_id,
+            rev_exit0,
+            settings=_verifier_settings(fixtures_root),
+        )
+        db.commit()
+        r0 = rep_exit0.results[0]
+        assert r0.outcome == "inconclusive"
+        assert r0.outcome != "passed"
+        assert r0.reason == "no_result_record"
+        assert r0.test_config_files == [{"path": "conftest.py", "sha256": expected_conftest_hash_1}]
+
+        ev_exit0 = db.execute(
+            sa.select(ppm_evidence).where(
+                ppm_evidence.c.tenant_id == tenant,
+                ppm_evidence.c.project_id == project_id,
+                ppm_evidence.c.revision == rev_exit0,
+            )
+        ).mappings().one()
+        assert ev_exit0["outcome"] == "inconclusive"
+        assert ev_exit0["test_config_files"] == [{"path": "conftest.py", "sha256": expected_conftest_hash_1}]
+
+        rec0 = create_assessment(db, tenant, project_id, trigger="manual", assessed_revision=rev_exit0)
+        db.commit()
+        assert rec0.output["criteria"][0]["status"] == "unverified"
+        detail0 = get_assessment_detail(db, tenant, rec0.id)
+        assert detail0["explanation"]["AC-V1"]["verified"]["excluded_evidence"][0][
+            "test_config_files"
+        ] == [{"path": "conftest.py", "sha256": expected_conftest_hash_1}]
+
+        # 2. conftest.py marking every test skipped + pytest.ini -> inconclusive (result_mismatch)
+        conftest_skip = (
+            "import pytest\n\n"
+            "def pytest_collection_modifyitems(items):\n"
+            "    for item in items:\n"
+            '        item.add_marker(pytest.mark.skip(reason="spoofed skip"))\n'
+        )
+        pytest_ini_text = "[pytest]\ntestpaths = tests\n"
+        (repo_dir / "conftest.py").write_text(conftest_skip, encoding="utf-8")
+        (repo_dir / "pytest.ini").write_text(pytest_ini_text, encoding="utf-8")
+        (repo_dir / "tests" / "test_guarded.py").write_text(
+            "def test_guarded_target():\n    assert True\n",
+            encoding="utf-8",
+        )
+        _git(repo_dir, "add", "-A")
+        _git(repo_dir, "commit", "-m", "rev2 skip-all conftest")
+        rev_skip = _git(repo_dir, "rev-parse", "HEAD")
+
+        rep_skip = run_verifier(
+            db,
+            tenant,
+            project_id,
+            rev_skip,
+            settings=_verifier_settings(fixtures_root),
+        )
+        db.commit()
+        r_skip = rep_skip.results[0]
+        assert r_skip.outcome == "inconclusive"
+        assert r_skip.reason == "result_mismatch"
+        expected_cfg_rev2 = sorted(
+            [
+                {
+                    "path": "conftest.py",
+                    "sha256": hashlib.sha256(conftest_skip.encode("utf-8")).hexdigest(),
+                },
+                {
+                    "path": "pytest.ini",
+                    "sha256": hashlib.sha256(pytest_ini_text.encode("utf-8")).hexdigest(),
+                },
+            ],
+            key=lambda x: x["path"],
+        )
+        assert r_skip.test_config_files == expected_cfg_rev2
+
+        # 3. Clean conftest + normal passing test -> passed with JUnit confirmation
+        (repo_dir / "conftest.py").unlink()
+        (repo_dir / "pytest.ini").unlink()
+        _git(repo_dir, "add", "-A")
+        _git(repo_dir, "commit", "-m", "rev3 clean pass")
+        rev_pass = _git(repo_dir, "rev-parse", "HEAD")
+
+        rep_pass = run_verifier(
+            db,
+            tenant,
+            project_id,
+            rev_pass,
+            settings=_verifier_settings(fixtures_root),
+        )
+        db.commit()
+        r_pass = rep_pass.results[0]
+        assert r_pass.outcome == "passed"
+        assert r_pass.exit_status == 0
+        assert r_pass.reason is None
+        assert r_pass.test_config_files == []
+
+
+def test_verifier_timeout_kills_detached_grandchild_process(
+    db_engine: sa.Engine,
+    tmp_path: Path,
+) -> None:
+    """V2: Timeout terminates even start_new_session=True grandchildren (Win32 Job / Linux pidns)."""
+    SessionLocal = sessionmaker(bind=db_engine, autoflush=False, autocommit=False)
+    tenant = f"tenant-v2-{uuid.uuid4().hex[:8]}"
+    project_id = f"proj-v2-{uuid.uuid4().hex[:8]}"
+    fixtures_root = tmp_path / "fixtures"
+    repo_dir = fixtures_root / "v2_grandchild_repo"
+    marker = tmp_path / "detached_grandchild_marker.txt"
+    marker.unlink(missing_ok=True)
+
+    marker_posix = marker.as_posix()
+    rev_r1 = _init_fixture_repo(
+        repo_dir,
+        project_id,
+        {
+            "tests/test_grandchild.py": (
+                "import subprocess, sys, time\n\n"
+                "def test_spawn_detached_grandchild():\n"
+                "    code = (\n"
+                '        "import time\\n"\n'
+                '        "time.sleep(5.0)\\n"\n'
+                f'        "with open({marker_posix!r}, \\"w\\", encoding=\\"utf-8\\") as f:\\n"\n'
+                '        "    f.write(\\"leaked\\")\\n"\n'
+                "    )\n"
+                "    subprocess.Popen([sys.executable, '-c', code], start_new_session=True)\n"
+                "    time.sleep(10.0)\n"
+            ),
+        },
+    )
+
+    try:
+        with SessionLocal() as db:
+            _register_and_scan_project(
+                db,
+                tenant_id=tenant,
+                project_id=project_id,
+                repo_dir=repo_dir,
+                fixtures_root=fixtures_root,
+            )
+            approve_baseline(
+                db,
+                tenant,
+                project_id,
+                baseline_revision=1,
+                criteria=_baseline_criteria(
+                    project_id,
+                    [("AC-V2", "test_spawn_detached_grandchild", 1)],
+                ),
+                approved_by="owner",
+                source="fixture:v2",
+            )
+            rep = run_verifier(
+                db,
+                tenant,
+                project_id,
+                rev_r1,
+                timeout_seconds=1.5,
+                settings=_verifier_settings(fixtures_root),
+            )
+            db.commit()
+            assert rep.results[0].outcome == "inconclusive"
+            assert rep.results[0].reason == "timeout"
+            assert rep.results[0].exit_status is None
+
+        # Wait past the grandchild's 5s sleep; if not killed, it would write the marker.
+        time.sleep(6.0)
+        assert marker.exists() is False
+    finally:
+        marker.unlink(missing_ok=True)
+
 

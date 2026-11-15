@@ -498,6 +498,9 @@ def load_fixture_evidence(
                 duration_ms=item.get("duration_ms"),
                 network_isolation=item.get("network_isolation"),
                 reason=item.get("reason"),
+                output_truncated=bool(item.get("output_truncated", False)),
+                truncated_bytes=int(item.get("truncated_bytes", 0) or 0),
+                test_config_files=list(item.get("test_config_files") or []),
                 created_at=now,
             )
             .on_conflict_do_nothing(
@@ -597,6 +600,9 @@ def get_assessment_detail(
             ppm_evidence.c.duration_ms,
             ppm_evidence.c.network_isolation,
             ppm_evidence.c.reason,
+            ppm_evidence.c.output_truncated,
+            ppm_evidence.c.truncated_bytes,
+            ppm_evidence.c.test_config_files,
         ).where(
             ppm_evidence.c.tenant_id == tenant_id,
             ppm_evidence.c.project_id == project_id,
@@ -611,6 +617,9 @@ def get_assessment_detail(
             "duration_ms": e["duration_ms"],
             "network_isolation": e["network_isolation"],
             "reason": e["reason"],
+            "output_truncated": bool(e["output_truncated"]),
+            "truncated_bytes": int(e["truncated_bytes"] or 0),
+            "test_config_files": list(e["test_config_files"] or []),
         }
         for e in ev_db_rows
     }
@@ -639,6 +648,9 @@ def get_assessment_detail(
                 "duration_ms": meta.get("duration_ms"),
                 "network_isolation": meta.get("network_isolation"),
                 "reason": meta.get("reason"),
+                "output_truncated": meta.get("output_truncated", False),
+                "truncated_bytes": meta.get("truncated_bytes", 0),
+                "test_config_files": list(meta.get("test_config_files") or []),
             }
 
     claims_list = [c for c in inputs_dict.get("claims", []) if isinstance(c, dict)]
