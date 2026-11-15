@@ -160,9 +160,9 @@ Captured directly against PostgreSQL 18.6 (`0008_agents`) after registering `src
 | Ruff lint | `uv run ruff check src tests ppm-v2/reducer migrations` | `All checks passed!` |
 | Mypy typecheck | `uv run mypy src tests ppm-v2/reducer` | `Success: no issues found in 163 source files` |
 | HUD build & tests | `npm --prefix web/hud run build && npm --prefix web/hud test` | `tsc -b && vite build` built 33 modules; `vitest`: `1 passed (2 tests)` |
-| SC-08 translation & clone | `uv run python tools/check_translation.py --compare` & `--strict` (verified in worktree and fresh `git clone`) | See verification log below after final `SHA256SUMS.txt` update |
-| Checksums | `sha256sum -c SHA256SUMS.txt` | Verified LF endings and checksum match |
-| GitHub Actions CI | — | `not_run` (run pending push of `wp/P3a-WP5`) |
+| SC-08 translation & clone | `uv run python tools/check_translation.py --compare` & `--strict` (verified in worktree and fresh `git clone`) | `SC-08 Report Summary: 38 up-to-date, 0 stale, 0 missing headers.`; `PASS: 0 identifier differences across 38 file pairs.` |
+| Checksums | `sha256sum -c SHA256SUMS.txt` | `0 mismatches` (539 entries, LF line endings verified) |
+| GitHub Actions CI | Push `wp/P3a-WP5` (`6db509b`) | Run [`43727878833`](https://github.com/xhuyvn/EAM_HUB/actions/runs/43727878833) (`validate-and-test`) **PASS** (`3m1s`) |
 
 ---
 
