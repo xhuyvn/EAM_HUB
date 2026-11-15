@@ -22,6 +22,8 @@ from sqlalchemy.engine.url import make_url
 from eap.config import get_settings
 from eap.db import (
     action_executions,
+    agent_bindings,
+    agents,
     commands,
     event_log,
     leases,
@@ -167,6 +169,51 @@ def seed_fixture_data(db_url: str) -> None:
                 tool_id="engineering.create_pr",
                 resource_ref="repo:sc06",
                 state="running",
+            )
+        )
+        conn.execute(
+            agents.insert().values(
+                tenant_id=tenant,
+                agent_id="agent-sc06",
+                manifest={"agent_id": "agent-sc06", "version": "1.0.0"},
+                manifest_sha256="a" * 64,
+                name="SC06 Fixture Agent",
+                version="1.0.0",
+                domain="platform",
+                owner_refs={
+                    "business_owner_ref": "owner-sc06",
+                    "technical_owner_ref": "owner-sc06-tech",
+                    "verification_status": "unverified",
+                    "verification_label": "unverified owner",
+                },
+                runtime_kind="cli",
+                task_types=["ppm.assessment"],
+                status="active",
+            )
+        )
+        conn.execute(
+            agent_bindings.insert().values(
+                tenant_id=tenant,
+                binding_id="bind-sc06",
+                agent_id="agent-sc06",
+                payload={"binding_id": "bind-sc06", "agent_id": "agent-sc06"},
+                release_version="1.0.0",
+                release_sha256="b" * 64,
+                mode="managed",
+                execution_boundary="platform_gateway",
+                certified_capabilities={
+                    "submit": True,
+                    "status": True,
+                    "events": True,
+                    "collect_result": True,
+                    "cancel": True,
+                    "resume": False,
+                    "approve_tool": False,
+                },
+                capability_evidence_ref="artifact:sc06-capability-evidence",
+                egress_policy_ref="egress:local-only",
+                secret_ref=None,
+                endpoint_ref="runtime:sc06-mock",
             )
         )
 

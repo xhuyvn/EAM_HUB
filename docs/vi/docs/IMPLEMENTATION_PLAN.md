@@ -1,4 +1,4 @@
-> Translated from docs/IMPLEMENTATION_PLAN.md @ d7c9e91
+> Translated from docs/IMPLEMENTATION_PLAN.md @ 2f7dfd9
 
 # Implementation Plan — Enterprise Agent Platform 1.1 (plan revision 1.5)
 
@@ -251,6 +251,7 @@ P0 có hai trạng thái: **`P0 ready_for_owner_review`** khi coder hoàn tất 
 **P3a-WP2 SSE: replay và thu hồi quyền** — 2–2.5 ngày: cursor opaque scoped; replay theo offset relay; `resync_required`; `grant_epoch` + `policy.changed` + `row.removed`; artifact chỉ qua API (không signed URL). Failure tests: C09, C10, C28, **C30** (hai bootstrap principal: thu hồi quyền khi stream mở, phát event của project → client không nhận sau thời điểm policy hiệu lực, evidence URL cũ → 403; ghi propagation p95).
 **P3a-WP3 HUD UI** — 3–4.5 ngày: tasks/runs; run inspector; **assessment view hai cột "Reported" và "Verified"** cho từng criterion với nguồn, revision, baseline, test ids, link evidence; **diff giữa hai assessment**; last_successful_scan_at, last_observed_at, analysis_status; attention queue. Playwright: reconnect, unknown cost, stage_only, keyboard.
 **P3a-WP4 HUD latency baseline (đo)** — 0.5–1 ngày (SC-07).
+**P3a-WP5 Agent inventory (read-only, ISS-037)** — 3–4 ngày: bảng `agents` và `agent_bindings`; CLI loader local MVP (`python -m eap.agents.cli register` với `agent.json` và binding, từ chối secret inline, loopback + owner principal); read-only `GET /v1/agents` và `GET /v1/agents/{agent_id}` (`404` cross-tenant; thao tác register/suspend/approve giữ ở `P1b-WP3`, `P3b`, `P4`); health suy diễn từ run đã ghi (`no_data` khi `0` run, `unknown` khi mất ACK hoặc thiếu usage, run `unattributed` chưa gắn binding); hook `AgentInventoryRowBuilder` (`ISS-038` cho `hud-projection` `1.1`).
 
 ### D1-fixture — điều kiện ký (1–2 ngày)
 Tiêu chí ký: **đăng ký project một lần, để hệ thống tự quét sau khi project thay đổi, rồi từ HUD trả lời được tiêu chí nào tiến triển, bằng chứng nào thuộc đúng revision, và vì sao một mục agent báo "đã xong" vẫn chưa đủ điều kiện nghiệm thu.**
@@ -265,6 +266,9 @@ Kịch bản `scripts/demo_d1.ps1`/`.sh` (thư mục tạm, cấu trúc giống 
 7. C21/C29/C38 với mock provider qua HUD.
 - Acceptance: reviewer (không phải người viết code) trả lời ba câu hỏi chỉ bằng HUD; screenshot, SC-03 JSON các case D1, export A1/A2/diff, counts bước 5.
 - Còn chưa kiểm khi ký D1: thư mục thật Windows, Ollama thật, OIDC, multi-user, Action Service với tool thật, cloud egress, restore, adapter thật, cross-tenant với hai tenant, tải trên server.
+
+### MVP1-WP1 — Gói triển khai local (1–2 ngày, sau D1)
+- Quyết định của owner (2026-11-15): MVP1 = triển khai local loopback kết hợp `D1-fixture`, `P3a-WP5` agent inventory và script khởi chạy/đóng gói local; `OIDC`/`RBAC` (`P1b-WP1`, `P1b-WP2`) theo sau MVP1 ở Shared pilot.
 
 ### Local-pilot (2–4 ngày sau DG-3)
 - Prerequisites: D1-fixture ký; DG-3 (P0-WP3 đạt, P0-WP6 đạt, egress local-only).

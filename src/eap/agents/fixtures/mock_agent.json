@@ -1,0 +1,31 @@
+{
+  "contract_version": "1.0",
+  "agent_id": "agent-mock-provider",
+  "name": "Deterministic Mock Provider Agent",
+  "version": "1.0.0",
+  "domain": "platform",
+  "business_owner_ref": "owner-platform-example",
+  "technical_owner_ref": "owner-platform-tech",
+  "runtime_kind": "native",
+  "task_types": [
+    "ppm.project.assess",
+    "code.patch"
+  ],
+  "input_schema_ref": "contracts/task-envelope.schema.json",
+  "output_schema_ref": "contracts/result.schema.json",
+  "desired_capabilities": {
+    "submit": true,
+    "status": true,
+    "events": true,
+    "collect_result": true,
+    "cancel": true,
+    "resume": false,
+    "approve_tool": false
+  },
+  "desired_tools": [
+    "mock.submit",
+    "mock.create_pr"
+  ],
+  "harness_version": "baseline-1.0",
+  "eval_profile_ref": "mock-provider-smoke-v1"
+}

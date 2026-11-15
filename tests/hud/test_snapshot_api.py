@@ -542,7 +542,8 @@ def test_cursor_opacity_tamper_expiry_and_grant_epoch(db_conn: sa.Connection) ->
 
     # Tamper detection (both direct and via HTTP route)
     tampered_chars = list(c1)
-    tampered_chars[-1] = "A" if tampered_chars[-1] != "A" else "B"
+    mid = len(tampered_chars) // 2  # last base64url char may only carry padding bits
+    tampered_chars[mid] = "A" if tampered_chars[mid] != "A" else "B"
     tampered = "".join(tampered_chars)
     with pytest.raises(CursorTamperedError):
         verify_snapshot_cursor(

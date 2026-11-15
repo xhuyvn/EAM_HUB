@@ -249,6 +249,7 @@ P0 has two states: **`P0 ready_for_owner_review`** when coders complete WP1, WP2
 **P3a-WP2 SSE: replay and permission revocation** — 2–2.5 days: scoped opaque cursor; replay via relay offset; `resync_required`; `grant_epoch` + `policy.changed` + `row.removed`; artifacts strictly via API (no signed URLs). Failure tests: C09, C10, C28, **C30** (dual bootstrap principals: revoke permission on active stream, emit project event → client receives zero events post-revocation, old evidence URL → 403; record p95 propagation latency).
 **P3a-WP3 HUD UI** — 3–4.5 days: tasks/runs; run inspector; **assessment view with two columns "Reported" and "Verified"** per criterion with source, revision, baseline, test IDs, evidence links; **diff between assessments**; last_successful_scan_at, last_observed_at, analysis_status; attention queue. Playwright: reconnect, unknown cost, stage_only, keyboard navigation.
 **P3a-WP4 HUD latency baseline (measurement)** — 0.5–1 day (SC-07).
+**P3a-WP5 Agent inventory (read-only, ISS-037)** — 3–4 days: `agents` and `agent_bindings` tables; local MVP loader CLI (`python -m eap.agents.cli register` with `agent.json` and binding, rejecting inline secrets, loopback + owner principal); read-only `GET /v1/agents` and `GET /v1/agents/{agent_id}` (`404` cross-tenant; register/suspend/approve actions stay in `P1b-WP3`, `P3b`, `P4`); derived health from recorded runs (`no_data` on `0` runs, `unknown` on lost ACK or missing usage, `unattributed` unlinked runs); `AgentInventoryRowBuilder` hook (`ISS-038` on `hud-projection` `1.1`).
 
 ### D1-fixture — sign-off condition (1–2 days)
 Sign-off criteria: **register project once, allow system to auto-scan after project modifications, then from HUD answer which criteria advanced, which evidence belongs to current revision, and why an item reported "done" by an agent remains unaccepted.**
@@ -263,6 +264,9 @@ Script scenario `scripts/demo_d1.ps1`/`.sh` (temp directory structured like real
 7. C21/C29/C38 with mock provider via HUD.
 - Acceptance: reviewer (non-author) answers three questions using HUD alone; screenshots, SC-03 JSON of D1 cases, exported A1/A2/diff, step 5 counts.
 - Excluded from D1 sign-off: real Windows directories, real Ollama, OIDC, multi-user, real Action Service tools, cloud egress, restore drills, real adapters, multi-tenant cross-tenant tests, server load.
+
+### MVP1-WP1 — Local deploy package (1–2 days, post-D1)
+- Owner decision (2026-11-15): MVP1 = local loopback deployment combining `D1-fixture`, `P3a-WP5` agent inventory, and local startup/packaging scripts; `OIDC`/`RBAC` (`P1b-WP1`, `P1b-WP2`) follow after MVP1 in Shared pilot.
 
 ### Local-pilot (2–4 days post-DG-3)
 - Prerequisites: D1-fixture signed; DG-3 (P0-WP3 passed, P0-WP6 passed, egress local-only).
