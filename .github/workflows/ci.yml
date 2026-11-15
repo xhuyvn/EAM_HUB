@@ -86,3 +86,4 @@ jobs:
         run: |
           npm --prefix web/hud ci
           npm --prefix web/hud run build
+          npm --prefix web/hud test
