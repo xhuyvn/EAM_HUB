@@ -1,0 +1,33 @@
+{
+  "contract_version": "1.1",
+  "binding_id": "binding-mock-provider-local",
+  "agent_id": "agent-mock-provider",
+  "release_version": "1.0.0",
+  "release_sha256": "65c8ed5b644cc304b158c7c29da6bebf229d3ae8ce60196a0b09805c56849e3b",
+  "mode": "managed",
+  "endpoint_ref": "inproc:eap.adapters.mock_provider.MockProvider",
+  "secret_ref": null,
+  "resource_scope_refs": [
+    "project:proj-example"
+  ],
+  "certified_capabilities": {
+    "submit": true,
+    "status": true,
+    "events": true,
+    "collect_result": true,
+    "cancel": true,
+    "resume": false,
+    "approve_tool": false
+  },
+  "capability_evidence_ref": "artifact:mock-provider-p1a-wp4-capabilities",
+  "model_profile_ref": "local-scoped-default",
+  "grant_refs": [
+    "grant:fixture-mock-provider"
+  ],
+  "execution_boundary": "platform_gateway",
+  "policy_version": "policy-1.0",
+  "fallback_model_profile_refs": [],
+  "embedding_profile_ref": null,
+  "egress_policy_ref": "egress:local-only",
+  "telemetry_export": "local_only"
+}

@@ -2,6 +2,7 @@
 
 from eap.hud.snapshot import (
     CURSOR_PREFIX,
+    AgentInventoryRowBuilder,
     CursorError,
     CursorExpiredError,
     CursorPayload,
@@ -25,6 +26,7 @@ from eap.hud.snapshot import (
 
 __all__ = [
     "CURSOR_PREFIX",
+    "AgentInventoryRowBuilder",
     "CursorError",
     "CursorExpiredError",
     "CursorPayload",

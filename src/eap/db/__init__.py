@@ -1,5 +1,6 @@
 """EAP database connection, session handling, and schema definitions."""
 
+from eap.db.agent_tables import agent_bindings, agents
 from eap.db.assessment_tables import (
     ppm_assessments,
     ppm_baselines,
@@ -55,6 +56,8 @@ from eap.db.tables import (
 
 __all__ = [
     "action_executions",
+    "agent_bindings",
+    "agents",
     "artifacts",
     "collector_snapshots",
     "commands",

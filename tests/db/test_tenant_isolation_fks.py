@@ -18,6 +18,8 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
 from eap.db import (
+    agent_bindings,
+    agents,
     artifacts,
     commands,
     metadata,
@@ -78,8 +80,8 @@ def test_catalog_every_fk_includes_tenant_id(db_conn: sa.Connection) -> None:
                 f"Live DB FK '{con_name}' on table '{table_name}' does not include 'tenant_id' in referred columns: {referred_cols}"
             )
 
-    assert fk_count == 18, (
-        f"Expected exactly 18 foreign keys in schema (7 core + 9 ingest + 2 assessments), found {fk_count}"
+    assert fk_count == 19, (
+        f"Expected exactly 19 foreign keys in schema (7 core + 9 ingest + 2 assessments + 1 agents), found {fk_count}"
     )
 
 
@@ -416,5 +418,69 @@ def test_cross_tenant_fk_ppm_scan_schedules_rejected(db_conn: sa.Connection) -> 
             source_id=source_id,
             interval_seconds=300,
             debounce_seconds=5,
+        )
+    )
+
+
+def test_cross_tenant_fk_agent_bindings_rejected(db_conn: sa.Connection) -> None:
+    """(b.8) agent_bindings -> agents: Cross-tenant reference rejected by fk_agent_bindings_tenant_agent."""
+    tenant_a = "tenant-a-agents"
+    tenant_b = "tenant-b-agents"
+    agent_id = "agent-iso-1"
+
+    # Insert parent agent in tenant A
+    db_conn.execute(
+        agents.insert().values(
+            tenant_id=tenant_a,
+            agent_id=agent_id,
+            manifest={"agent_id": agent_id, "version": "1.0.0"},
+            manifest_sha256="a" * 64,
+            name="Isolation Test Agent",
+            version="1.0.0",
+            domain="platform",
+            owner_refs={"business_owner_ref": "owner-a", "technical_owner_ref": "tech-a"},
+            runtime_kind="cli",
+            task_types=["code.patch"],
+            status="active",
+        )
+    )
+
+    # Attempt to insert child binding in tenant B pointing to tenant A's agent
+    with pytest.raises(IntegrityError) as exc_info, db_conn.begin_nested():
+        db_conn.execute(
+            agent_bindings.insert().values(
+                tenant_id=tenant_b,
+                binding_id="bind-iso-b",
+                agent_id=agent_id,
+                payload={"binding_id": "bind-iso-b"},
+                release_version="1.0.0",
+                release_sha256="b" * 64,
+                mode="managed",
+                execution_boundary="platform_gateway",
+                certified_capabilities={"submit": True},
+                capability_evidence_ref="artifact:ev-1",
+                egress_policy_ref="egress:local-only",
+                secret_ref=None,
+                endpoint_ref="runtime:mock",
+            )
+        )
+    _assert_constraint(exc_info, "fk_agent_bindings_tenant_agent")
+
+    # Same-tenant insert succeeds
+    db_conn.execute(
+        agent_bindings.insert().values(
+            tenant_id=tenant_a,
+            binding_id="bind-iso-a",
+            agent_id=agent_id,
+            payload={"binding_id": "bind-iso-a"},
+            release_version="1.0.0",
+            release_sha256="b" * 64,
+            mode="managed",
+            execution_boundary="platform_gateway",
+            certified_capabilities={"submit": True},
+            capability_evidence_ref="artifact:ev-1",
+            egress_policy_ref="egress:local-only",
+            secret_ref=None,
+            endpoint_ref="runtime:mock",
         )
     )

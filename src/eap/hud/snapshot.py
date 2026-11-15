@@ -911,6 +911,38 @@ class HudSnapshotBuilder:
         return all_rows
 
 
+class AgentInventoryRowBuilder:
+    """Extensible RowKindBuilder for P3a-WP5 read-only agent inventory rows (ISS-038).
+
+    contracts/hud-projection.schema.json (v1.1) enforces additionalProperties=false on
+    rows[] items and requires all 13 task_run properties on every row, so this builder
+    is kept out of _DEFAULT_BUILDER until hud-projection 1.2 adds agent row support.
+    """
+
+    kind: str = "agent"
+
+    def build_rows(
+        self,
+        conn: sa.Connection,
+        *,
+        tenant_id: str,
+        project_id: str | None = None,
+        **context: Any,
+    ) -> list[dict[str, Any]]:
+        """Build tenant-scoped read-only agent inventory rows inside the caller's connection."""
+        from eap.agents.service import list_agents
+
+        window_hours = context.get("window_hours")
+        inventory = list_agents(conn, tenant_id=tenant_id, window_hours=window_hours)
+        return [
+            {
+                "kind": self.kind,
+                "agent": agent,
+            }
+            for agent in inventory["agents"]
+        ]
+
+
 _DEFAULT_BUILDER = HudSnapshotBuilder()
 
 
