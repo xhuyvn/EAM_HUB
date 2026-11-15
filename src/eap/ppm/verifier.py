@@ -637,6 +637,76 @@ def _win32_job_create_and_assign(proc: subprocess.Popen[bytes]) -> int | None:
     return int(job)
 
 
+_PR_SET_CHILD_SUBREAPER = 36
+
+
+def _posix_preexec_subreaper() -> None:
+    """Mark the spawned verifier root as a Linux subreaper (survives execve)."""
+    if not sys.platform.startswith("linux"):
+        return
+    try:
+        libc = ctypes.CDLL(None)
+        libc.prctl(_PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)
+    except (OSError, AttributeError):
+        pass
+
+
+def _collect_linux_proc_descendants(root_pid: int) -> tuple[set[int], set[int]]:
+    """Collect descendant PIDs and PGIDs under ``root_pid`` from ``/proc`` (Linux fallback)."""
+    if not sys.platform.startswith("linux"):
+        return (set(), set())
+    proc_root = Path("/proc")
+    if not proc_root.is_dir():
+        return (set(), set())
+
+    ppid_map: dict[int, list[int]] = {}
+    pgrp_map: dict[int, int] = {}
+    self_pid = os.getpid()
+
+    try:
+        entries = list(proc_root.iterdir())
+    except OSError:
+        return (set(), set())
+
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        pid = int(entry.name)
+        try:
+            stat_bytes = (entry / "stat").read_bytes()
+        except OSError:
+            continue
+        rparen = stat_bytes.rfind(b")")
+        if rparen == -1:
+            continue
+        fields = stat_bytes[rparen + 2 :].split()
+        if len(fields) < 3:
+            continue
+        try:
+            ppid = int(fields[1])
+            pgrp = int(fields[2])
+        except ValueError:
+            continue
+        ppid_map.setdefault(ppid, []).append(pid)
+        pgrp_map[pid] = pgrp
+
+    pids: set[int] = set()
+    pgids: set[int] = set()
+    queue = [root_pid]
+    seen_visited = {root_pid}
+    while queue:
+        cur = queue.pop()
+        if cur in pgrp_map and cur != self_pid:
+            pgids.add(pgrp_map[cur])
+        for child in ppid_map.get(cur, ()):
+            if child == self_pid or child in seen_visited:
+                continue
+            seen_visited.add(child)
+            pids.add(child)
+            queue.append(child)
+    return (pids, pgids)
+
+
 def _terminate_process_tree(
     proc: subprocess.Popen[bytes],
     win_job_handle: int | None,
@@ -657,10 +727,25 @@ def _terminate_process_tree(
                 pass
         return
 
-    try:
-        os.killpg(proc.pid, signal.SIGKILL)
-    except OSError:
-        pass
+    pids, pgids = _collect_linux_proc_descendants(proc.pid)
+    # Pause discovered process tree briefly to prevent fork races, then rescan.
+    for pid in {proc.pid} | pids:
+        try:
+            os.kill(pid, signal.SIGSTOP)
+        except OSError:
+            pass
+    pids2, pgids2 = _collect_linux_proc_descendants(proc.pid)
+
+    for pgid in pgids | pgids2 | {proc.pid}:
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except OSError:
+            pass
+    for pid in pids | pids2 | {proc.pid}:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
     if proc.poll() is None:
         try:
             proc.kill()
@@ -785,6 +870,8 @@ def _run_single_test_in_workspace(
     popen_kwargs: dict[str, Any] = {}
     if sys.platform != "win32":
         popen_kwargs["start_new_session"] = True
+        if sys.platform.startswith("linux"):
+            popen_kwargs["preexec_fn"] = _posix_preexec_subreaper
 
     proc = subprocess.Popen(
         full_argv,
