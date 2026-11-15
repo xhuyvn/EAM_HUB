@@ -5,7 +5,7 @@ from __future__ import annotations
 import ipaddress
 import json
 
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import AliasChoices, BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -122,6 +122,17 @@ class Settings(BaseSettings):
     # PPM Ingest feature flag / rollback (P2a-WP3)
     ppm_ingest_enabled: bool = Field(default=True, alias="PPM_INGEST_ENABLED")
 
+    # HUD snapshot cursor signing & encryption (P3a-WP1)
+    hud_cursor_secret: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("hud_cursor_secret", "EAP_HUD_CURSOR_SECRET"),
+    )
+    hud_cursor_ttl_seconds: int = Field(
+        default=3600,
+        ge=1,
+        validation_alias=AliasChoices("hud_cursor_ttl_seconds", "EAP_HUD_CURSOR_TTL_SECONDS"),
+    )
+
     @field_validator(
         "redis_url",
         "qdrant_url",
@@ -135,6 +146,7 @@ class Settings(BaseSettings):
         "eap_second_token_hash",
         "eap_principals_json",
         "eap_collector_fixtures_root",
+        "hud_cursor_secret",
         mode="before",
     )
     @classmethod
@@ -196,6 +208,14 @@ class Settings(BaseSettings):
                 # Silently ignore malformed principals JSON; never log secret payload (SC-04)
                 pass
         return principals
+
+    def get_hud_cursor_secret(self) -> bytes:
+        """Return HMAC/stream-cipher key bytes for opaque HUD snapshot cursors."""
+        if self.hud_cursor_secret is not None:
+            raw = self.hud_cursor_secret.get_secret_value().strip()
+            if raw:
+                return raw.encode("utf-8")
+        return b"eap-local-hud-cursor-hmac-key-v1"
 
 
 def get_settings() -> Settings:
