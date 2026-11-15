@@ -16,14 +16,26 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import sqlalchemy as sa
+
+from eap.api.dependencies import Principal
 from eap.config import get_settings
-from eap.db import get_session_factory
+from eap.db import (
+    collector_snapshots,
+    get_session_factory,
+    location_registrations,
+    ppm_assessments,
+    project_current_assessment,
+)
 from eap.ppm.assessments import (
+    BaselineRevisionConflict,
     approve_baseline,
     create_assessment,
     load_fixture_evidence,
     load_fixture_waivers,
 )
+from eap.ppm.collector.collector import PpmCollector
+from eap.ppm.service import LocationService
 
 
 def _load_json_or_yaml(path: Path) -> dict[str, Any]:
@@ -47,6 +59,44 @@ def _cmd_assess(args: argparse.Namespace) -> int:
     settings = get_settings()
     factory = get_session_factory(_db_url(settings))
     with factory() as session:
+        if getattr(args, "skip_if_revision_exists", False) and args.assessed_revision:
+            existing = session.execute(
+                sa.select(ppm_assessments)
+                .where(
+                    ppm_assessments.c.tenant_id == args.tenant,
+                    ppm_assessments.c.project_id == args.project,
+                    ppm_assessments.c.assessed_revision == args.assessed_revision,
+                )
+                .order_by(ppm_assessments.c.basis_seq.desc())
+            ).mappings().first()
+            if existing is not None:
+                curr_id = session.execute(
+                    sa.select(project_current_assessment.c.assessment_id).where(
+                        project_current_assessment.c.tenant_id == args.tenant,
+                        project_current_assessment.c.project_id == args.project,
+                    )
+                ).scalar_one_or_none()
+                out = dict(existing["output"] or {})
+                print(
+                    json.dumps(
+                        {
+                            "assessment_id": str(existing["id"]),
+                            "tenant_id": str(existing["tenant_id"]),
+                            "project_id": str(existing["project_id"]),
+                            "basis_seq": int(existing["basis_seq"]),
+                            "snapshot_seq": int(existing["snapshot_seq"]),
+                            "baseline_revision": existing["baseline_revision"],
+                            "assessed_revision": existing["assessed_revision"],
+                            "verification": out.get("verification"),
+                            "acceptance_readiness": out.get("acceptance_readiness"),
+                            "is_current": str(existing["id"]) == curr_id,
+                            "deduplicated": True,
+                        },
+                        indent=2,
+                    )
+                )
+                return 0
+
         rec = create_assessment(
             session,
             args.tenant,
@@ -91,15 +141,23 @@ def _cmd_approve_baseline(args: argparse.Namespace) -> int:
 
     factory = get_session_factory(_db_url(settings))
     with factory() as session:
-        row = approve_baseline(
-            session,
-            args.tenant,
-            args.project,
-            baseline_revision=rev,
-            criteria=criteria,
-            approved_by=args.approved_by,
-            source=str(args.fixture),
-        )
+        try:
+            row = approve_baseline(
+                session,
+                args.tenant,
+                args.project,
+                baseline_revision=rev,
+                criteria=criteria,
+                approved_by=args.approved_by,
+                source=str(args.fixture),
+            )
+        except BaselineRevisionConflict as exc:
+            session.rollback()
+            print(
+                json.dumps({"error": str(exc), "reason": exc.reason}),
+                file=sys.stderr,
+            )
+            return 1
         session.commit()
         print(
             json.dumps(
@@ -149,6 +207,147 @@ def _cmd_load_evidence(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_register_source(args: argparse.Namespace) -> int:
+    settings = get_settings()
+    factory = get_session_factory(_db_url(settings))
+    host_os = settings.get_server_host_os()
+    host_id = settings.eap_host_id
+    location_id = args.location_id or f"loc-{args.project}"
+
+    with factory() as session:
+        src_res, src_status = LocationService.register_source(
+            session,
+            tenant_id=args.tenant,
+            source_id=args.source,
+            canonical_root=args.root,
+            repo_identity=args.repo_identity,
+            principal_id="principal-system",
+            host_id=host_id,
+            host_os=host_os,
+        )
+
+        existing_loc = session.execute(
+            sa.select(location_registrations).where(
+                location_registrations.c.tenant_id == args.tenant,
+                location_registrations.c.id == location_id,
+            )
+        ).mappings().first()
+
+        if existing_loc is not None and existing_loc["state"] == "active":
+            loc_state = "active"
+        else:
+            if existing_loc is None:
+                loc_payload: dict[str, Any] = {
+                    "contract_version": "1.1",
+                    "location_id": location_id,
+                    "project_id": args.project,
+                    "host_id": host_id,
+                    "connector_id": "connector-d0-cli",
+                    "root_path": args.root,
+                    "metadata_root": args.metadata_root,
+                    "scan_scope": ["."],
+                    "artifact_aliases": {
+                        "architecture": ["architecture.md", "docs/ARCHITECTURE.md"],
+                        "blueprint": ["MASTER_BLUEPRINT.md"],
+                        "implementation_plan": ["implement_plan.md", "docs/IMPLEMENTATION_PLAN.md"],
+                    },
+                    "notes_globs": [".ppm/notes/*.md"],
+                    "follow_symlinks": False,
+                    "allow_hardlinked_files": False,
+                    "max_file_bytes": 2097152,
+                    "deny_globs": [".env", ".env.*", "*.pem", "*.key"],
+                    "classification": "internal",
+                    "egress_policy_ref": "egress:local-only",
+                    "identity": {
+                        "canonical_root_fingerprint": None,
+                        "repo_identity": args.repo_identity,
+                    },
+                    "state": "proposed",
+                    "revision": 1,
+                    "registered_by_ref": "principal:principal-system",
+                    "approved_by_ref": None,
+                    "source_id": args.source,
+                }
+                LocationService.register_location(
+                    session,
+                    tenant_id=args.tenant,
+                    data=loc_payload,
+                    principal_id="principal-system",
+                    host_os=host_os,
+                )
+            approved = LocationService.approve_location(
+                session,
+                tenant_id=args.tenant,
+                location_id=location_id,
+                principal=Principal(
+                    tenant_id=args.tenant,
+                    principal_id=args.approved_by,
+                    roles=["owner"],
+                ),
+            )
+            loc_state = str(approved["state"])
+
+        session.commit()
+        print(
+            json.dumps(
+                {
+                    "source_id": src_res["source_id"],
+                    "source_status": src_status,
+                    "location_id": location_id,
+                    "location_state": loc_state,
+                    "project_id": args.project,
+                },
+                indent=2,
+            )
+        )
+    return 0
+
+
+def _cmd_scan(args: argparse.Namespace) -> int:
+    settings = get_settings()
+    factory = get_session_factory(_db_url(settings))
+    with factory() as session:
+        if args.skip_if_commit:
+            existing = session.execute(
+                sa.select(collector_snapshots.c.id).where(
+                    collector_snapshots.c.tenant_id == args.tenant,
+                    collector_snapshots.c.source_id == args.source,
+                    collector_snapshots.c.status == "captured",
+                    collector_snapshots.c.git_commit == args.skip_if_commit,
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                print(
+                    json.dumps(
+                        {
+                            "skipped": True,
+                            "snapshot_id": str(existing),
+                            "git_commit": args.skip_if_commit,
+                        },
+                        indent=2,
+                    )
+                )
+                return 0
+
+        collector = PpmCollector(fixtures_root=settings.eap_collector_fixtures_root)
+        res = collector.scan_source(session, tenant_id=args.tenant, source_id=args.source)
+        session.commit()
+        print(
+            json.dumps(
+                {
+                    "skipped": False,
+                    "snapshot_id": res.snapshot_id,
+                    "status": res.status,
+                    "ingest_status": res.ingest_status,
+                    "git_commit": res.git_commit,
+                    "partial_reasons": res.partial_reasons,
+                },
+                indent=2,
+            )
+        )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m eap.ppm.cli", description="EAP PPM manual CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -158,6 +357,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_assess.add_argument("--project", required=True)
     p_assess.add_argument("--trigger", default="manual")
     p_assess.add_argument("--assessed-revision", default=None)
+    p_assess.add_argument("--skip-if-revision-exists", action="store_true")
     p_assess.set_defaults(func=_cmd_assess)
 
     p_bl = sub.add_parser("approve-baseline", help="Approve a baseline from a fixture file (fixtures-only)")
@@ -173,6 +373,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_ev.add_argument("--project", required=True)
     p_ev.add_argument("--fixture", required=True)
     p_ev.set_defaults(func=_cmd_load_evidence)
+
+    p_reg = sub.add_parser("register-source", help="Idempotently register and approve source + location")
+    p_reg.add_argument("--tenant", required=True)
+    p_reg.add_argument("--project", required=True)
+    p_reg.add_argument("--source", required=True)
+    p_reg.add_argument("--root", required=True)
+    p_reg.add_argument("--repo-identity", required=True)
+    p_reg.add_argument("--metadata-root", default=".ppm")
+    p_reg.add_argument("--location-id", default=None)
+    p_reg.add_argument("--approved-by", default="principal-owner")
+    p_reg.set_defaults(func=_cmd_register_source)
+
+    p_scan = sub.add_parser("scan", help="Run PpmCollector.scan_source and ingest")
+    p_scan.add_argument("--tenant", required=True)
+    p_scan.add_argument("--source", required=True)
+    p_scan.add_argument("--skip-if-commit", default=None)
+    p_scan.set_defaults(func=_cmd_scan)
 
     return parser
 

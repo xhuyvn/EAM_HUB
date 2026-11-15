@@ -27,11 +27,16 @@ from eap.db import (
     ppm_baselines,
     ppm_basis_seq,
     ppm_evidence,
+    ppm_notes,
     ppm_waivers,
     project_current_assessment,
+    project_snapshots,
 )
 from eap.ppm.assessment_inputs import build_assessment_inputs
 from ppm_reducer import assess_project
+from ppm_reducer.supersession import resolve_supersession
+from ppm_reducer.trust import is_evidence_ttl_expired, is_verifying_trust_class
+from ppm_reducer.types import InputRejected
 
 VALID_TRIGGERS = (
     "snapshot",
@@ -52,6 +57,12 @@ class AssessmentNotFoundError(LookupError):
 
 class AssessmentProjectMismatchError(ValueError):
     """Raised when diffing two assessments belonging to different projects."""
+
+
+class BaselineRevisionConflict(ValueError):
+    """Raised when re-approving an approved baseline revision with different criteria (ISS-035)."""
+
+    reason = "baseline_revision_conflict"
 
 
 @dataclass
@@ -365,43 +376,82 @@ def approve_baseline(
     approved_by: str,
     source: str,
 ) -> dict[str, Any]:
-    """Explicitly approve a baseline revision (upsert draft -> approved)."""
-    bl_id = f"bl-{uuid.uuid4().hex[:16]}"
+    """Explicitly approve a baseline revision (draft -> approved; approved is immutable per ISS-035).
+
+    If ``(tenant_id, project_id, baseline_revision)`` is already ``approved``:
+    - identical criteria -> no-op returning the existing row;
+    - different criteria -> raises ``BaselineRevisionConflict``.
+    """
+    existing = conn.execute(
+        sa.select(ppm_baselines)
+        .where(
+            ppm_baselines.c.tenant_id == tenant_id,
+            ppm_baselines.c.project_id == project_id,
+            ppm_baselines.c.baseline_revision == baseline_revision,
+        )
+        .with_for_update()
+    ).mappings().first()
+
+    if existing is None:
+        bl_id = f"bl-{uuid.uuid4().hex[:16]}"
+        now = dt.datetime.now(dt.UTC)
+        inserted = conn.execute(
+            pg_insert(ppm_baselines)
+            .values(
+                id=bl_id,
+                tenant_id=tenant_id,
+                project_id=project_id,
+                baseline_revision=baseline_revision,
+                status="approved",
+                criteria=criteria,
+                source=source,
+                approved_by=approved_by,
+                approved_at=now,
+                created_at=now,
+            )
+            .on_conflict_do_nothing(
+                index_elements=["tenant_id", "project_id", "baseline_revision"]
+            )
+            .returning(ppm_baselines)
+        ).mappings().first()
+        if inserted is not None:
+            return dict(inserted)
+        existing = conn.execute(
+            sa.select(ppm_baselines)
+            .where(
+                ppm_baselines.c.tenant_id == tenant_id,
+                ppm_baselines.c.project_id == project_id,
+                ppm_baselines.c.baseline_revision == baseline_revision,
+            )
+            .with_for_update()
+        ).mappings().one()
+
+    if str(existing["status"]) == "approved":
+        if sha256_digest(list(existing["criteria"] or [])) == sha256_digest(criteria):
+            return dict(existing)
+        raise BaselineRevisionConflict(
+            f"baseline_revision_conflict: baseline revision {baseline_revision} for project "
+            f"'{project_id}' is already approved with different criteria; approve a new baseline revision"
+        )
+
     now = dt.datetime.now(dt.UTC)
-    stmt = (
-        pg_insert(ppm_baselines)
+    updated = conn.execute(
+        ppm_baselines.update()
+        .where(
+            ppm_baselines.c.tenant_id == tenant_id,
+            ppm_baselines.c.project_id == project_id,
+            ppm_baselines.c.baseline_revision == baseline_revision,
+        )
         .values(
-            id=bl_id,
-            tenant_id=tenant_id,
-            project_id=project_id,
-            baseline_revision=baseline_revision,
             status="approved",
             criteria=criteria,
             source=source,
             approved_by=approved_by,
             approved_at=now,
-            created_at=now,
         )
-        .on_conflict_do_update(
-            index_elements=["tenant_id", "project_id", "baseline_revision"],
-            set_={
-                "status": "approved",
-                "criteria": criteria,
-                "source": source,
-                "approved_by": approved_by,
-                "approved_at": now,
-            },
-        )
-    )
-    conn.execute(stmt)
-    row = conn.execute(
-        sa.select(ppm_baselines).where(
-            ppm_baselines.c.tenant_id == tenant_id,
-            ppm_baselines.c.project_id == project_id,
-            ppm_baselines.c.baseline_revision == baseline_revision,
-        )
+        .returning(ppm_baselines)
     ).mappings().one()
-    return dict(row)
+    return dict(updated)
 
 
 def load_fixture_evidence(
@@ -570,6 +620,22 @@ def get_assessment_detail(
 
     claims_list = [c for c in inputs_dict.get("claims", []) if isinstance(c, dict)]
     claims_by_id = {str(c.get("claim_id")): c for c in claims_list if c.get("claim_id")}
+    try:
+        active_claims = resolve_supersession(claims_list)
+    except InputRejected:
+        active_claims = claims_list
+
+    baseline_dict = inputs_dict.get("baseline")
+    baseline_criteria_by_id: dict[str, dict[str, Any]] = {}
+    if isinstance(baseline_dict, dict):
+        for bc in baseline_dict.get("criteria") or []:
+            if isinstance(bc, dict) and bc.get("criterion_id"):
+                baseline_criteria_by_id[str(bc["criterion_id"])] = bc
+
+    assessed_rev = inputs_dict.get("assessed_revision") or output_dict.get("assessed_revision")
+    now_val = inputs_dict.get("now")
+    ttl_days = float(inputs_dict.get("evidence_ttl_days", 7.0))
+    raw_evidence_list = [ev for ev in inputs_dict.get("evidence", []) if isinstance(ev, dict)]
 
     explanation: dict[str, dict[str, Any]] = {}
     for crit in output_dict.get("criteria", []):
@@ -604,16 +670,104 @@ def get_assessment_detail(
                     "recorded_at": c.get("recorded_at"),
                 })
 
-        supp = [
-            ev_by_id[eid]
-            for eid in (crit.get("supporting_evidence_refs") or [])
-            if eid in ev_by_id
+        supp_ids = [str(eid) for eid in (crit.get("supporting_evidence_refs") or [])]
+        refut_ids = [str(eid) for eid in (crit.get("refuting_evidence_refs") or [])]
+        included_ids = set(supp_ids) | set(refut_ids)
+
+        supp = [ev_by_id[eid] for eid in supp_ids if eid in ev_by_id]
+        refut = [ev_by_id[eid] for eid in refut_ids if eid in ev_by_id]
+
+        # ISS-036: derive excluded_evidence[] from locked inputs + reducer output
+        b_crit = baseline_criteria_by_id.get(cid)
+        if b_crit is not None:
+            v_refs = b_crit.get("verification_refs") or []
+            mapped_test_ids = [
+                str(r["ref"])
+                for r in v_refs
+                if isinstance(r, dict) and r.get("kind") in ("test_id", "probe_id")
+            ]
+            mapped_artifact_paths = [
+                str(r["ref"])
+                for r in v_refs
+                if isinstance(r, dict) and r.get("kind") == "artifact_path"
+            ]
+            mapped_set = (
+                set(mapped_test_ids)
+                | set(mapped_artifact_paths)
+                | {str(r["ref"]) for r in v_refs if isinstance(r, dict) and r.get("ref")}
+            )
+        else:
+            mapped_test_ids = []
+            mapped_artifact_paths = []
+            mapped_set = set()
+
+        matching_claims = [
+            cl
+            for cl in active_claims
+            if cid in (cl.get("criterion_ids") or [])
+            or (
+                not cl.get("criterion_ids")
+                and any(tid in mapped_test_ids for tid in (cl.get("test_ids") or []))
+            )
         ]
-        refut = [
-            ev_by_id[eid]
-            for eid in (crit.get("refuting_evidence_refs") or [])
-            if eid in ev_by_id
-        ]
+        unmapped_claim_test_ids = {
+            str(tid)
+            for cl in matching_claims
+            for tid in (cl.get("test_ids") or [])
+            if str(tid) not in mapped_set
+        }
+
+        excl: list[dict[str, Any]] = []
+        for raw_ev in raw_evidence_list:
+            eid = str(raw_ev.get("evidence_id") or "")
+            if not eid or eid in included_ids or eid not in ev_by_id:
+                continue
+
+            direct_match = (
+                raw_ev.get("test_id") in mapped_test_ids
+                or any(tid in mapped_test_ids for tid in (raw_ev.get("covered_test_ids") or []))
+                or raw_ev.get("artifact_path") in mapped_artifact_paths
+                or (
+                    bool(raw_ev.get("artifact_path"))
+                    and any(
+                        cl.get("evidence_path") == raw_ev.get("artifact_path")
+                        for cl in matching_claims
+                    )
+                )
+                or cid in (raw_ev.get("criterion_ids") or [])
+            )
+            unmapped_claim_match = (
+                not direct_match
+                and bool(unmapped_claim_test_ids)
+                and (
+                    raw_ev.get("test_id") in unmapped_claim_test_ids
+                    or any(
+                        tid in unmapped_claim_test_ids
+                        for tid in (raw_ev.get("covered_test_ids") or [])
+                    )
+                )
+            )
+            if not direct_match and not unmapped_claim_match:
+                continue
+
+            if b_crit is None:
+                excl_reason = "outside_baseline"
+            elif unmapped_claim_match:
+                excl_reason = "test_not_mapped"
+            elif assessed_rev is not None and raw_ev.get("revision") != assessed_rev:
+                excl_reason = "revision_mismatch"
+            elif (
+                now_val is not None
+                and raw_ev.get("observed_at") is not None
+                and is_evidence_ttl_expired(raw_ev["observed_at"], now_val, ttl_days)
+            ):
+                excl_reason = "ttl_expired"
+            elif not is_verifying_trust_class(raw_ev.get("trust_class")):
+                excl_reason = "trust_class_insufficient"
+            else:
+                excl_reason = "unknown"
+
+            excl.append({**ev_by_id[eid], "reason": excl_reason})
 
         explanation[cid] = {
             "reported": reported_items,
@@ -627,9 +781,46 @@ def get_assessment_detail(
                 "covered_test_ids": list(crit.get("covered_test_ids") or []),
                 "supporting_evidence": supp,
                 "refuting_evidence": refut,
+                "excluded_evidence": excl,
                 "explanation": crit.get("explanation"),
             },
         }
+
+    last_scan_dt = conn.execute(
+        sa.select(sa.func.max(project_snapshots.c.created_at)).where(
+            project_snapshots.c.tenant_id == tenant_id,
+            project_snapshots.c.project_id == project_id,
+            project_snapshots.c.status == "captured",
+        )
+    ).scalar_one_or_none()
+    last_scan_iso = (
+        last_scan_dt.isoformat()
+        if isinstance(last_scan_dt, dt.datetime)
+        else (str(last_scan_dt) if last_scan_dt is not None else None)
+    )
+
+    note_rows = conn.execute(
+        sa.select(
+            ppm_notes.c.id,
+            ppm_notes.c.artifact_path,
+            ppm_notes.c.kind,
+            ppm_notes.c.body,
+        )
+        .where(
+            ppm_notes.c.tenant_id == tenant_id,
+            ppm_notes.c.project_id == project_id,
+        )
+        .order_by(ppm_notes.c.ingested_at.asc(), ppm_notes.c.artifact_path.asc())
+    ).mappings().all()
+    notes_list = [
+        {
+            "id": str(n["id"]),
+            "artifact_path": str(n["artifact_path"]),
+            "kind": str(n["kind"]),
+            "body": str(n["body"]),
+        }
+        for n in note_rows
+    ]
 
     created_at = row["created_at"]
     created_iso = created_at.isoformat() if isinstance(created_at, dt.datetime) else str(created_at)
@@ -648,9 +839,11 @@ def get_assessment_detail(
         "previous_assessment_id": row["previous_assessment_id"],
         "inputs_hash": str(row["inputs_hash"]),
         "created_at": created_iso,
+        "last_successful_scan_at": last_scan_iso,
         "is_current": is_current,
         "output": output_dict,
         "findings": list(row["findings"] or []),
+        "notes": notes_list,
         "explanation": explanation,
     }
 
@@ -794,6 +987,7 @@ __all__ = [
     "AssessmentNotFoundError",
     "AssessmentProjectMismatchError",
     "AssessmentRecord",
+    "BaselineRevisionConflict",
     "FixtureLoaderDisabledError",
     "allocate_basis_seq",
     "approve_baseline",
