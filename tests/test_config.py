@@ -22,6 +22,14 @@ def test_settings_empty_optional_services():
     assert settings.qdrant_url is None
     assert not settings.has_redis
     assert not settings.has_qdrant
+    assert settings.ppm_verifier_enabled is False
+
+
+def test_ppm_verifier_enabled_setting():
+    default_s = Settings(_env_file=None)
+    assert default_s.ppm_verifier_enabled is False
+    enabled_s = Settings(_env_file=None, PPM_VERIFIER_ENABLED="true")
+    assert enabled_s.ppm_verifier_enabled is True
 
 
 def test_settings_with_optional_services():

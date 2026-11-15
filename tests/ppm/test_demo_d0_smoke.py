@@ -18,6 +18,7 @@ from eap.api.app import app
 from eap.db import (
     ppm_assessments,
     ppm_baselines,
+    ppm_evidence,
     project_current_assessment,
     project_scopes,
     sources,
@@ -158,3 +159,111 @@ def test_demo_d0_script_idempotent_and_api_auth(
         for ev in excl_ac1
     )
     assert any("<script>" in n["body"] for n in body.get("notes", []))
+
+
+def test_demo_d0_script_real_verifier_mode(
+    db_engine: sa.Engine,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Run demo_d0 with --real-verifier; assert verifier_observed rows have simulated=False and A2 matches golden."""
+    tenant_owner = f"tenant-d0rv-{uuid.uuid4().hex[:8]}"
+    project_id = f"proj-d0rv-{uuid.uuid4().hex[:8]}"
+    source_id = f"src-d0rv-{uuid.uuid4().hex[:8]}"
+    fixtures_root = tmp_path / "fixtures_root"
+    fixtures_root.mkdir()
+
+    db_url = db_engine.url.render_as_string(hide_password=False)
+    env = os.environ.copy()
+    env["DATABASE_URL"] = db_url
+    env["EAP_COLLECTOR_FIXTURES_ROOT"] = str(fixtures_root)
+    env["EAP_COLLECTOR_ALLOW_REAL_ROOTS"] = "false"
+    env["EAP_OWNER_TENANT_ID"] = tenant_owner
+    env["D0_PROJECT_ID"] = project_id
+    env["D0_SOURCE_ID"] = source_id
+
+    if sys.platform == "win32":
+        pwsh = shutil.which("pwsh") or shutil.which("powershell")
+        if not pwsh:
+            pytest.skip("PowerShell not available")
+        cmd = [
+            pwsh,
+            "-NoProfile",
+            "-File",
+            str(REPO_ROOT / "scripts" / "demo_d0.ps1"),
+            "--real-verifier",
+        ]
+    else:
+        cmd = ["bash", str(REPO_ROOT / "scripts" / "demo_d0.sh"), "--real-verifier"]
+
+    res = subprocess.run(cmd, cwd=str(REPO_ROOT), env=env, capture_output=True, text=True, check=False)
+    assert res.returncode == 0, f"demo_d0 --real-verifier failed:\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
+    # Idempotency: running --real-verifier a second time keeps exactly 2 assessments and 6 verifier rows
+    res2 = subprocess.run(cmd, cwd=str(REPO_ROOT), env=env, capture_output=True, text=True, check=False)
+    assert res2.returncode == 0, f"demo_d0 --real-verifier second run failed:\nSTDOUT:\n{res2.stdout}\nSTDERR:\n{res2.stderr}"
+
+    with db_engine.connect() as conn:
+        asmt_rows = conn.execute(
+            sa.select(
+                ppm_assessments.c.id,
+                ppm_assessments.c.basis_seq,
+                ppm_assessments.c.assessed_revision,
+                ppm_assessments.c.output,
+            )
+            .where(
+                ppm_assessments.c.tenant_id == tenant_owner,
+                ppm_assessments.c.project_id == project_id,
+            )
+            .order_by(ppm_assessments.c.basis_seq.asc())
+        ).mappings().all()
+        assert len(asmt_rows) == 2
+        a2_id = str(asmt_rows[1]["id"])
+        rev_r1 = str(asmt_rows[0]["assessed_revision"])
+        rev_r2 = str(asmt_rows[1]["assessed_revision"])
+        a2_out = dict(asmt_rows[1]["output"])
+
+        crit_map = {c["criterion_id"]: c for c in a2_out["criteria"]}
+        assert crit_map["AC-001"]["status"] == "contradicted"
+        assert crit_map["AC-001"]["reason_code"] == "evidence_refuted"
+        assert crit_map["AC-002"]["status"] == "verified"
+        assert crit_map["AC-002"]["reason_code"] == "evidence_current_pass"
+        assert crit_map["AC-002"]["evidence_revision"] == rev_r2
+        assert crit_map["AC-003"]["status"] == "unverified"
+        assert crit_map["AC-003"]["reason_code"] == "reported_artifact_only"
+
+        ev_rows = conn.execute(
+            sa.select(ppm_evidence).where(
+                ppm_evidence.c.tenant_id == tenant_owner,
+                ppm_evidence.c.project_id == project_id,
+            )
+        ).mappings().all()
+        verifier_rows = [r for r in ev_rows if r["trust_class"] == "verifier_observed"]
+        assert len(verifier_rows) == 6
+        assert all(r["producer"] == "eap-verifier" and r["simulated"] is False for r in verifier_rows)
+        assert any(r["revision"] == rev_r1 and r["test_id"] == "test_ac001_export" and r["outcome"] == "passed" for r in verifier_rows)
+        assert any(r["revision"] == rev_r2 and r["test_id"] == "test_ac001_export" and r["outcome"] == "failed" for r in verifier_rows)
+        assert any(r["revision"] == rev_r2 and r["test_id"] == "test_ac002_login" and r["outcome"] == "passed" for r in verifier_rows)
+
+        rep_rows = [r for r in ev_rows if r["trust_class"] == "reported_artifact"]
+        assert len(rep_rows) == 1
+        assert rep_rows[0]["artifact_path"] == "reports/ac003-junit.xml"
+
+    # Also check API detail exposes non-simulated eap-verifier metadata & excluded rev-r1 PASS
+    owner_token = f"tok-owner-rv-{uuid.uuid4().hex}"
+    owner_hash = hashlib.sha256(owner_token.encode()).hexdigest()
+    monkeypatch.setenv("DATABASE_URL", db_url)
+    monkeypatch.setenv("EAP_OWNER_TENANT_ID", tenant_owner)
+    monkeypatch.setenv("EAP_OWNER_PRINCIPAL_ID", "principal-owner")
+    monkeypatch.setenv("EAP_OWNER_TOKEN_HASH", owner_hash)
+    client = TestClient(app)
+    resp = client.get(f"/v1/ppm/assessments/{a2_id}", headers={"Authorization": f"Bearer {owner_token}"})
+    assert resp.status_code == 200
+    body = resp.json()
+    refut_ac1 = body["explanation"]["AC-001"]["verified"]["refuting_evidence"][0]
+    assert refut_ac1["producer"] == "eap-verifier"
+    assert refut_ac1["simulated"] is False
+    excl_ac1 = body["explanation"]["AC-001"]["verified"]["excluded_evidence"]
+    assert any(
+        ev["revision"] == rev_r1 and ev["outcome"] == "passed" and ev["reason"] == "revision_mismatch" and ev["simulated"] is False
+        for ev in excl_ac1
+    )

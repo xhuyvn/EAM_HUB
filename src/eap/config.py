@@ -122,6 +122,9 @@ class Settings(BaseSettings):
     # PPM Ingest feature flag / rollback (P2a-WP3)
     ppm_ingest_enabled: bool = Field(default=True, alias="PPM_INGEST_ENABLED")
 
+    # PPM Verifier feature flag / rollback (P2a-WP9)
+    ppm_verifier_enabled: bool = Field(default=False, alias="PPM_VERIFIER_ENABLED")
+
     # HUD snapshot cursor signing & encryption (P3a-WP1)
     hud_cursor_secret: SecretStr | None = Field(
         default=None,

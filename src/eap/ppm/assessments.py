@@ -494,6 +494,13 @@ def load_fixture_evidence(
                 output_hash=out_hash,
                 artifact_path=item.get("artifact_path"),
                 simulated=bool(item.get("simulated", simulated)),
+                exit_status=item.get("exit_status"),
+                duration_ms=item.get("duration_ms"),
+                network_isolation=item.get("network_isolation"),
+                reason=item.get("reason"),
+                output_truncated=bool(item.get("output_truncated", False)),
+                truncated_bytes=int(item.get("truncated_bytes", 0) or 0),
+                test_config_files=list(item.get("test_config_files") or []),
                 created_at=now,
             )
             .on_conflict_do_nothing(
@@ -582,9 +589,21 @@ def get_assessment_detail(
     ).scalar_one_or_none()
     is_current = curr_id == assessment_id
 
-    # Index evidence metadata (including producer & simulated flag from ppm_evidence)
+    # Index evidence metadata (including producer, simulated, and verifier fields from ppm_evidence)
     ev_db_rows = conn.execute(
-        sa.select(ppm_evidence).where(
+        sa.select(
+            ppm_evidence.c.evidence_id,
+            ppm_evidence.c.producer,
+            ppm_evidence.c.simulated,
+            ppm_evidence.c.output_hash,
+            ppm_evidence.c.exit_status,
+            ppm_evidence.c.duration_ms,
+            ppm_evidence.c.network_isolation,
+            ppm_evidence.c.reason,
+            ppm_evidence.c.output_truncated,
+            ppm_evidence.c.truncated_bytes,
+            ppm_evidence.c.test_config_files,
+        ).where(
             ppm_evidence.c.tenant_id == tenant_id,
             ppm_evidence.c.project_id == project_id,
         )
@@ -593,6 +612,14 @@ def get_assessment_detail(
         str(e["evidence_id"]): {
             "producer": str(e["producer"]),
             "simulated": bool(e["simulated"]),
+            "output_hash": e["output_hash"],
+            "exit_status": e["exit_status"],
+            "duration_ms": e["duration_ms"],
+            "network_isolation": e["network_isolation"],
+            "reason": e["reason"],
+            "output_truncated": bool(e["output_truncated"]),
+            "truncated_bytes": int(e["truncated_bytes"] or 0),
+            "test_config_files": list(e["test_config_files"] or []),
         }
         for e in ev_db_rows
     }
@@ -616,6 +643,14 @@ def get_assessment_detail(
                 "covered_test_ids": list(ev.get("covered_test_ids") or []),
                 "artifact_path": ev.get("artifact_path"),
                 "simulated": meta.get("simulated", False),
+                "output_hash": meta.get("output_hash"),
+                "exit_status": meta.get("exit_status"),
+                "duration_ms": meta.get("duration_ms"),
+                "network_isolation": meta.get("network_isolation"),
+                "reason": meta.get("reason"),
+                "output_truncated": meta.get("output_truncated", False),
+                "truncated_bytes": meta.get("truncated_bytes", 0),
+                "test_config_files": list(meta.get("test_config_files") or []),
             }
 
     claims_list = [c for c in inputs_dict.get("claims", []) if isinstance(c, dict)]
@@ -764,6 +799,8 @@ def get_assessment_detail(
                 excl_reason = "ttl_expired"
             elif not is_verifying_trust_class(raw_ev.get("trust_class")):
                 excl_reason = "trust_class_insufficient"
+            elif raw_ev.get("result") in ("inconclusive", "not_run"):
+                excl_reason = str(ev_meta_by_id.get(eid, {}).get("reason") or raw_ev.get("result"))
             else:
                 excl_reason = "unknown"
 

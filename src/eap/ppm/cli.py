@@ -36,6 +36,7 @@ from eap.ppm.assessments import (
 )
 from eap.ppm.collector.collector import PpmCollector
 from eap.ppm.service import LocationService
+from eap.ppm.verifier import run_verifier
 
 
 def _load_json_or_yaml(path: Path) -> dict[str, Any]:
@@ -348,6 +349,24 @@ def _cmd_scan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_verify(args: argparse.Namespace) -> int:
+    settings = get_settings()
+    factory = get_session_factory(_db_url(settings))
+    with factory() as session:
+        report = run_verifier(
+            session,
+            tenant_id=args.tenant,
+            project_id=args.project,
+            assessed_revision=args.revision,
+            baseline_revision=args.baseline_revision,
+            timeout_seconds=args.timeout,
+            settings=settings,
+        )
+        session.commit()
+        print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m eap.ppm.cli", description="EAP PPM manual CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -390,6 +409,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan.add_argument("--source", required=True)
     p_scan.add_argument("--skip-if-commit", default=None)
     p_scan.set_defaults(func=_cmd_scan)
+
+    p_verify = sub.add_parser("verify", help="Run sandboxed verifier for a fixture repo at a revision")
+    p_verify.add_argument("--tenant", required=True)
+    p_verify.add_argument("--project", required=True)
+    p_verify.add_argument("--revision", required=True)
+    p_verify.add_argument("--baseline-revision", type=int, default=None)
+    p_verify.add_argument("--timeout", type=float, default=15.0)
+    p_verify.set_defaults(func=_cmd_verify)
 
     return parser
 

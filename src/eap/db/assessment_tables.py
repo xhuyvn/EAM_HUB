@@ -1,6 +1,6 @@
-"""SQLAlchemy Core definitions for PPM Assessment tables (P2a-WP4).
+"""SQLAlchemy Core definitions for PPM Assessment tables (P2a-WP4, extended P2a-WP9).
 
-Matches Alembic migration ``0006_assessments``.
+Matches Alembic migrations ``0006_assessments`` and ``0007_verifier_evidence``.
 Tenant scoping (DG-1 Amendment A1): every table carries ``tenant_id NOT NULL``,
 every uniqueness target is tenant-scoped, and every foreign key is a composite
 key including ``tenant_id``.
@@ -77,6 +77,13 @@ ppm_evidence = Table(
     Column("output_hash", String(64), nullable=False),
     Column("artifact_path", Text, nullable=True),
     Column("simulated", Boolean, nullable=False, server_default="false"),
+    Column("exit_status", Integer, nullable=True),
+    Column("duration_ms", Integer, nullable=True),
+    Column("network_isolation", String(32), nullable=True),
+    Column("reason", String(128), nullable=True),
+    Column("output_truncated", Boolean, nullable=False, server_default="false"),
+    Column("truncated_bytes", BigInteger, nullable=False, server_default="0"),
+    Column("test_config_files", JSONB, nullable=False, server_default="[]"),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     UniqueConstraint("tenant_id", "id", name="uq_ppm_evidence_tenant_id"),
     UniqueConstraint(
@@ -92,6 +99,18 @@ ppm_evidence = Table(
     CheckConstraint(
         "outcome IN ('passed', 'failed', 'inconclusive', 'not_run')",
         name="ck_ppm_evidence_outcome",
+    ),
+    CheckConstraint(
+        "duration_ms IS NULL OR duration_ms >= 0",
+        name="ck_ppm_evidence_duration_nonneg",
+    ),
+    CheckConstraint(
+        "network_isolation IS NULL OR network_isolation IN ('enforced', 'not_enforced')",
+        name="ck_ppm_evidence_network_isolation",
+    ),
+    CheckConstraint(
+        "truncated_bytes >= 0",
+        name="ck_ppm_evidence_truncated_bytes_nonneg",
     ),
     Index("ix_ppm_evidence_tenant_project", "tenant_id", "project_id"),
 )
