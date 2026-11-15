@@ -27,6 +27,10 @@ from eap.db.location_tables import (
     location_registrations,
     source_shares,
 )
+from eap.db.scheduler_tables import (
+    ppm_scan_occurrences,
+    ppm_scan_source_status,
+)
 from eap.db.session import get_engine, get_session_factory
 from eap.db.snapshot_tables import (
     collector_snapshots,
@@ -80,7 +84,9 @@ __all__ = [
     "ppm_ingest_checkpoints",
     "ppm_ingested_artifacts",
     "ppm_notes",
+    "ppm_scan_occurrences",
     "ppm_scan_schedules",
+    "ppm_scan_source_status",
     "ppm_updates",
     "ppm_waivers",
     "project_current_assessment",

@@ -1,0 +1,18 @@
+{
+  "condition_id": "DG2-C1",
+  "milestone": "P2a",
+  "work_package": "P2a-WP5",
+  "status": "partial",
+  "observed_outcome": "Scan scheduler lease exclusivity, fencing-token monotonicity, deterministic occurrence deduplication, clock-jump single catch-up, failure isolation, and ISS-034 semantic `inputs_hash` deduplication verified with real parallel PostgreSQL 18.6 connections (`eap_test`), plus existing `basis_seq` CAS tests (`test_assessment_cas_and_iss033.py`). Full DG2-C1 closure across P2a remains pending P2a-WP6 (orchestrator C34/C39 and wall-clock expiration triggers), P2a-WP8 (SC-07 scan baseline), and P5.",
+  "counts": {
+    "c35_scheduler_tests": 8,
+    "assessment_cas_tests": 3,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/ppm/test_scan_scheduler_c35.py",
+    "tests/ppm/test_assessment_cas_and_iss033.py",
+    "artifacts/conformance/P2a/C35.json",
+    "docs/acceptance/P2a-WP5.md"
+  ]
+}

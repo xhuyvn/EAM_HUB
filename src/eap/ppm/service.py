@@ -20,9 +20,11 @@ import uuid
 from typing import Any
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from eap.api.dependencies import Principal
+from eap.config import get_settings
 from eap.contracts.models.location_registration import LocationRegistration
 from eap.contracts.rules import semantic_checks
 from eap.db import (
@@ -30,6 +32,8 @@ from eap.db import (
     identity_conflicts,
     location_registrations,
     outbox,
+    ppm_scan_schedules,
+    ppm_scan_source_status,
     project_scopes,
     source_shares,
     sources,
@@ -395,6 +399,56 @@ class LocationService:
         else:
             result["state"] = "active"
 
+        sched_row = db.execute(
+            sa.select(
+                ppm_scan_schedules.c.interval_seconds,
+                ppm_scan_schedules.c.debounce_seconds,
+                ppm_scan_schedules.c.next_scan_at,
+                ppm_scan_schedules.c.fencing_token,
+            ).where(
+                ppm_scan_schedules.c.tenant_id == tenant_id,
+                ppm_scan_schedules.c.source_id == source_id,
+            )
+        ).mappings().first()
+        status_row = db.execute(
+            sa.select(
+                ppm_scan_source_status.c.last_scan_started_at,
+                ppm_scan_source_status.c.last_successful_scan_at,
+                ppm_scan_source_status.c.last_error,
+            ).where(
+                ppm_scan_source_status.c.tenant_id == tenant_id,
+                ppm_scan_source_status.c.source_id == source_id,
+            )
+        ).mappings().first()
+
+        cfg = get_settings()
+        result["interval_seconds"] = (
+            int(sched_row["interval_seconds"]) if sched_row is not None else cfg.ppm_scan_interval_seconds
+        )
+        result["debounce_seconds"] = (
+            int(sched_row["debounce_seconds"]) if sched_row is not None else cfg.ppm_scan_debounce_seconds
+        )
+        result["next_due_at"] = (
+            sched_row["next_scan_at"].isoformat()
+            if sched_row is not None and isinstance(sched_row["next_scan_at"], dt.datetime)
+            else None
+        )
+        result["last_scan_started_at"] = (
+            status_row["last_scan_started_at"].isoformat()
+            if status_row is not None and isinstance(status_row["last_scan_started_at"], dt.datetime)
+            else None
+        )
+        result["last_successful_scan_at"] = (
+            status_row["last_successful_scan_at"].isoformat()
+            if status_row is not None and isinstance(status_row["last_successful_scan_at"], dt.datetime)
+            else None
+        )
+        result["last_error"] = (
+            str(status_row["last_error"])
+            if status_row is not None and status_row["last_error"] is not None
+            else None
+        )
+
         if isinstance(result.get("created_at"), dt.datetime):
             result["created_at"] = result["created_at"].isoformat()
         if isinstance(result.get("updated_at"), dt.datetime):
@@ -746,6 +800,35 @@ class LocationService:
                 status="active",
                 updated_at=now,
             )
+        )
+
+        # Ensure default scan schedule and observability row exist for the source
+        cfg = get_settings()
+        db.execute(
+            pg_insert(ppm_scan_schedules)
+            .values(
+                id=f"sched-{uuid.uuid4().hex[:16]}",
+                tenant_id=tenant_id,
+                source_id=loc["source_id"],
+                interval_seconds=cfg.ppm_scan_interval_seconds,
+                debounce_seconds=cfg.ppm_scan_debounce_seconds,
+                next_scan_at=now,
+                fencing_token=0,
+                created_at=now,
+                updated_at=now,
+            )
+            .on_conflict_do_nothing(index_elements=["tenant_id", "source_id"])
+        )
+        db.execute(
+            pg_insert(ppm_scan_source_status)
+            .values(
+                tenant_id=tenant_id,
+                source_id=loc["source_id"],
+                last_fencing_token=0,
+                created_at=now,
+                updated_at=now,
+            )
+            .on_conflict_do_nothing(index_elements=["tenant_id", "source_id"])
         )
 
         # Emit outbox event
