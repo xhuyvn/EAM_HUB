@@ -81,7 +81,7 @@ All checks below executed after final code/test edits against isolated PostgreSQ
 - `npm --prefix web/hud run build` -> **built in 407ms**
 - `scripts/demo_d0.sh` line ending check -> **LF (13953 bytes, zero CRLF)**
 - `sha256sum -c SHA256SUMS.txt` -> **PASS** (527 tracked files verified, LF line endings)
-- GitHub Actions CI (`wp/P2a-WP9`) -> pending push
+- GitHub Actions CI (`wp/P2a-WP9`, commit `c5592ab`) -> **Run `43720124752` PASS** (`validate-and-test` in 2m59s on `ubuntu-latest` + PostgreSQL `18.6-trixie`: `632 passed, 3 skipped` Windows-only tests, SC-06 PASS, SC-01/negative/fixtures/reducer/SC-08 PASS, `sha256sum` PASS, ingest smoke 204.60 evt/s PASS, ruff & mypy clean on 153 files, HUD build + `vitest` 2/2 PASS)
 
 ## 6. Residual risks, blockers, and untested controls
 - **D-07 / `ISS-002` still open**: Full OS container/VM/low-privilege user sandbox for arbitrary untrusted repositories is not yet selected or built. Real repositories remain blocked (`VerifierRealRootRefusedError` / `EAP_COLLECTOR_ALLOW_REAL_ROOTS=false`) until **DG-3** + **D-07**.
