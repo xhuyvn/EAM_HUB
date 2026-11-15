@@ -71,6 +71,7 @@ class RunRecord:
     lease_fencing_token: int
     created_at: dt.datetime
     updated_at: dt.datetime
+    project_id: str | None = None
 
     @classmethod
     def from_row(cls, row: Mapping[Any, Any]) -> RunRecord:
@@ -86,6 +87,7 @@ class RunRecord:
             lease_fencing_token=row["lease_fencing_token"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            project_id=row.get("project_id"),
         )
 
 
@@ -284,6 +286,7 @@ class RunService:
         new_attempt = latest_run["attempt"] + 1
         new_run_id = f"run-{uuid.uuid4().hex[:12]}"
         actual_binding = binding_id or latest_run["binding_id"]
+        inherited_project_id = latest_run.get("project_id") or task_row.get("project_id")
         now = dt.datetime.now(dt.UTC)
         set_log_context(tenant_id=tenant_id, task_id=task_id, run_id=new_run_id)
 
@@ -297,6 +300,7 @@ class RunService:
                     run_id=new_run_id,
                     attempt=new_attempt,
                     binding_id=actual_binding,
+                    project_id=inherited_project_id,
                     state="queued",
                     remote_outcome=None,
                     lease_fencing_token=0,

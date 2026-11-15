@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from eap.api.agent_routes import agent_router
-from eap.api.hud_routes import hud_router
+from eap.api.hud_routes import artifact_router, hud_router
 from eap.api.ppm_routes import ppm_router
 from eap.api.routes import router
 from eap.config import Settings, get_settings, validate_loopback_bind
@@ -100,6 +100,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(router)
     app.include_router(ppm_router)
     app.include_router(hud_router)
+    app.include_router(artifact_router)
     app.include_router(agent_router)
     return app
 

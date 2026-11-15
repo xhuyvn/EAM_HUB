@@ -1,0 +1,17 @@
+{
+  "case_id": "C10",
+  "milestone": "P3a",
+  "work_package": "P3a-WP2",
+  "status": "passed",
+  "observed_outcome": "Expired ehc2_ cursors, retention floor gaps (stream_retention_floors.min_retained_offset exceeding cursor offset), cross-tenant cursors (without leaking tenant/scope strings), legacy ehc1_/retired-constant-key cursors (ISS-039), and bounded slow-consumer queue overflow (max_buffer_size) each emit a single terminal SSE resync_required event and close the stream. Client recovery via a fresh GET /v1/hud/snapshot followed by GET /v1/hud/events resumes live delivery cleanly, while idle periods emit SSE heartbeat comments.",
+  "counts": {
+    "passed_tests": 3,
+    "leaks": 0,
+    "unbounded_buffers": 0
+  },
+  "evidence_refs": [
+    "tests/hud/test_sse_replay_and_revocation.py::test_c10_expired_cursor_retention_gap_heartbeat_and_cross_tenant",
+    "tests/hud/test_sse_replay_and_revocation.py::test_iss039_cursor_secret_warning_retired_key_and_aead",
+    "tests/hud/test_sse_replay_and_revocation.py::test_slow_client_bounded_buffer_emits_resync_required"
+  ]
+}

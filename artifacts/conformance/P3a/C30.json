@@ -1,0 +1,17 @@
+{
+  "case_id": "C30",
+  "milestone": "P3a",
+  "work_package": "P3a-WP2",
+  "status": "passed",
+  "observed_outcome": "Dual bootstrap principals in the same PostgreSQL 18.6 tenant: while principal-b holds an active GET /v1/hud/events stream and receives pre-revocation proj-alpha events, principal-a revokes principal-b access to proj-alpha via POST /v1/hud/grants/revoke. Principal-b receives row.removed for proj-alpha, zero post-revocation events for proj-alpha (including newly committed proj-alpha run.progress payloads), continues receiving proj-beta events, and gets HTTP 403 on previously readable evidence/artifact URLs. Measured propagation latency across n=20 live revocations: p50=16.00ms, p95=31.05ms.",
+  "counts": {
+    "passed_tests": 1,
+    "revocation_latency_samples": 20,
+    "post_revocation_leaked_events": 0,
+    "p50_propagation_ms": 16.0,
+    "p95_propagation_ms": 31.05
+  },
+  "evidence_refs": [
+    "tests/hud/test_sse_replay_and_revocation.py::test_c28_c30_dual_principal_live_revocation_evidence_403_and_latency"
+  ]
+}

@@ -4,9 +4,18 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import logging
+import os
 
 from pydantic import AliasChoices, BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger("eap.config")
+
+# Retired static key from P3a-WP1 (ISS-039). Never used as a fallback; explicitly rejected.
+OLD_INSECURE_HUD_CURSOR_SECRET: bytes = b"eap-local-hud-cursor-hmac-key-v1"
+_EPHEMERAL_HUD_CURSOR_SECRET: bytes = os.urandom(32)
+_WARNED_EPHEMERAL_CURSOR_SECRET: bool = False
 
 
 class InsecureBindError(ValueError):
@@ -213,12 +222,30 @@ class Settings(BaseSettings):
         return principals
 
     def get_hud_cursor_secret(self) -> bytes:
-        """Return HMAC/stream-cipher key bytes for opaque HUD snapshot cursors."""
+        """Return AEAD key derivation secret bytes for opaque HUD snapshot cursors (ISS-039).
+
+        When EAP_HUD_CURSOR_SECRET is configured, uses that secret (refusing the retired
+        WP1 constant fallback). When unset, emits a WARNING and uses a CSPRNG random
+        per-process 32-byte key so cursors stay valid within the running process only.
+        """
+        global _WARNED_EPHEMERAL_CURSOR_SECRET
         if self.hud_cursor_secret is not None:
             raw = self.hud_cursor_secret.get_secret_value().strip()
             if raw:
-                return raw.encode("utf-8")
-        return b"eap-local-hud-cursor-hmac-key-v1"
+                encoded = raw.encode("utf-8")
+                if encoded == OLD_INSECURE_HUD_CURSOR_SECRET:
+                    raise ValueError(
+                        "EAP_HUD_CURSOR_SECRET must not be set to the retired static key (ISS-039)"
+                    )
+                return encoded
+
+        if not _WARNED_EPHEMERAL_CURSOR_SECRET:
+            _WARNED_EPHEMERAL_CURSOR_SECRET = True
+            logger.warning(
+                "EAP_HUD_CURSOR_SECRET is unset; using a random per-process 32-byte ephemeral "
+                "cursor key (existing cursors will require resync_required across restarts)"
+            )
+        return _EPHEMERAL_HUD_CURSOR_SECRET
 
 
 def get_settings() -> Settings:

@@ -1,0 +1,17 @@
+{
+  "case_id": "C09",
+  "milestone": "P3a",
+  "work_package": "P3a-WP2",
+  "status": "passed",
+  "observed_outcome": "GET /v1/hud/events streams post-snapshot events using encrypted ehc2_ (AES-256-GCM) stream watermark cursors, emitting an opaque cursor id on every event frame. After consuming N=2 events (ingest_offsets [2, 3]) and disconnecting while offline events (ingest_offsets [4, 5, 6, 7]) are committed, reconnecting with Last-Event-ID delivers remaining events [4, 5, 6, 7] cleanly with 0 gaps and 0 duplicates, and folding all 6 replayed events onto the initial snapshot matches a fresh snapshot.",
+  "counts": {
+    "passed_tests": 1,
+    "pre_disconnect_events": 2,
+    "post_reconnect_events": 4,
+    "gaps": 0,
+    "duplicates": 0
+  },
+  "evidence_refs": [
+    "tests/hud/test_sse_replay_and_revocation.py::test_c09_sse_disconnect_and_reconnect_exact_once_no_gap_no_dup"
+  ]
+}

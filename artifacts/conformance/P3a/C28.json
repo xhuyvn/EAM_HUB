@@ -1,0 +1,15 @@
+{
+  "case_id": "C28",
+  "milestone": "P3a",
+  "work_package": "P3a-WP2",
+  "status": "passed",
+  "observed_outcome": "Same-tenant revocation for a dual-principal pair bumps server-side grant_epoch via policy.changed and revokes principal_project_grants access to proj-alpha while leaving proj-beta intact. Reconnecting with a pre-revocation cursor returns a single terminal resync_required frame (reason='grant_epoch_changed'), GET /v1/hud/snapshot?project_id=proj-alpha returns HTTP 403, and legacy GET /v1/evidence/{id} and GET /v1/artifacts/{id} URLs return HTTP 403 for the revoked principal (signed_url=null for both principals before and after).",
+  "counts": {
+    "passed_tests": 1,
+    "post_revocation_forbidden_checks": 4,
+    "signed_urls_issued": 0
+  },
+  "evidence_refs": [
+    "tests/hud/test_sse_replay_and_revocation.py::test_c28_c30_dual_principal_live_revocation_evidence_403_and_latency"
+  ]
+}

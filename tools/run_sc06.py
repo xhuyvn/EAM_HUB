@@ -28,9 +28,12 @@ from eap.db import (
     event_log,
     leases,
     outbox,
+    principal_grant_epochs,
+    principal_project_grants,
     project_scopes,
     runs,
     sources,
+    stream_retention_floors,
     tasks,
 )
 
@@ -87,6 +90,7 @@ def seed_fixture_data(db_url: str) -> None:
                 task_type="ppm.assessment",
                 agent_id="agent-sc06",
                 agent_version="1.0",
+                project_id="proj-sc06-1",
                 state="ready",
                 deadline=deadline,
             )
@@ -99,6 +103,7 @@ def seed_fixture_data(db_url: str) -> None:
                 run_id="run-001",
                 attempt=1,
                 binding_id="bind-sc06",
+                project_id="proj-sc06-1",
                 state="running",
             )
         )
@@ -214,6 +219,29 @@ def seed_fixture_data(db_url: str) -> None:
                 egress_policy_ref="egress:local-only",
                 secret_ref=None,
                 endpoint_ref="runtime:sc06-mock",
+            )
+        )
+        conn.execute(
+            principal_grant_epochs.insert().values(
+                tenant_id=tenant,
+                principal_id="principal-sc06",
+                grant_epoch=1,
+            )
+        )
+        conn.execute(
+            principal_project_grants.insert().values(
+                tenant_id=tenant,
+                principal_id="principal-sc06",
+                project_id="proj-sc06-1",
+                granted=True,
+                reason="sc06_seed",
+            )
+        )
+        conn.execute(
+            stream_retention_floors.insert().values(
+                tenant_id=tenant,
+                stream_id="run:run-001",
+                min_retained_offset=1,
             )
         )
 

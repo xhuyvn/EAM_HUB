@@ -51,6 +51,7 @@ class TaskRecord:
     deadline: dt.datetime
     created_at: dt.datetime
     updated_at: dt.datetime
+    project_id: str | None = None
 
     @classmethod
     def from_row(cls, row: Mapping[Any, Any]) -> TaskRecord:
@@ -66,7 +67,17 @@ class TaskRecord:
             deadline=row["deadline"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            project_id=row.get("project_id"),
         )
+
+
+def _extract_project_id_from_resource_refs(resource_refs: list[str]) -> str | None:
+    for ref in resource_refs:
+        if isinstance(ref, str) and ref.startswith("project:"):
+            candidate = ref.split("project:", 1)[1].strip()
+            if candidate:
+                return candidate
+    return None
 
 
 class TaskService:
@@ -80,6 +91,7 @@ class TaskService:
         deadline: dt.datetime | None = None,
         task_id: str | None = None,
         binding_id: str | None = None,
+        project_id: str | None = None,
     ) -> TaskRecord:
         """Create a new logical task idempotently on (tenant_id, client_idempotency_key).
 
@@ -122,6 +134,7 @@ class TaskService:
         if actual_binding is None:
             actual_binding = f"binding-{request.task_type.replace('.', '-')}"
         set_log_context(task_id=actual_task_id, run_id=run_id, tenant_id=tenant_id)
+        resolved_project_id = project_id or _extract_project_id_from_resource_refs(request.resource_refs)
 
         # 3. Insert tasks + run attempt 1 + history + outbox atomically
         try:
@@ -136,6 +149,7 @@ class TaskService:
                         task_type=request.task_type,
                         agent_id=request.agent_id,
                         agent_version=actual_agent_version,
+                        project_id=resolved_project_id,
                         state="ready",
                         deadline=actual_deadline,
                     )
@@ -150,6 +164,7 @@ class TaskService:
                         run_id=run_id,
                         attempt=1,
                         binding_id=actual_binding,
+                        project_id=resolved_project_id,
                         state="queued",
                         remote_outcome=None,
                         lease_fencing_token=0,

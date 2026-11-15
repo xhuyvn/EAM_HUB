@@ -121,15 +121,21 @@ class OutboxRelayWorker:
             batch_res.status = "idle"
             return batch_res
 
-        # 4. Load current projection checkpoint state for stream
-        ckpt = load_checkpoint(
-            conn,
-            tenant_id=tenant_id,
-            stream_id=stream_id,
-            projection_name=PROJECTION_NAME_HUD_RUNS,
-        )
-        current_state: dict[str, Any] | None = ckpt["state"] if ckpt is not None else None
-        latest_offset: int | None = ckpt["last_ingest_offset"] if ckpt is not None else None
+        is_policy_stream = stream_id.startswith("policy:")
+
+        # 4. Load current projection checkpoint state for HUD run streams
+        if not is_policy_stream:
+            ckpt = load_checkpoint(
+                conn,
+                tenant_id=tenant_id,
+                stream_id=stream_id,
+                projection_name=PROJECTION_NAME_HUD_RUNS,
+            )
+            current_state: dict[str, Any] | None = ckpt["state"] if ckpt is not None else None
+            latest_offset: int | None = ckpt["last_ingest_offset"] if ckpt is not None else None
+        else:
+            current_state = None
+            latest_offset = None
         state_dirty = False
 
         # 5. Process each outbox row
@@ -163,8 +169,9 @@ class OutboxRelayWorker:
             if res.status == "ingested":
                 batch_res.ingested_count += 1
                 latest_offset = res.ingest_offset
-                current_state = reduce_event(current_state, envelope)
-                state_dirty = True
+                if not is_policy_stream and str(envelope.get("event_type", "")) != "policy.changed":
+                    current_state = reduce_event(current_state, envelope)
+                    state_dirty = True
             elif res.status == "duplicate":
                 batch_res.duplicate_count += 1
             elif res.status == "quarantined":

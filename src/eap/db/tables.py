@@ -12,6 +12,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKeyConstraint,
+    Index,
     Integer,
     MetaData,
     Numeric,
@@ -46,6 +47,7 @@ tasks = Table(
     Column("task_type", String(64), nullable=False),
     Column("agent_id", String(64), nullable=False),
     Column("agent_version", String(32), nullable=False),
+    Column("project_id", String(64), nullable=True),
     Column("state", String(32), nullable=False, server_default="ready"),
     Column("deadline", DateTime(timezone=True), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
@@ -57,6 +59,7 @@ tasks = Table(
         "state IN ('draft', 'ready', 'active', 'blocked', 'review_required', 'completed', 'failed', 'cancelled')",
         name="ck_tasks_state",
     ),
+    Index("ix_tasks_tenant_project", "tenant_id", "project_id"),
 )
 
 # 2. runs: Physical execution attempts of a task (C05, C06, C21)
@@ -69,6 +72,7 @@ runs = Table(
     Column("run_id", String(64), nullable=False),
     Column("attempt", Integer, nullable=False, server_default="1"),
     Column("binding_id", String(64), nullable=False),
+    Column("project_id", String(64), nullable=True),
     Column("state", String(32), nullable=False, server_default="queued"),
     Column("remote_outcome", String(32), nullable=True),
     Column("lease_fencing_token", BigInteger, nullable=False, server_default="0"),
@@ -90,6 +94,7 @@ runs = Table(
         "remote_outcome IS NULL OR remote_outcome IN ('known', 'unknown', 'not_applicable')",
         name="ck_runs_remote_outcome",
     ),
+    Index("ix_runs_tenant_project", "tenant_id", "project_id"),
 )
 
 # 3. run_attempt_history: Complete immutable history of run attempts (C19, C29)
@@ -259,6 +264,7 @@ event_log = Table(
     Column("ingested_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     UniqueConstraint("tenant_id", "stream_id", "ingest_offset", name="uq_event_log_stream_offset"),
     UniqueConstraint("tenant_id", "event_id", name="uq_event_log_event_id"),
+    Index("ix_event_log_tenant_id_pk", "tenant_id", "id"),
 )
 
 # 11. artifacts: Metadata and content-addressed references for task artifacts (C10)
