@@ -22,6 +22,7 @@ from eap.db import (
     sources,
 )
 from eap.ppm.assessments import (
+    BaselineRevisionConflict,
     approve_baseline,
     create_assessment,
     load_fixture_evidence,
@@ -413,6 +414,22 @@ def test_golden_scenario_and_read_api_endpoints(db_engine: sa.Engine) -> None:
         assert exp_ac1["verified"]["refuting_evidence"][0]["producer"] == "simulated-verifier"
         assert exp_ac1["verified"]["refuting_evidence"][0]["simulated"] is True
 
+        # ISS-036: rev-r1 PASS on AC-001 appears in excluded_evidence with revision_mismatch
+        excl_ac1 = exp_ac1["verified"]["excluded_evidence"]
+        assert len(excl_ac1) == 1
+        assert excl_ac1[0]["evidence_id"] == "ev-r1-verifier-run"
+        assert excl_ac1[0]["revision"] == "rev-r1"
+        assert excl_ac1[0]["trust_class"] == "verifier_observed"
+        assert excl_ac1[0]["test_id"] == "test_ac001_export"
+        assert excl_ac1[0]["simulated"] is True
+        assert excl_ac1[0]["reason"] == "revision_mismatch"
+
+        # ISS-036: AC-003 reported_artifact appears in excluded_evidence with trust_class_insufficient
+        excl_ac3 = body["explanation"]["AC-003"]["verified"]["excluded_evidence"]
+        assert len(excl_ac3) == 1
+        assert excl_ac3[0]["evidence_id"] == "ev-r2-ac003-reported"
+        assert excl_ac3[0]["reason"] == "trust_class_insufficient"
+
         # 2. GET /v1/ppm/assessments/{a2_id}/diff?against={a1_id}
         diff_resp = client.get(f"/v1/ppm/assessments/{a2_id}/diff", params={"against": a1_id})
         assert diff_resp.status_code == 200
@@ -507,3 +524,265 @@ def test_cli_approve_baseline_load_evidence_and_assess(
     captured = capsys.readouterr().out
     assert '"verification": "verified"' in captured
     assert '"acceptance_readiness": "ready_for_review"' in captured
+
+
+def test_iss035_approved_baseline_immutable_noop_and_conflict(
+    db_engine: sa.Engine,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """ISS-035: identical criteria -> no-op returning existing row; different criteria -> BaselineRevisionConflict."""
+    SessionLocal = sessionmaker(bind=db_engine, autoflush=False, autocommit=False)
+    tenant = f"tenant-bl-{uuid.uuid4().hex[:8]}"
+    project_id = "proj-iss035"
+    criteria_v1 = [
+        {
+            "criterion_id": "AC-001",
+            "deliverable_id": "DEL-1",
+            "owner_project_id": project_id,
+            "weight": 1,
+            "required": True,
+            "verification_refs": [{"kind": "test_id", "ref": "test_1"}],
+        }
+    ]
+    criteria_v2_different = [
+        {
+            "criterion_id": "AC-001",
+            "deliverable_id": "DEL-1",
+            "owner_project_id": project_id,
+            "weight": 2,
+            "required": True,
+            "verification_refs": [{"kind": "test_id", "ref": "test_1"}],
+        }
+    ]
+
+    with SessionLocal() as db:
+        first = approve_baseline(
+            db,
+            tenant,
+            project_id,
+            baseline_revision=1,
+            criteria=criteria_v1,
+            approved_by="owner-1",
+            source="fixture:v1",
+        )
+        db.commit()
+
+        # Re-approving with identical criteria is a no-op returning the exact existing row
+        second = approve_baseline(
+            db,
+            tenant,
+            project_id,
+            baseline_revision=1,
+            criteria=criteria_v1,
+            approved_by="owner-2",
+            source="fixture:v1-again",
+        )
+        assert second["id"] == first["id"]
+        assert second["approved_by"] == "owner-1"
+        assert second["source"] == "fixture:v1"
+
+        # Re-approving same revision with different criteria raises BaselineRevisionConflict
+        with pytest.raises(BaselineRevisionConflict, match="baseline_revision_conflict"):
+            approve_baseline(
+                db,
+                tenant,
+                project_id,
+                baseline_revision=1,
+                criteria=criteria_v2_different,
+                approved_by="owner-2",
+                source="fixture:v2",
+            )
+        db.rollback()
+
+    # CLI check: exit code != 0 and reason baseline_revision_conflict
+    conflict_fixture = tmp_path / "conflict_bl.json"
+    conflict_fixture.write_text(
+        json.dumps({"baseline": {"baseline_revision": 1, "criteria": criteria_v2_different}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("EAP_COLLECTOR_ALLOW_REAL_ROOTS", "false")
+    monkeypatch.setenv("DATABASE_URL", db_engine.url.render_as_string(hide_password=False))
+    rc = cli_main(["approve-baseline", "--tenant", tenant, "--project", project_id, "--fixture", str(conflict_fixture)])
+    assert rc != 0
+    err = capsys.readouterr().err
+    assert "baseline_revision_conflict" in err
+
+
+def test_iss036_excluded_evidence_reasons_ttl_and_unmapped(db_engine: sa.Engine) -> None:
+    """ISS-036: excluded_evidence reports ttl_expired and test_not_mapped without altering reducer."""
+    from eap.ppm.assessments import get_assessment_detail
+
+    SessionLocal = sessionmaker(bind=db_engine, autoflush=False, autocommit=False)
+    tenant = f"tenant-excl-{uuid.uuid4().hex[:8]}"
+    project_id = "proj-iss036"
+    now_iso = "2026-11-15T12:00:00Z"
+
+    with SessionLocal() as db:
+        approve_baseline(
+            db,
+            tenant,
+            project_id,
+            baseline_revision=1,
+            criteria=[
+                {
+                    "criterion_id": "AC-TTL",
+                    "deliverable_id": "DEL-1",
+                    "owner_project_id": project_id,
+                    "weight": 1,
+                    "required": True,
+                    "verification_refs": [{"kind": "test_id", "ref": "test_ttl"}],
+                },
+                {
+                    "criterion_id": "AC-UNMAP",
+                    "deliverable_id": "DEL-1",
+                    "owner_project_id": project_id,
+                    "weight": 1,
+                    "required": True,
+                    "verification_refs": [{"kind": "test_id", "ref": "test_mapped_only"}],
+                },
+            ],
+            approved_by="owner",
+            source="fixture:iss036",
+        )
+
+        # Seed a snapshot + update claiming AC-UNMAP via an unmapped test_id
+        csnap = f"csnap-{uuid.uuid4().hex[:8]}"
+        psnap = f"psnap-{uuid.uuid4().hex[:8]}"
+        src_id = f"src-{uuid.uuid4().hex[:8]}"
+        ts = dt.datetime(2026, 11, 15, 12, 0, 0, tzinfo=dt.UTC)
+        db.execute(
+            sources.insert().values(
+                source_id=src_id,
+                tenant_id=tenant,
+                canonical_root="/fixtures/iss036",
+                repo_identity=f"git@example.com:{tenant}/iss036.git",
+                created_at=ts,
+                updated_at=ts,
+            )
+        )
+        db.execute(
+            collector_snapshots.insert().values(
+                id=csnap,
+                tenant_id=tenant,
+                source_id=src_id,
+                status="captured",
+                mixed_snapshot=False,
+                partial_reasons=[],
+                git_commit="rev-1",
+                git_dirty=False,
+                tree_hash="rev-1",
+                manifest={},
+                created_at=ts,
+            )
+        )
+        db.execute(
+            project_snapshots.insert().values(
+                id=psnap,
+                tenant_id=tenant,
+                snapshot_id=csnap,
+                source_id=src_id,
+                project_id=project_id,
+                snapshot_seq=1,
+                scope_hash="scope-1",
+                metadata_root=".ppm",
+                status="captured",
+                mixed_snapshot=False,
+                partial_reasons=[],
+                artifact_aliases={},
+                notes=[],
+                claims=[],
+                created_at=ts,
+            )
+        )
+        art_id = db.execute(
+            ppm_ingested_artifacts.insert()
+            .values(
+                tenant_id=tenant,
+                project_id=project_id,
+                source_id=src_id,
+                artifact_path=".ppm/updates/upd-unmap.yaml",
+                content_hash="h-unmap",
+                first_seen_snapshot_id=psnap,
+                kind="update",
+                outcome="ingested",
+            )
+            .returning(ppm_ingested_artifacts.c.id)
+        ).scalar_one()
+        db.execute(
+            ppm_updates.insert().values(
+                id=f"u-{uuid.uuid4().hex[:14]}",
+                tenant_id=tenant,
+                project_id=project_id,
+                update_id="upd-unmap",
+                content_hash="h-unmap",
+                contract_version="2.1",
+                supersedes_update_id=None,
+                supersession_state="active",
+                payload={
+                    "claim_id": "upd-unmap",
+                    "source_file": ".ppm/updates/upd-unmap.yaml",
+                    "criterion_ids": ["AC-UNMAP"],
+                    "test_ids": ["test_other_unmapped"],
+                    "reported_status": "claimed_done",
+                    "recorded_at": now_iso,
+                },
+                source_id=src_id,
+                source_snapshot_id=psnap,
+                artifact_path=".ppm/updates/upd-unmap.yaml",
+                ingested_artifact_id=art_id,
+                recorded_at=ts,
+            )
+        )
+
+        load_fixture_evidence(
+            db,
+            tenant,
+            project_id,
+            [
+                {
+                    "evidence_id": "ev-ttl-old",
+                    "trust_class": "verifier_observed",
+                    "producer": "simulated-verifier",
+                    "revision": "rev-1",
+                    "observed_at": "2026-11-01T12:00:00Z",
+                    "test_id": "test_ttl",
+                    "covered_test_ids": ["test_ttl"],
+                    "result": "passed",
+                    "simulated": True,
+                },
+                {
+                    "evidence_id": "ev-unmapped-pass",
+                    "trust_class": "verifier_observed",
+                    "producer": "simulated-verifier",
+                    "revision": "rev-1",
+                    "observed_at": now_iso,
+                    "test_id": "test_other_unmapped",
+                    "covered_test_ids": ["test_other_unmapped"],
+                    "result": "passed",
+                    "simulated": True,
+                },
+            ],
+        )
+
+        rec = create_assessment(
+            db,
+            tenant,
+            project_id,
+            now=now_iso,
+            project_snapshot_id=psnap,
+            assessed_revision="rev-1",
+        )
+        detail = get_assessment_detail(db, tenant, rec.id)
+        db.commit()
+
+        excl_ttl = detail["explanation"]["AC-TTL"]["verified"]["excluded_evidence"]
+        assert len(excl_ttl) == 1
+        assert excl_ttl[0]["evidence_id"] == "ev-ttl-old"
+        assert excl_ttl[0]["reason"] == "ttl_expired"
+
+        excl_unmap = detail["explanation"]["AC-UNMAP"]["verified"]["excluded_evidence"]
+        assert len(excl_unmap) == 1
+        assert excl_unmap[0]["evidence_id"] == "ev-unmapped-pass"
+        assert excl_unmap[0]["reason"] == "test_not_mapped"
