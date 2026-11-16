@@ -99,6 +99,7 @@ class TestVerificationResult:
     output_truncated: bool = False
     truncated_bytes: int = 0
     test_config_files: list[dict[str, str]] = field(default_factory=list)
+    reused: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -116,6 +117,7 @@ class TestVerificationResult:
             "output_truncated": self.output_truncated,
             "truncated_bytes": self.truncated_bytes,
             "test_config_files": [dict(item) for item in self.test_config_files],
+            "reused": self.reused,
         }
 
 
@@ -763,17 +765,44 @@ def _close_win32_job(win_job_handle: int | None) -> None:
         kernel32.CloseHandle(wintypes.HANDLE(win_job_handle))
 
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+_PYTEST_IN_DURATION_RE = re.compile(r"\bin \d+(?:\.\d+)?s\b")
+_PYTEST_PAREN_DURATION_RE = re.compile(r"\(\d+(?:\.\d+)?s\)")
+_SANDBOX_PREFIX_RE = re.compile(r"[^\s'\"]*eap_verifier_sandbox_[A-Za-z0-9_]+")
+_INCONCLUSIVE_RETRY_COUNTS: dict[tuple[str, str, str, str], int] = {}
+_INCONCLUSIVE_RETRY_LOCK = threading.Lock()
+
+
+def _normalize_pytest_output(raw_bytes: bytes, workspace_dir: Path | None = None) -> bytes:
+    """Strip timing text and absolute sandbox temp paths before hashing pytest output."""
+    text = raw_bytes.decode("utf-8", errors="replace")
+    text = _ANSI_RE.sub("", text)
+    if workspace_dir is not None:
+        ws_str = str(workspace_dir)
+        ws_posix = workspace_dir.as_posix()
+        parent_str = str(workspace_dir.parent)
+        parent_posix = workspace_dir.parent.as_posix()
+        for prefix in (ws_str, ws_posix, parent_str, parent_posix):
+            if prefix:
+                text = text.replace(prefix, "<SANDBOX>")
+    text = _SANDBOX_PREFIX_RE.sub("<SANDBOX>", text)
+    text = _PYTEST_IN_DURATION_RE.sub("in <DURATION>", text)
+    text = _PYTEST_PAREN_DURATION_RE.sub("(<DURATION>)", text)
+    return text.encode("utf-8")
+
+
 def _drain_pipe_with_cap(
     pipe: Any,
     out_path: Path,
     max_output_bytes: int,
     state: dict[str, Any],
+    workspace_dir: Path | None = None,
 ) -> None:
     """Stream child output up to ``max_output_bytes`` to disk/hash and drain excess."""
     cap = max(0, max_output_bytes)
     kept_len = 0
     truncated_bytes = 0
-    digest = hashlib.sha256()
+    kept_bytes = bytearray()
     preview = bytearray()
     preview_cap = min(cap, 65_536)
 
@@ -786,7 +815,7 @@ def _drain_pipe_with_cap(
                 remaining = cap - kept_len
                 if len(chunk) <= remaining:
                     out_f.write(chunk)
-                    digest.update(chunk)
+                    kept_bytes.extend(chunk)
                     kept_len += len(chunk)
                     if len(preview) < preview_cap:
                         preview.extend(chunk[: preview_cap - len(preview)])
@@ -794,7 +823,7 @@ def _drain_pipe_with_cap(
                     kept_part = chunk[:remaining]
                     out_f.write(kept_part)
                     out_f.flush()
-                    digest.update(kept_part)
+                    kept_bytes.extend(kept_part)
                     kept_len += len(kept_part)
                     if len(preview) < preview_cap:
                         preview.extend(kept_part[: preview_cap - len(preview)])
@@ -802,7 +831,8 @@ def _drain_pipe_with_cap(
             else:
                 truncated_bytes += len(chunk)
 
-    state["output_hash"] = digest.hexdigest()
+    normalized = _normalize_pytest_output(bytes(kept_bytes), workspace_dir=workspace_dir)
+    state["output_hash"] = hashlib.sha256(normalized).hexdigest()
     state["output_truncated"] = truncated_bytes > 0
     state["truncated_bytes"] = truncated_bytes
     state["preview_text"] = bytes(preview).decode("utf-8", errors="replace")
@@ -889,7 +919,7 @@ def _run_single_test_in_workspace(
         assert proc.stdout is not None
         reader_thread = threading.Thread(
             target=_drain_pipe_with_cap,
-            args=(proc.stdout, out_path, max_output_bytes, stream_state),
+            args=(proc.stdout, out_path, max_output_bytes, stream_state, workspace_dir),
             daemon=True,
         )
         reader_thread.start()
@@ -1178,6 +1208,14 @@ def _upsert_verifier_evidence(
     if unchanged:
         return
 
+    unchanged_result = (
+        str(existing["outcome"]) == res.outcome
+        and existing["exit_status"] == res.exit_status
+        and str(existing["output_hash"] or "") == out_hash
+        and existing["reason"] == res.reason
+    )
+    if unchanged_result:
+        return
     conn.execute(
         ppm_evidence.update()
         .where(
@@ -1207,6 +1245,88 @@ def _upsert_verifier_evidence(
     )
 
 
+def _find_reusable_evidence(
+    conn: sa.Connection | Session,
+    *,
+    tenant_id: str,
+    project_id: str,
+    assessed_revision: str,
+    test_id: str,
+    workspace_dir: Path,
+    net_iso: str,
+    max_inconclusive_retries: int,
+) -> TestVerificationResult | None:
+    """Return existing verifier evidence if conclusive (with matching config hashes) or retry-exhausted."""
+    existing = conn.execute(
+        sa.select(ppm_evidence).where(
+            ppm_evidence.c.tenant_id == tenant_id,
+            ppm_evidence.c.project_id == project_id,
+            ppm_evidence.c.revision == assessed_revision,
+            ppm_evidence.c.test_id == test_id,
+            ppm_evidence.c.trust_class == "verifier_observed",
+            ppm_evidence.c.producer == PRODUCER_NAME,
+        )
+    ).mappings().first()
+    if existing is None:
+        return None
+
+    nodeid, _, _ = _resolve_nodeid_in_workspace(workspace_dir, test_id)
+    current_configs = _collect_test_config_files(workspace_dir, nodeid)
+    outcome = str(existing["outcome"])
+
+    if outcome in ("passed", "failed"):
+        # Never reuse not_enforced evidence when enforced network isolation is now active
+        if net_iso == "enforced" and str(existing["network_isolation"] or "") != "enforced":
+            return None
+        stored_configs = list(existing["test_config_files"] or [])
+        if stored_configs != current_configs:
+            return None
+        return TestVerificationResult(
+            test_id=test_id,
+            outcome=outcome,
+            executed=False,
+            evidence_id=str(existing["evidence_id"]),
+            revision=assessed_revision,
+            nodeid=nodeid,
+            exit_status=existing["exit_status"],
+            duration_ms=0,
+            output_hash=existing["output_hash"],
+            network_isolation=str(existing["network_isolation"] or net_iso),
+            reason=existing["reason"],
+            output_truncated=bool(existing["output_truncated"]),
+            truncated_bytes=int(existing["truncated_bytes"] or 0),
+            test_config_files=current_configs,
+            reused=True,
+        )
+
+    if outcome == "inconclusive":
+        retry_key = (tenant_id, project_id, assessed_revision, test_id)
+        with _INCONCLUSIVE_RETRY_LOCK:
+            used = _INCONCLUSIVE_RETRY_COUNTS.get(retry_key, 0)
+            if used < max_inconclusive_retries:
+                _INCONCLUSIVE_RETRY_COUNTS[retry_key] = used + 1
+                return None
+        return TestVerificationResult(
+            test_id=test_id,
+            outcome=outcome,
+            executed=False,
+            evidence_id=str(existing["evidence_id"]),
+            revision=assessed_revision,
+            nodeid=nodeid,
+            exit_status=existing["exit_status"],
+            duration_ms=0,
+            output_hash=existing["output_hash"],
+            network_isolation=str(existing["network_isolation"] or net_iso),
+            reason=existing["reason"],
+            output_truncated=bool(existing["output_truncated"]),
+            truncated_bytes=int(existing["truncated_bytes"] or 0),
+            test_config_files=current_configs,
+            reused=True,
+        )
+
+    return None
+
+
 def run_verifier(
     conn: sa.Connection | Session,
     tenant_id: str,
@@ -1217,6 +1337,7 @@ def run_verifier(
     requested_test_ids: Sequence[str] | None = None,
     timeout_seconds: float = 15.0,
     max_output_bytes: int = 65_536,
+    max_inconclusive_retries: int = 2,
     settings: Settings | None = None,
 ) -> VerifierReport:
     """Verify mapped tests for ``assessed_revision`` inside an isolated temporary workspace."""
@@ -1339,6 +1460,19 @@ def run_verifier(
 
         now = dt.datetime.now(dt.UTC)
         for tid in tests_to_run:
+            reusable = _find_reusable_evidence(
+                conn,
+                tenant_id=tenant_id,
+                project_id=project_id,
+                assessed_revision=assessed_revision,
+                test_id=tid,
+                workspace_dir=workspace_dir,
+                net_iso=net_iso,
+                max_inconclusive_retries=max_inconclusive_retries,
+            )
+            if reusable is not None:
+                results.append(reusable)
+                continue
             res = _run_single_test_in_workspace(
                 workspace_dir=workspace_dir,
                 home_dir=home_dir,

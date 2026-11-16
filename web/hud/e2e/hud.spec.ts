@@ -153,4 +153,32 @@ test.describe.serial('P3a-WP3 Operator HUD E2E', () => {
     const approveCount = await page.getByRole('button', { name: /approve|accept/i }).count()
     expect(approveCount).toBe(0)
   })
+
+  test('8. D1 sign-off: Project Assessment answers all three reviewer questions and shows last_successful_scan_at', async () => {
+    await page.getByRole('tab', { name: 'Project Assessment' }).click()
+    const body = page.locator('body')
+
+    // Q1 (Advancement): A1 -> A2 diff shows AC-002 advancing unverified -> verified at rev-r2
+    await expect(body).toContainText('Diff: Assessment #1 → #2')
+    const ac002DiffRow = page.locator('table.data-table').nth(1).locator('tbody tr', { hasText: 'AC-002' })
+    await expect(ac002DiffRow).toContainText('unverified')
+    await expect(ac002DiffRow).toContainText('verified')
+    await expect(ac002DiffRow).toContainText('rev-r2')
+
+    // Q2 (Revision currency): AC-001 rev-r1 PASS discarded (revision_mismatch); rev-r2 FAIL current; last_successful_scan_at shown
+    const ac001Row = page.locator('table.data-table').first().locator('tbody tr', { hasText: 'AC-001' })
+    await expect(ac001Row).toContainText('revision_mismatch')
+    await expect(ac001Row).toContainText('rev-r2')
+    const lastScanBox = page.locator('.stat-box', { hasText: 'Last Successful Scan' })
+    await expect(lastScanBox).toBeVisible()
+    await expect(lastScanBox).not.toContainText('Never')
+
+    // Q3 (Why not accepted): not_ready, AC-001 contradicted (evidence_refuted), AC-003 unverified (evidence_missing)
+    await expect(body).toContainText('not_ready')
+    await expect(ac001Row).toContainText('evidence_refuted')
+    await expect(ac001Row).toContainText('contradicted')
+    const ac003Row = page.locator('table.data-table').first().locator('tbody tr', { hasText: 'AC-003' })
+    await expect(ac003Row).toContainText('unverified')
+    await expect(ac003Row).toContainText('evidence_missing')
+  })
 })
