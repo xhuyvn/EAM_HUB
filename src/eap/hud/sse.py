@@ -83,6 +83,7 @@ class _StreamCursorState:
             scope=self.scope,
             offset=sum(self.stream_offsets.values()),
             stream_offsets=self.stream_offsets,
+            stream_offsets_omitted=self.stream_offsets_omitted,
             grant_epoch=self.grant_epoch,
             last_event_id=self.last_event_id,
             settings=settings,
