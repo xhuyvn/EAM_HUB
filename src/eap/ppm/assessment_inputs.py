@@ -246,6 +246,7 @@ def build_assessment_inputs(
     project_snapshot_id: str | None = None,
     assessed_revision: str | None = None,
     previous_assessment_id: str | None = None,
+    baseline_revision: int | None = None,
     dependency_refs: list[dict[str, Any]] | None = None,
     context: dict[str, Any] | None = None,
     fixture_id: str | None = None,
@@ -327,23 +328,23 @@ def build_assessment_inputs(
                 if isinstance(c_out, dict) and c_out.get("criterion_id") and c_out.get("status"):
                     prev_criteria_status[str(c_out["criterion_id"])] = str(c_out["status"])
 
-    # 3. Latest approved baseline (draft baselines are ignored -> provisional per C44)
-    bl_row = conn.execute(
-        sa.select(ppm_baselines)
-        .where(
-            ppm_baselines.c.tenant_id == tenant_id,
-            ppm_baselines.c.project_id == project_id,
-            ppm_baselines.c.status == "approved",
-        )
-        .order_by(ppm_baselines.c.baseline_revision.desc())
-        .limit(1)
-    ).mappings().first()
+    # 3. Approved baseline (locked revision if specified, else latest approved; draft baselines ignored per C44)
+    bl_stmt = sa.select(ppm_baselines).where(
+        ppm_baselines.c.tenant_id == tenant_id,
+        ppm_baselines.c.project_id == project_id,
+        ppm_baselines.c.status == "approved",
+    )
+    if baseline_revision is not None:
+        bl_stmt = bl_stmt.where(ppm_baselines.c.baseline_revision == baseline_revision)
+    else:
+        bl_stmt = bl_stmt.order_by(ppm_baselines.c.baseline_revision.desc())
+    bl_row = conn.execute(bl_stmt.limit(1)).mappings().first()
 
     baseline: dict[str, Any] | None = None
     baseline_for_hash: dict[str, Any] | None = None
-    baseline_revision: int | None = None
+    resolved_baseline_revision: int | None = None
     if bl_row is not None:
-        baseline_revision = int(bl_row["baseline_revision"])
+        resolved_baseline_revision = int(bl_row["baseline_revision"])
         criteria_sorted = sorted(
             [dict(c) for c in (bl_row["criteria"] or [])],
             key=lambda c: str(c.get("criterion_id", "")),
@@ -351,14 +352,14 @@ def build_assessment_inputs(
         # Preserve canonical baseline prior to injecting runtime previous_status so
         # initial scan and first unchanged rescan yield identical semantic hashes (ISS-034).
         baseline_for_hash = {
-            "baseline_revision": baseline_revision,
+            "baseline_revision": resolved_baseline_revision,
             "criteria": copy.deepcopy(criteria_sorted),
         }
         for c_item in criteria_sorted:
             if "previous_status" not in c_item and str(c_item.get("criterion_id", "")) in prev_criteria_status:
                 c_item["previous_status"] = prev_criteria_status[str(c_item["criterion_id"])]
         baseline = {
-            "baseline_revision": baseline_revision,
+            "baseline_revision": resolved_baseline_revision,
             "criteria": criteria_sorted,
         }
 
@@ -494,7 +495,7 @@ def build_assessment_inputs(
         "project_snapshot_id": locked_snapshot_id,
         "snapshot_seq": snapshot_seq,
         "scope_hash": scope_hash,
-        "baseline_revision": baseline_revision,
+        "baseline_revision": resolved_baseline_revision,
         "assessed_revision": assessed_revision,
         "previous_assessment_id": previous_assessment_id,
     }

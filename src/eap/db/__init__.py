@@ -27,6 +27,10 @@ from eap.db.location_tables import (
     location_registrations,
     source_shares,
 )
+from eap.db.orchestrator_tables import (
+    ppm_assessment_tasks,
+    ppm_orchestrator_cursors,
+)
 from eap.db.policy_tables import (
     principal_grant_epochs,
     principal_project_grants,
@@ -82,6 +86,7 @@ __all__ = [
     "metadata",
     "outbox",
     "outbox_relay_marks",
+    "ppm_assessment_tasks",
     "ppm_assessments",
     "ppm_baselines",
     "ppm_basis_seq",
@@ -89,6 +94,7 @@ __all__ = [
     "ppm_ingest_checkpoints",
     "ppm_ingested_artifacts",
     "ppm_notes",
+    "ppm_orchestrator_cursors",
     "ppm_scan_occurrences",
     "ppm_scan_schedules",
     "ppm_scan_source_status",

@@ -1,0 +1,23 @@
+{
+  "case": "C39",
+  "status": "PASS",
+  "tenant_id": "tenant-c39-0fbdf910",
+  "project_id": "proj-c39",
+  "old_baseline_assessment": {
+    "assessment_id": "asmt-a5e962dc222449d9",
+    "basis_seq": 2,
+    "baseline_revision": 1,
+    "is_current": false
+  },
+  "new_baseline_assessment": {
+    "assessment_id": "asmt-a30bdfcdc5f248c5",
+    "basis_seq": 3,
+    "baseline_revision": 2,
+    "is_current": true
+  },
+  "pointer_after": {
+    "assessment_id": "asmt-a30bdfcdc5f248c5",
+    "basis_seq": 3,
+    "baseline_revision": 2
+  }
+}

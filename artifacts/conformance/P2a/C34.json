@@ -1,0 +1,24 @@
+{
+  "case": "C34",
+  "status": "PASS",
+  "tenant_id": "tenant-c34-c822691f",
+  "project_id": "proj-c34",
+  "scan_a": {
+    "assessment_id": "asmt-35d8400af782467f",
+    "basis_seq": 2,
+    "snapshot_seq": 1,
+    "is_current": false
+  },
+  "scan_b": {
+    "assessment_id": "asmt-529866aced924c27",
+    "basis_seq": 3,
+    "snapshot_seq": 2,
+    "is_current": true
+  },
+  "pointer_before": null,
+  "pointer_after": {
+    "assessment_id": "asmt-529866aced924c27",
+    "basis_seq": 3,
+    "snapshot_seq": 2
+  }
+}
