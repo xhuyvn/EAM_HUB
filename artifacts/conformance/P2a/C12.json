@@ -1,0 +1,17 @@
+{
+  "case_id": "C12",
+  "milestone": "P2a",
+  "work_package": "P2a-WP7",
+  "status": "passed",
+  "observed_outcome": "Model Gateway enforces binding profile authorization and egress policy before every model, fallback, and embedding call. Under egress:local-only, when the primary local profile fails (timeout) and a cloud fallback profile is configured, the gateway refuses with egress_denied, sets analysis_status=model_failed, and makes 0 calls to the cloud provider. Cloud embedding profiles under egress:local-only are likewise refused with egress_denied and 0 provider calls.",
+  "counts": {
+    "passed_tests": 4,
+    "violations": 0
+  },
+  "evidence_refs": [
+    "tests/ppm/test_model_gateway_and_analysis.py::test_c12_local_fails_cloud_fallback_egress_denied_zero_cloud_calls",
+    "tests/ppm/test_model_gateway_and_analysis.py::test_c12_embedding_profile_cloud_egress_denied_zero_calls",
+    "tests/ppm/test_model_gateway_and_analysis.py::test_c12_unauthorized_and_unknown_profiles_refused",
+    "tests/ppm/test_model_gateway_and_analysis.py::test_egress_decision_matrix"
+  ]
+}

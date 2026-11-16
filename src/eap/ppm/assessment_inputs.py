@@ -249,6 +249,7 @@ def build_assessment_inputs(
     dependency_refs: list[dict[str, Any]] | None = None,
     context: dict[str, Any] | None = None,
     fixture_id: str | None = None,
+    extra_claims: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], str, dict[str, Any]]:
     """Build deterministic reducer input dict (inputs.schema.json) and its canonical hash.
 
@@ -378,6 +379,8 @@ def build_assessment_inputs(
 
     snap_status_claims, snap_dep_refs = _extract_snapshot_claims(snapshot_claims_raw)
     claims.extend(snap_status_claims)
+    if extra_claims:
+        claims.extend(extra_claims)
 
     # Note: ppm_notes are NEVER converted into claims (context only).
 
