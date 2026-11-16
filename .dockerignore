@@ -1,0 +1,26 @@
+# Exclude secrets, git history, caches, and test/dev artifacts from Docker build contexts
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+node_modules
+web/hud/node_modules
+web/hud/dist
+web/hud/playwright-report
+web/hud/test-results
+tests
+artifacts
+docs
+scripts
+*.log

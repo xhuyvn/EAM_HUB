@@ -151,3 +151,69 @@ jobs:
             web/hud/test-results/
             web/hud/playwright-report/
           if-no-files-found: ignore
+
+  mvp1-deploy-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare CI .env and verify loopback-only compose config
+        run: |
+          cp .env.example .env
+          CI_TOKEN="ci-mvp1-smoke-token-001"
+          CI_HASH="$(printf '%s' "$CI_TOKEN" | sha256sum | awk '{print $1}')"
+          PG_PW="$(openssl rand -hex 16)"
+          CANARY="EAP-CANARY-$(openssl rand -hex 12)"
+          CURSOR_SEC="$(openssl rand -hex 32)"
+          sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${PG_PW}|" .env
+          sed -i "s|^EAP_SECRET_CANARY=.*|EAP_SECRET_CANARY=${CANARY}|" .env
+          sed -i "s|^EAP_HUD_CURSOR_SECRET=.*|EAP_HUD_CURSOR_SECRET=${CURSOR_SEC}|" .env
+          sed -i "s|^EAP_OWNER_TOKEN_HASH=.*|EAP_OWNER_TOKEN_HASH=${CI_HASH}|" .env
+          docker compose --profile mvp1 config > /tmp/mvp1_compose_resolved.yml
+          python3 -c "
+          import yaml, sys
+          cfg = yaml.safe_load(open('/tmp/mvp1_compose_resolved.yml'))
+          for name, svc in cfg.get('services', {}).items():
+              for p in svc.get('ports', []):
+                  host_ip = p.get('host_ip') if isinstance(p, dict) else str(p).split(':')[0]
+                  if host_ip != '127.0.0.1':
+                      print(f'ERROR: service {name} port {p} not bound to 127.0.0.1', file=sys.stderr)
+                      sys.exit(1)
+          print('Loopback-only port check PASS')
+          "
+
+      - name: Build and start MVP1 compose stack
+        run: |
+          docker compose --profile mvp1 up -d --build
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1 && curl -fsS http://127.0.0.1:5173/ >/dev/null 2>&1; then
+              echo "MVP1 stack healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --profile mvp1 logs --tail=100
+          exit 1
+
+      - name: Smoke test endpoints, fixtures, and container security
+        run: |
+          CI_TOKEN="ci-mvp1-smoke-token-001"
+          docker compose --profile mvp1 exec -T api python -m eap.agents.cli register \
+            --manifest src/eap/agents/fixtures/mock_agent.json \
+            --binding src/eap/agents/fixtures/mock_binding.json
+          docker compose --profile mvp1 exec -T api python -m eap.mvp1_fixture
+          curl -fsS http://127.0.0.1:8000/healthz
+          curl -fsS -H "Authorization: Bearer ${CI_TOKEN}" http://127.0.0.1:8000/v1/agents | grep -q "agent-mock-provider"
+          curl -fsS -H "Authorization: Bearer ${CI_TOKEN}" http://127.0.0.1:8000/v1/hud/snapshot | grep -q "run-mvp1-demo-1"
+          curl -fsS http://127.0.0.1:5173/ | grep -qi "<!doctype html"
+          test "$(docker compose --profile mvp1 exec -T api id -u)" != "0"
+          test "$(docker compose --profile mvp1 exec -T worker id -u)" != "0"
+          test "$(docker compose --profile mvp1 exec -T hud id -u)" != "0"
+          API_IMG="$(docker compose --profile mvp1 images -q api | head -n1)"
+          HUD_IMG="$(docker compose --profile mvp1 images -q hud | head -n1)"
+          ! docker history --no-trunc "$API_IMG" | grep -qiE "EAP_OWNER_TOKEN_HASH|POSTGRES_PASSWORD|ci-mvp1-smoke-token"
+          ! docker history --no-trunc "$HUD_IMG" | grep -qiE "EAP_OWNER_TOKEN_HASH|POSTGRES_PASSWORD|ci-mvp1-smoke-token"
+
+      - name: Tear down MVP1 stack and volumes
+        if: always()
+        run: docker compose --profile mvp1 down -v --remove-orphans
