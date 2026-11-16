@@ -20,7 +20,7 @@ from eap.api.dependencies import (
 )
 from eap.config import Settings, get_settings
 from eap.db.assessment_tables import ppm_evidence
-from eap.db.tables import artifacts, commands, runs, tasks
+from eap.db.tables import artifacts, commands, event_log, runs, tasks, usage_ledger
 from eap.hud.snapshot import (
     CursorError,
     HudContractViolationError,
@@ -39,6 +39,7 @@ from eap.hud.sse import (
     DEFAULT_SSE_POLL_INTERVAL_MS,
     iter_hud_sse_frames,
 )
+from eap.observability import redact_text
 from eap.policy.grants import (
     get_grant_epoch,
     grant_project_access,
@@ -498,5 +499,259 @@ def get_authorized_evidence(
             "artifact_url": f"/v1/artifacts/{evidence_id}",
             "signed_url": None,
             "collected_at": _to_iso_utc(ev_row["collected_at"]),
+        },
+    )
+
+
+def _redact_json_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return redact_text(value)
+    if isinstance(value, list):
+        return [_redact_json_value(v) for v in value]
+    if isinstance(value, dict):
+        return {str(k): _redact_json_value(v) for k, v in value.items()}
+    return value
+
+
+@hud_router.get("/runs/{run_id}/inspector")
+def get_run_inspector(
+    run_id: str,
+    principal: Annotated[Principal, Depends(get_principal)],
+    db: Annotated[Session, Depends(get_db)],
+) -> JSONResponse:
+    """Return read-only Run Inspector timeline (attempts, commands, events, artifacts, usage)."""
+    conn = db.connection()
+    run_row = conn.execute(
+        sa.select(
+            runs.c.id,
+            runs.c.run_id,
+            runs.c.task_id,
+            runs.c.project_id,
+            runs.c.attempt,
+            runs.c.binding_id,
+            runs.c.state,
+            runs.c.remote_outcome,
+            runs.c.lease_fencing_token,
+            runs.c.created_at,
+            runs.c.updated_at,
+        ).where(
+            runs.c.tenant_id == principal.tenant_id,
+            runs.c.run_id == run_id,
+        )
+    ).mappings().fetchone()
+
+    if run_row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": f"Run {run_id!r} not found", "code": "RUN_NOT_FOUND"},
+        )
+
+    task_id = str(run_row["task_id"])
+    task_row = conn.execute(
+        sa.select(
+            tasks.c.id,
+            tasks.c.task_type,
+            tasks.c.state,
+            tasks.c.agent_id,
+            tasks.c.agent_version,
+            tasks.c.project_id,
+            tasks.c.created_at,
+            tasks.c.updated_at,
+            tasks.c.deadline,
+        ).where(
+            tasks.c.tenant_id == principal.tenant_id,
+            tasks.c.id == task_id,
+        )
+    ).mappings().fetchone()
+
+    resolved_proj = run_row["project_id"] or (task_row["project_id"] if task_row else None)
+    if resolved_proj and not is_project_authorized(
+        conn,
+        tenant_id=principal.tenant_id,
+        principal_id=principal.principal_id,
+        project_id=str(resolved_proj),
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "detail": "Permission to project run has been revoked",
+                "code": "PERMISSION_REVOKED",
+            },
+        )
+
+    attempt_rows = conn.execute(
+        sa.select(
+            runs.c.run_id,
+            runs.c.attempt,
+            runs.c.binding_id,
+            runs.c.state,
+            runs.c.remote_outcome,
+            runs.c.created_at,
+            runs.c.updated_at,
+        )
+        .where(runs.c.tenant_id == principal.tenant_id, runs.c.task_id == task_id)
+        .order_by(runs.c.attempt.asc(), runs.c.created_at.asc())
+    ).mappings().fetchall()
+
+    cmd_rows = conn.execute(
+        sa.select(
+            commands.c.id,
+            commands.c.run_id,
+            commands.c.command_type,
+            commands.c.status,
+            commands.c.payload,
+            commands.c.created_at,
+            commands.c.updated_at,
+        )
+        .where(
+            commands.c.tenant_id == principal.tenant_id,
+            commands.c.task_id == task_id,
+            sa.or_(commands.c.run_id == run_id, commands.c.run_id.is_(None)),
+        )
+        .order_by(commands.c.created_at.asc(), commands.c.id.asc())
+    ).mappings().fetchall()
+
+    ev_rows = conn.execute(
+        sa.select(
+            event_log.c.event_id,
+            event_log.c.stream_id,
+            event_log.c.ingest_offset,
+            event_log.c.producer_id,
+            event_log.c.event_type,
+            event_log.c.payload,
+            event_log.c.occurred_at,
+            event_log.c.ingested_at,
+        )
+        .where(
+            event_log.c.tenant_id == principal.tenant_id,
+            event_log.c.stream_id.in_([f"run:{run_id}", f"task:{task_id}"]),
+        )
+        .order_by(event_log.c.id.asc())
+        .limit(200)
+    ).mappings().fetchall()
+
+    art_rows = conn.execute(
+        sa.select(
+            artifacts.c.artifact_id,
+            artifacts.c.content_hash,
+            artifacts.c.content_type,
+            artifacts.c.size_bytes,
+            artifacts.c.created_at,
+        )
+        .where(artifacts.c.tenant_id == principal.tenant_id, artifacts.c.run_id == run_id)
+        .order_by(artifacts.c.created_at.asc())
+    ).mappings().fetchall()
+
+    usage_rows = conn.execute(
+        sa.select(
+            usage_ledger.c.provider_usage_id,
+            usage_ledger.c.model_profile,
+            usage_ledger.c.prompt_tokens,
+            usage_ledger.c.completion_tokens,
+            usage_ledger.c.cost_estimate,
+            usage_ledger.c.reported_at,
+        )
+        .where(usage_ledger.c.tenant_id == principal.tenant_id, usage_ledger.c.run_id == run_id)
+        .order_by(usage_ledger.c.reported_at.asc())
+    ).mappings().fetchall()
+
+    usage_list: list[dict[str, Any]] = [
+        {
+            "provider_usage_id": str(u["provider_usage_id"]),
+            "model_profile": str(u["model_profile"]),
+            "prompt_tokens": int(u["prompt_tokens"]),
+            "completion_tokens": int(u["completion_tokens"]),
+            "cost_usd": float(u["cost_estimate"]),
+            "reported_at": _to_iso_utc(u["reported_at"]),
+        }
+        for u in usage_rows
+    ]
+    total_cost = round(sum(float(u["cost_usd"]) for u in usage_list), 6) if usage_list else None
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "run": {
+                "run_id": str(run_row["run_id"]),
+                "task_id": task_id,
+                "project_id": resolved_proj,
+                "attempt": int(run_row["attempt"]),
+                "binding_id": str(run_row["binding_id"]),
+                "state": str(run_row["state"]),
+                "remote_outcome": str(run_row["remote_outcome"]),
+                "created_at": _to_iso_utc(run_row["created_at"]),
+                "updated_at": _to_iso_utc(run_row["updated_at"]),
+            },
+            "task": (
+                {
+                    "task_id": str(task_row["id"]),
+                    "task_type": str(task_row["task_type"]),
+                    "state": str(task_row["state"]),
+                    "agent_id": str(task_row["agent_id"]),
+                    "agent_version": str(task_row["agent_version"]),
+                    "project_id": task_row["project_id"],
+                    "created_at": _to_iso_utc(task_row["created_at"]),
+                    "updated_at": _to_iso_utc(task_row["updated_at"]),
+                    "deadline": _to_iso_utc(task_row["deadline"]),
+                }
+                if task_row is not None
+                else None
+            ),
+            "attempts": [
+                {
+                    "run_id": str(a["run_id"]),
+                    "attempt": int(a["attempt"]),
+                    "binding_id": str(a["binding_id"]),
+                    "state": str(a["state"]),
+                    "remote_outcome": str(a["remote_outcome"]),
+                    "created_at": _to_iso_utc(a["created_at"]),
+                    "updated_at": _to_iso_utc(a["updated_at"]),
+                }
+                for a in attempt_rows
+            ],
+            "commands": [
+                {
+                    "command_id": str(c["id"]),
+                    "run_id": c["run_id"],
+                    "command_type": str(c["command_type"]),
+                    "status": str(c["status"]),
+                    "payload": _redact_json_value(c["payload"]),
+                    "created_at": _to_iso_utc(c["created_at"]),
+                    "updated_at": _to_iso_utc(c["updated_at"]),
+                }
+                for c in cmd_rows
+            ],
+            "events": [
+                {
+                    "event_id": str(e["event_id"]),
+                    "stream_id": str(e["stream_id"]),
+                    "ingest_offset": int(e["ingest_offset"]),
+                    "producer_id": str(e["producer_id"]),
+                    "event_type": str(e["event_type"]),
+                    "payload": _redact_json_value(e["payload"]),
+                    "occurred_at": _to_iso_utc(e["occurred_at"]),
+                    "ingested_at": _to_iso_utc(e["ingested_at"]),
+                }
+                for e in ev_rows
+            ],
+            "artifacts": [
+                {
+                    "artifact_id": str(art["artifact_id"]),
+                    "content_hash": str(art["content_hash"]),
+                    "content_type": str(art["content_type"]),
+                    "size_bytes": int(art["size_bytes"]),
+                    "access_url": f"/v1/artifacts/{art['artifact_id']}",
+                    "signed_url": None,
+                    "created_at": _to_iso_utc(art["created_at"]),
+                }
+                for art in art_rows
+            ],
+            "usage": usage_list,
+            "cost": {
+                "status": "actual" if usage_list else "unknown",
+                "amount_usd": total_cost,
+                "as_of": usage_list[-1]["reported_at"] if usage_list else None,
+                "scope": "run",
+            },
         },
     )
