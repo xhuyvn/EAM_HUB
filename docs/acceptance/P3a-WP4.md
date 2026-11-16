@@ -25,15 +25,15 @@
 
 ## 2. E2E Scenarios (`web/hud/e2e/hud.spec.ts`)
 
-| # | Scenario | Result (Local) | Result (CI) |
+| # | Scenario | Result (Local) | Result (CI `43892551623`) |
 |---|---|---|---|
-| 1 | Initial snapshot, live SSE, unknown cost (`Unknown`, never `$0`), `stage_only` rendering | PASS (`3.0s`) | pending push |
-| 2 | SSE reconnect with `Last-Event-ID` delivers committed event exactly once | PASS (`895ms`) | pending push |
-| 3 | `resync_required` triggers fresh snapshot fetch and recovers to `live` | PASS (`60ms`) | pending push |
-| 4 | Live `row.removed` drops revoked project row immediately | PASS (`126ms`) | pending push |
-| 5 | Keyboard navigation (`ArrowLeft`/`ArrowRight`/`Enter`) + Run Inspector unknown outcome | PASS (`105ms`) | pending push |
-| 6 | Agent Inventory renders certified capabilities and `no_data` health | PASS (`70ms`) | pending push |
-| 7 | Project Assessment renders D1 diff (`Assessment #1 -> #2`), `revision_mismatch` excluded evidence, inert XSS, and zero approve buttons | PASS (`49ms`) | pending push |
+| 1 | Initial snapshot, live SSE, unknown cost (`Unknown`, never `$0`), `stage_only` rendering | PASS (`3.0s`) | PASS |
+| 2 | SSE reconnect with `Last-Event-ID` delivers committed event exactly once | PASS (`895ms`) | PASS |
+| 3 | `resync_required` triggers fresh snapshot fetch and recovers to `live` | PASS (`60ms`) | PASS |
+| 4 | Live `row.removed` drops revoked project row immediately | PASS (`126ms`) | PASS |
+| 5 | Keyboard navigation (`ArrowLeft`/`ArrowRight`/`Enter`) + Run Inspector unknown outcome | PASS (`105ms`) | PASS |
+| 6 | Agent Inventory renders certified capabilities and `no_data` health | PASS (`70ms`) | PASS |
+| 7 | Project Assessment renders D1 diff (`Assessment #1 -> #2`), `revision_mismatch` excluded evidence, inert XSS, and zero approve buttons | PASS (`49ms`) | PASS |
 
 ---
 
@@ -71,8 +71,9 @@ Executed across `10,000`, `100,000`, and `1,000,000` seeded `event_log` rows (`1
 | Typecheck | `uv run mypy src tests ppm-v2/reducer` | PASS (`Success: no issues found in 181 source files`) |
 | SC-01 / Negative / Fixtures / Reducer | `validate_package.py`, `run_negative_cases.py`, `check_fixtures.py`, `run_reducer_fixtures.py` | PASS (`16 schemas, 15 JSON fixtures, 11 events, 46 negative cases`; `5 templates, 20 cases`; `23 fixtures, 3 rollup`; `23 fixtures`) |
 | SC-08 (temp git clone) | `git clone --no-local . <tmp> && uv run python tools/check_translation.py` | PASS (`38 up-to-date, 0 stale, 0 missing headers`) |
-| Full pytest (`CI=true`, PG 18.6) | `$env:CI="true"; $env:TEST_DATABASE_URL="..."; uv run pytest -q` | PENDING |
-| GitHub Actions CI | `push wp/P3a-WP4` | PENDING |
+| HUD pytest (`CI=true`, PG 18.6) | `$env:CI="true"; $env:TEST_DATABASE_URL="..."; uv run pytest tests/hud -q` | PASS (`17 passed in 11.67s`) |
+| Full pytest (`CI=true`, PG 18.6) | GitHub Actions `validate-and-test` (`43892551623`) | PASS (`696 passed, 3 skipped, 7 warnings in 149.22s`; local `pytest -q` collided on shared `eap_test` with parallel P2a-WP6 session) |
+| GitHub Actions CI | `push wp/P3a-WP4` (run `43892551623`) | PASS (`validate-and-test` 4m1s + `hud-e2e` 1m58s, `7 passed (15.6s)`) |
 
 ---
 
