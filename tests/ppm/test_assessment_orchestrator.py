@@ -6,6 +6,7 @@ import datetime as dt
 import json
 import os
 import subprocess
+import tempfile
 import threading
 import uuid
 from pathlib import Path
@@ -174,8 +175,14 @@ def _seed_source_scope_and_baseline(
 
 
 def _write_sc03(name: str, payload: dict[str, Any]) -> None:
-    CONFORMANCE_DIR.mkdir(parents=True, exist_ok=True)
-    (CONFORMANCE_DIR / f"{name}.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    if os.environ.get("EAP_UPDATE_CONFORMANCE_ARTIFACTS") == "1":
+        out_dir = CONFORMANCE_DIR
+    elif os.environ.get("EAP_CONFORMANCE_OUT_DIR"):
+        out_dir = Path(os.environ["EAP_CONFORMANCE_OUT_DIR"])
+    else:
+        out_dir = Path(tempfile.gettempdir()) / "eap_conformance" / "P2a"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"{name}.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------

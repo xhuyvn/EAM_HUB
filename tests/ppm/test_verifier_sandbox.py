@@ -1487,3 +1487,234 @@ def test_verifier_timeout_kills_detached_grandchild_process(
         marker.unlink(missing_ok=True)
 
 
+def test_iss047_output_normalization_strips_timing_and_sandbox_paths(tmp_path: Path) -> None:
+    """ISS-047: pytest timing text and sandbox temp paths normalize to identical bytes."""
+    from eap.ppm.verifier import _normalize_pytest_output
+
+    ws1 = tmp_path / "eap_verifier_sandbox_aaa111" / "workspace"
+    ws2 = tmp_path / "eap_verifier_sandbox_bbb222" / "workspace"
+    raw1 = f".. {ws1}/tests/test_x.py:12 passed in 0.04s (0.04s)\n".encode()
+    raw2 = f".. {ws2}/tests/test_x.py:12 passed in 1.29s (1.29s)\n".encode()
+    assert _normalize_pytest_output(raw1, workspace_dir=ws1) == _normalize_pytest_output(
+        raw2, workspace_dir=ws2
+    )
+
+
+def test_iss047_verifier_reuses_conclusive_evidence_and_reruns_on_new_revision(
+    db_engine: sa.Engine,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ISS-047: same revision reuses conclusive evidence (0 DB updates); new revision runs verifier."""
+    SessionLocal = sessionmaker(bind=db_engine, future=True)
+    tenant = f"tenant-iss047-{uuid.uuid4().hex[:8]}"
+    project_id = "proj-iss047"
+    fixtures_root = tmp_path / "fixtures"
+    fixtures_root.mkdir()
+    repo_dir = fixtures_root / "repo"
+
+    monkeypatch.setenv("EAP_COLLECTOR_ALLOW_REAL_ROOTS", "false")
+    monkeypatch.setenv("EAP_COLLECTOR_FIXTURES_ROOT", str(fixtures_root))
+
+    rev_r1 = _init_fixture_repo(
+        repo_dir,
+        project_id,
+        {
+            "tests/test_reuse.py": "def test_ac001():\n    assert 1 + 1 == 2\n",
+        },
+    )
+
+    with SessionLocal() as db:
+        _register_and_scan_project(
+            db,
+            tenant_id=tenant,
+            project_id=project_id,
+            repo_dir=repo_dir,
+            fixtures_root=fixtures_root,
+        )
+        approve_baseline(
+            db,
+            tenant,
+            project_id,
+            baseline_revision=1,
+            criteria=_baseline_criteria(project_id, [("AC-001", "test_ac001", 1)]),
+            approved_by="owner",
+            source="fixture:iss047",
+        )
+        db.commit()
+
+        rep1 = run_verifier(
+            db,
+            tenant,
+            project_id,
+            rev_r1,
+            settings=_verifier_settings(fixtures_root),
+        )
+        db.commit()
+        assert rep1.results[0].outcome == "passed"
+        assert rep1.results[0].executed is True
+        assert rep1.results[0].reused is False
+
+        ev_before = db.execute(
+            sa.select(ppm_evidence.c.collected_at, ppm_evidence.c.output_hash).where(
+                ppm_evidence.c.tenant_id == tenant,
+                ppm_evidence.c.project_id == project_id,
+                ppm_evidence.c.revision == rev_r1,
+            )
+        ).mappings().one()
+
+        # Second call at identical revision -> reuses conclusive evidence, zero DB updates
+        rep2 = run_verifier(
+            db,
+            tenant,
+            project_id,
+            rev_r1,
+            settings=_verifier_settings(fixtures_root),
+        )
+        db.commit()
+        assert rep2.results[0].outcome == "passed"
+        assert rep2.results[0].executed is False
+        assert rep2.results[0].reused is True
+
+        ev_after = db.execute(
+            sa.select(ppm_evidence.c.collected_at, ppm_evidence.c.output_hash).where(
+                ppm_evidence.c.tenant_id == tenant,
+                ppm_evidence.c.project_id == project_id,
+                ppm_evidence.c.revision == rev_r1,
+            )
+        ).mappings().one()
+        assert ev_after["collected_at"] == ev_before["collected_at"]
+        assert ev_after["output_hash"] == ev_before["output_hash"]
+
+        # New revision with the same tests -> verifier executes fresh
+        (repo_dir / "README.md").write_text("new commit\n", encoding="utf-8")
+        _git(repo_dir, "add", "-A")
+        _git(repo_dir, "commit", "-m", "r2")
+        rev_r2 = _git(repo_dir, "rev-parse", "HEAD")
+        assert rev_r2 != rev_r1
+
+        rep3 = run_verifier(
+            db,
+            tenant,
+            project_id,
+            rev_r2,
+            settings=_verifier_settings(fixtures_root),
+        )
+        db.commit()
+        assert rep3.results[0].outcome == "passed"
+        assert rep3.results[0].executed is True
+        assert rep3.results[0].reused is False
+        assert rep3.results[0].revision == rev_r2
+
+
+def test_iss047_unchanged_rescan_with_verifier_and_analysis_zero_new_assessments(
+    db_engine: sa.Engine,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ISS-047: unchanged rescan with verifier + analysis enabled creates 0 new assessments/updates."""
+    import datetime as dt
+
+    from eap.config import get_settings
+    from eap.db import ppm_assessments
+    from eap.ppm.collector.collector import PpmCollector
+    from eap.ppm.scheduler import PpmScanScheduler
+
+    SessionLocal = sessionmaker(bind=db_engine, future=True)
+    tenant = f"tenant-iss047-sched-{uuid.uuid4().hex[:8]}"
+    project_id = "proj-iss047-sched"
+    fixtures_root = tmp_path / "fixtures"
+    fixtures_root.mkdir()
+    repo_dir = fixtures_root / "repo"
+
+    monkeypatch.setenv("EAP_COLLECTOR_ALLOW_REAL_ROOTS", "false")
+    monkeypatch.setenv("EAP_COLLECTOR_FIXTURES_ROOT", str(fixtures_root))
+    monkeypatch.setenv("PPM_VERIFIER_ENABLED", "true")
+    monkeypatch.setenv("PPM_ANALYSIS_ENABLED", "true")
+    monkeypatch.setenv("PPM_ORCHESTRATOR_ENABLED", "true")
+    monkeypatch.setenv("PPM_SCHEDULER_ENABLED", "true")
+
+    _init_fixture_repo(
+        repo_dir,
+        project_id,
+        {
+            ".ppm/notes/n1.md": "# Note\n\nExport done.\n",
+            "tests/test_s.py": "def test_ac001():\n    assert True\n",
+        },
+    )
+
+    with SessionLocal() as db:
+        src_id = _register_and_scan_project(
+            db,
+            tenant_id=tenant,
+            project_id=project_id,
+            repo_dir=repo_dir,
+            fixtures_root=fixtures_root,
+        )
+        approve_baseline(
+            db,
+            tenant,
+            project_id,
+            baseline_revision=1,
+            criteria=_baseline_criteria(project_id, [("AC-001", "test_ac001", 1)]),
+            approved_by="owner",
+            source="fixture:iss047-sched",
+        )
+        db.commit()
+
+        cfg = get_settings()
+        scheduler = PpmScanScheduler(
+            SessionLocal,
+            enabled=True,
+            default_interval_seconds=5,
+            default_debounce_seconds=1,
+            collector=PpmCollector(fixtures_root=str(fixtures_root), ingest_enabled=True),
+            settings=cfg,
+            _allow_sub_minimum_interval_for_testing=True,
+        )
+        t0 = dt.datetime.now(dt.UTC)
+        scheduler.ensure_schedule(
+            db,
+            tenant_id=tenant,
+            source_id=src_id,
+            interval_seconds=5,
+            debounce_seconds=1,
+            next_due_at=t0 - dt.timedelta(seconds=1),
+        )
+        db.commit()
+
+        res1 = scheduler.startup_catch_up(db, tenant_id=tenant, now=t0)
+        db.commit()
+        assert res1 and res1[0].executed
+
+        count_before = db.execute(
+            sa.select(sa.func.count())
+            .select_from(ppm_assessments)
+            .where(ppm_assessments.c.tenant_id == tenant, ppm_assessments.c.project_id == project_id)
+        ).scalar_one()
+        ev_before = db.execute(
+            sa.select(ppm_evidence.c.collected_at).where(
+                ppm_evidence.c.tenant_id == tenant, ppm_evidence.c.project_id == project_id
+            )
+        ).scalar_one()
+
+        res2 = scheduler.tick_interval(db, tenant_id=tenant, now=t0 + dt.timedelta(seconds=20))
+        db.commit()
+        assert res2 and res2[0].executed
+        assert res2[0].assessments_created == 0
+
+        count_after = db.execute(
+            sa.select(sa.func.count())
+            .select_from(ppm_assessments)
+            .where(ppm_assessments.c.tenant_id == tenant, ppm_assessments.c.project_id == project_id)
+        ).scalar_one()
+        ev_after = db.execute(
+            sa.select(ppm_evidence.c.collected_at).where(
+                ppm_evidence.c.tenant_id == tenant, ppm_evidence.c.project_id == project_id
+            )
+        ).scalar_one()
+        assert count_after == count_before
+        assert ev_after == ev_before
+
+
+

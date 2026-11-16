@@ -288,17 +288,27 @@ D1-fixture sign-off demo complete.
 
 ---
 
-## 10. Executed checks and real output (local)
+## 10. Review fixes (`ISS-046`, `ISS-047`)
+
+| Finding | Fix | Regression / Verification |
+|---|---|---|
+| **ISS-047**: Verifier re-executed mapped tests on unchanged revision; raw pytest timing text changed `output_hash` -> replaced `ppm_evidence` (`collected_at`/`observed_at`) -> changed `inputs_hash` at Step 5 | 1. `_find_reusable_evidence` in `src/eap/ppm/verifier.py` reuses conclusive (`passed`/`failed`) evidence for `(tenant_id, project_id, assessed_revision, test_id)` when `test_config_files` match, skipping pytest & DB updates (`reused=True, executed=False`). `inconclusive` evidence retries up to `max_inconclusive_retries=2`.<br>2. `_normalize_pytest_output` strips pytest durations (`in <DURATION>`, `(<DURATION>)`) and sandbox temp paths before hashing `output_hash`.<br>3. `_upsert_verifier_evidence` returns early without updating `collected_at` when `outcome`, `exit_status`, normalized `output_hash`, and `reason` match. | `tests/ppm/test_verifier_sandbox.py`: `test_iss047_output_normalization_strips_timing_and_sandbox_paths`, `test_iss047_verifier_reuses_conclusive_evidence_and_reruns_on_new_revision`, `test_iss047_unchanged_rescan_with_verifier_and_analysis_zero_new_assessments` (3/3 PASS); `tests/ppm/test_demo_d1_smoke.py` 5/5 consecutive runs PASS (`8.87s`, `8.28s`, `8.71s`, `8.61s`, `8.73s`). |
+| **ISS-047** (Hash stability notes): `observed_at` and `baseline` in `diff_keys` | **Why `observed_at` stays in `hash_payload`**: `observed_at` is required for TTL expiry (`now - observed_at > evidence_ttl_days`), and skipping re-execution on conclusive evidence + preserving `collected_at` on identical normalized results proves `observed_at` is stable on unchanged rescans while still invalidating if an `inconclusive` retry succeeds later.<br>**Why `baseline` appeared in `diff_keys`**: `inputs_dict["baseline"]` includes runtime-injected `previous_status` (from the prior assessment), whereas `hash_payload["baseline"]` in `src/eap/ppm/assessment_inputs.py` uses `baseline_for_hash` (canonical approved criteria without `previous_status`), so `inputs_hash` is unaffected. | Verified in `test_iss047_unchanged_rescan_with_verifier_and_analysis_zero_new_assessments` (`assessments_created == 0`, `collected_at` unchanged). |
+| **ISS-046**: Pytest rewrote tracked `artifacts/conformance/P2a/*.json` | `_write_sc03` in `tests/ppm/test_assessment_orchestrator.py` now writes to `EAP_CONFORMANCE_OUT_DIR` or system temp dir by default; writes to `artifacts/conformance/P2a` only when `EAP_UPDATE_CONFORMANCE_ARTIFACTS=1`. | `git status` clean and `sha256sum -c SHA256SUMS.txt` passes after full `pytest -q`. |
+
+---
+
+## 11. Executed checks and real output (local & CI)
 - `uv run python tools/bench/scan_baseline.py --db-url <redacted> --reset-db --scales 1000,10000,50000 --repeats 5 --md-output docs/measurements/SCAN_BASELINE.md` -> **PASS** (`953.819 s` on PG 18.6; results in `docs/measurements/SCAN_BASELINE.md`).
-- `$env:CI="true"; uv run pytest -q` (PG 18.6) -> **707 passed, 7 warnings in 261.53s (0:04:21)** (includes `tests/ppm/test_demo_d1_smoke.py`).
-- `npm --prefix web/hud run e2e` -> **8 passed (10.5s)** (Playwright Chromium against live FastAPI + PG 18.6 + Vite, incl. test #8 D1 sign-off).
+- `$env:CI="true"; uv run pytest tests/ppm/test_demo_d1_smoke.py -v` (5 consecutive runs on PG 18.6) -> **5/5 PASS** (`8.87s`, `8.28s`, `8.71s`, `8.61s`, `8.73s`).
+- `$env:CI="true"; uv run pytest -q` (PG 18.6, post-`ISS-046`/`ISS-047` fixes) -> **714 passed, 7 warnings in 314.60s (0:05:14)**; `git status` clean of `artifacts/conformance/*.json` modifications.
+- `npm --prefix web/hud run e2e` -> **8 passed (40.6s)** (Playwright Chromium against live FastAPI + PG 18.6 + Vite, incl. test #8 D1 sign-off).
 - `npm --prefix web/hud test -- --run` -> **Test Files 2 passed (2), Tests 8 passed (8)**.
-- `npm --prefix web/hud run build` -> **tsc -b && vite build -> ✓ 41 modules transformed, built in 432ms**.
+- `npm --prefix web/hud run build` -> **tsc -b && vite build -> ✓ 41 modules transformed, built in 439ms**.
 - `uv run ruff check src tests ppm-v2/reducer migrations tools/bench/scan_baseline.py` -> **All checks passed!**
-- `uv run mypy src tests ppm-v2/reducer tools/bench/scan_baseline.py` -> **Success: no issues found in 187 source files**.
+- `uv run mypy src tests ppm-v2/reducer tools/bench/scan_baseline.py` -> **Success: no issues found in 190 source files**.
 - `uv run python tools/run_sc06.py` -> **SC-06 Verification: ALL CYCLES PASSED** (Cycle 1 empty & Cycle 2 seeded through `0011_assessment_orchestrator`).
 - `uv run python tools/validate_package.py` -> **PASS 16 schemas, 15 JSON fixtures, 11 events, 46 negative cases, PPM checks passed**.
 - `uv run python ppm-v2/tools/run_negative_cases.py` -> **PASS 5 templates, 20 cases**.
-- `uv run python tools/check_translation.py` -> **SC-08 Report Summary: 38 up-to-date, 0 stale, 0 missing headers.** (verified locally and in clean `-c core.autocrlf=false` git clone).
-- **GitHub Actions CI** (`wp/D1` code commit `e24b2b5`, run `43975235944`): **PASS** (`validate-and-test` job `133677416174` in `3m50s` + `hud-e2e` job `133677416565` in `1m35s`).
+- `uv run python tools/check_translation.py` -> **SC-08 Report Summary: 38 up-to-date, 0 stale, 0 missing headers.**
 
