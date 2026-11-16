@@ -311,5 +311,5 @@ D1-fixture sign-off demo complete.
 - `uv run python tools/validate_package.py` -> **PASS 16 schemas, 15 JSON fixtures, 11 events, 46 negative cases, PPM checks passed**.
 - `uv run python ppm-v2/tools/run_negative_cases.py` -> **PASS 5 templates, 20 cases**.
 - `uv run python tools/check_translation.py` -> **SC-08 Report Summary: 38 up-to-date, 0 stale, 0 missing headers.** (verified in clean `-c core.autocrlf=false` git clone).
-- **GitHub Actions CI** (`wp/D1` code commit `6142bc1`, run `43980577281`): **PASS** (`validate-and-test` job `133695664940` in `3m51s`, `hud-e2e` job `133695664967` in `1m37s`, `mvp1-deploy-smoke` job `133695665070` in `2m4s`).
+- **GitHub Actions CI** (`wp/D1` code commit `6142bc1`, run `43980577281`): **PASS** (`validate-and-test` job `133695664601` in `4m48s`, `hud-e2e` job `133695664967` in `1m10s`, `mvp1-deploy-smoke` job `133695665070` in `1m1s`).
 
