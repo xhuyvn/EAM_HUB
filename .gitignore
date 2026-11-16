@@ -222,4 +222,7 @@ __marimo__/
 # Node / Frontend
 node_modules/
 *.tsbuildinfo
+web/hud/playwright-report/
+web/hud/test-results/
+web/hud/blob-report/
 

@@ -218,6 +218,7 @@ def encode_snapshot_cursor(
     scope: str,
     offset: int,
     stream_offsets: dict[str, int] | None = None,
+    stream_offsets_omitted: bool = False,
     grant_epoch: int = 0,
     last_event_id: int = 0,
     settings: Settings | None = None,
@@ -245,7 +246,7 @@ def encode_snapshot_cursor(
     normalized_streams = {
         str(k): int(v) for k, v in sorted((stream_offsets or {}).items()) if int(v) >= 0
     }
-    so_omitted = len(normalized_streams) > _MAX_INLINE_STREAM_OFFSETS
+    so_omitted = stream_offsets_omitted or (len(normalized_streams) > _MAX_INLINE_STREAM_OFFSETS)
     payload_obj = {
         "v": _CURSOR_FORMAT_VERSION,
         "tid": tenant_id,

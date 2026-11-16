@@ -38,7 +38,7 @@ from eap.events.relay import OutboxRelayWorker
 from eap.ppm.assessments import approve_baseline, create_assessment
 from eap.run.outbox import build_event, create_outbox_record
 
-OWNER_TOKEN = "e2e-hud-owner-token"
+OWNER_TOKEN = os.environ.get("E2E_TOKEN", "e2e-hud-owner-token")
 TENANT_ID = "tenant-e2e"
 PRINCIPAL_ID = "owner-e2e"
 
@@ -47,7 +47,27 @@ def _token_hash(raw: str) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _ensure_database_exists(db_url: str) -> None:
+    url = sa.engine.make_url(db_url)
+    target_db = url.database
+    if not target_db or target_db == "postgres":
+        return
+    maint_engine = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    try:
+        with maint_engine.connect() as conn:
+            exists = conn.execute(
+                sa.text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                {"name": target_db},
+            ).scalar()
+            if not exists:
+                quoted = maint_engine.dialect.identifier_preparer.quote(target_db)
+                conn.execute(sa.text(f"CREATE DATABASE {quoted}"))
+    finally:
+        maint_engine.dispose()
+
+
 def _seed_database(db_url: str) -> sessionmaker[Session]:
+    _ensure_database_exists(db_url)
     repo_root = Path(__file__).resolve().parents[2]
     alembic_cfg = Config(str(repo_root / "alembic.ini"))
     alembic_cfg.set_main_option("script_location", str(repo_root / "migrations"))
