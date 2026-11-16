@@ -143,6 +143,9 @@ class Settings(BaseSettings):
     # PPM Analysis step feature flag / rollback (P2a-WP7; default false)
     ppm_analysis_enabled: bool = Field(default=False, alias="PPM_ANALYSIS_ENABLED")
 
+    # PPM Assessment Orchestrator feature flag / rollback (P2a-WP6; default true for fixtures)
+    ppm_orchestrator_enabled: bool = Field(default=True, alias="PPM_ORCHESTRATOR_ENABLED")
+
     # HUD snapshot cursor signing & encryption (P3a-WP1)
     hud_cursor_secret: SecretStr | None = Field(
         default=None,

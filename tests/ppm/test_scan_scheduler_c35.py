@@ -467,11 +467,24 @@ def test_c35_same_occurrence_delivered_twice_runs_one_scan(
                 )
             ).scalar_one()
         )
-        task_count = int(
+        scan_task_count = int(
             check_db.execute(
                 sa.select(sa.func.count())
                 .select_from(tasks)
-                .where(tasks.c.tenant_id == tenant_id)
+                .where(
+                    tasks.c.tenant_id == tenant_id,
+                    tasks.c.task_type == "ppm.inventory.scan",
+                )
+            ).scalar_one()
+        )
+        assess_task_count = int(
+            check_db.execute(
+                sa.select(sa.func.count())
+                .select_from(tasks)
+                .where(
+                    tasks.c.tenant_id == tenant_id,
+                    tasks.c.task_type == "ppm.project.assess",
+                )
             ).scalar_one()
         )
         occ_count = int(
@@ -485,7 +498,8 @@ def test_c35_same_occurrence_delivered_twice_runs_one_scan(
             ).scalar_one()
         )
         assert snap_count == 1
-        assert task_count == 1
+        assert scan_task_count == 1
+        assert assess_task_count == 1
         assert occ_count == 1
 
 

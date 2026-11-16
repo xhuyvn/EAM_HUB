@@ -162,10 +162,12 @@ def create_assessment(
     project_snapshot_id: str | None = None,
     assessed_revision: str | None = None,
     previous_assessment_id: str | None = None,
+    baseline_revision: int | None = None,
     dependency_refs: list[dict[str, Any]] | None = None,
     context: dict[str, Any] | None = None,
     fixture_id: str | None = None,
     extra_claims: list[dict[str, Any]] | None = None,
+    skip_inputs_hash_dedup: bool = False,
 ) -> AssessmentRecord:
     """Create and persist an immutable assessment, advancing the current pointer via CAS.
 
@@ -187,14 +189,15 @@ def create_assessment(
         project_snapshot_id=project_snapshot_id,
         assessed_revision=assessed_revision,
         previous_assessment_id=previous_assessment_id,
+        baseline_revision=baseline_revision,
         dependency_refs=dependency_refs,
         context=context,
         fixture_id=fixture_id,
         extra_claims=extra_claims,
     )
 
-    # 2. Deduplicate unchanged inputs against current assessment
-    if basis_seq is None and trigger != "evidence_ttl_expired":
+    # 2. Deduplicate unchanged inputs against current assessment (applies only to trigger 'snapshot')
+    if not skip_inputs_hash_dedup and basis_seq is None and trigger == "snapshot":
         curr_ptr = conn.execute(
             sa.select(project_current_assessment.c.assessment_id).where(
                 project_current_assessment.c.tenant_id == tenant_id,
@@ -419,6 +422,7 @@ def approve_baseline(
             .returning(ppm_baselines)
         ).mappings().first()
         if inserted is not None:
+            _emit_baseline_approved_outbox(conn, dict(inserted))
             return dict(inserted)
         existing = conn.execute(
             sa.select(ppm_baselines)
@@ -455,7 +459,34 @@ def approve_baseline(
         )
         .returning(ppm_baselines)
     ).mappings().one()
+    _emit_baseline_approved_outbox(conn, dict(updated))
     return dict(updated)
+
+
+def _emit_baseline_approved_outbox(conn: sa.Connection | Session, baseline_row: dict[str, Any]) -> None:
+    """Emit ``ppm.baseline.approved`` to ``outbox`` in the same transaction."""
+    now = dt.datetime.now(dt.UTC)
+    approved_at = baseline_row.get("approved_at") or now
+    approved_iso = approved_at.isoformat() if hasattr(approved_at, "isoformat") else str(approved_at)
+    tenant_id = str(baseline_row["tenant_id"])
+    project_id = str(baseline_row["project_id"])
+    conn.execute(
+        outbox.insert().values(
+            tenant_id=tenant_id,
+            stream_id=f"baseline:{project_id}",
+            event_id=f"evt-{uuid.uuid4().hex[:16]}",
+            event_type="ppm.baseline.approved",
+            payload={
+                "baseline_id": str(baseline_row["id"]),
+                "tenant_id": tenant_id,
+                "project_id": project_id,
+                "baseline_revision": int(baseline_row["baseline_revision"]),
+                "approved_by": baseline_row.get("approved_by"),
+                "approved_at": approved_iso,
+            },
+            created_at=now,
+        )
+    )
 
 
 def load_fixture_evidence(

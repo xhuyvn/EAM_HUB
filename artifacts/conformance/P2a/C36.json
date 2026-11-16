@@ -1,0 +1,24 @@
+{
+  "case": "C36",
+  "status": "PASS",
+  "tenant_id": "tenant-c36-14a9d404",
+  "project_id": "proj-c36",
+  "failed_assessment": {
+    "assessment_id": "asmt-c83fd3761fc6445a",
+    "basis_seq": 2,
+    "analysis_status": "model_failed"
+  },
+  "recovered_assessment": {
+    "assessment_id": "asmt-10727f9138634469",
+    "basis_seq": 3,
+    "analysis_status": "complete"
+  },
+  "pointer_before": {
+    "assessment_id": "asmt-c83fd3761fc6445a",
+    "basis_seq": 2
+  },
+  "pointer_after": {
+    "assessment_id": "asmt-10727f9138634469",
+    "basis_seq": 3
+  }
+}

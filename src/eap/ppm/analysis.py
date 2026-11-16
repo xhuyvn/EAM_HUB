@@ -204,6 +204,7 @@ def load_locked_analysis_inputs(
     project_id: str,
     *,
     assessed_revision: str | None = None,
+    baseline_revision: int | None = None,
 ) -> LockedAnalysisInputs:
     """Load locked notes, update summaries, and baseline criterion IDs from DB deterministically."""
     note_rows = conn.execute(
@@ -257,16 +258,16 @@ def load_locked_analysis_inputs(
             )
         )
 
-    bl_row = conn.execute(
-        sa.select(ppm_baselines.c.criteria)
-        .where(
-            ppm_baselines.c.tenant_id == tenant_id,
-            ppm_baselines.c.project_id == project_id,
-            ppm_baselines.c.status == "approved",
-        )
-        .order_by(ppm_baselines.c.baseline_revision.desc())
-        .limit(1)
-    ).mappings().first()
+    bl_stmt = sa.select(ppm_baselines.c.criteria).where(
+        ppm_baselines.c.tenant_id == tenant_id,
+        ppm_baselines.c.project_id == project_id,
+        ppm_baselines.c.status == "approved",
+    )
+    if baseline_revision is not None:
+        bl_stmt = bl_stmt.where(ppm_baselines.c.baseline_revision == baseline_revision)
+    else:
+        bl_stmt = bl_stmt.order_by(ppm_baselines.c.baseline_revision.desc())
+    bl_row = conn.execute(bl_stmt.limit(1)).mappings().first()
 
     criterion_ids: tuple[str, ...] = ()
     if bl_row is not None and isinstance(bl_row["criteria"], list):

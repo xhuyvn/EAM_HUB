@@ -1,0 +1,16 @@
+{
+  "case": "C32",
+  "status": "PASS",
+  "tenant_id": "tenant-c32-507c30e4",
+  "pointer_before": {
+    "proj-app-a": "asmt-731881a5a9e54a18",
+    "proj-app-b": "asmt-81f4472e6bcb46da",
+    "proj-shared": "asmt-1513ca823d674428"
+  },
+  "pointer_after": {
+    "proj-app-a": "asmt-39de1bdfc46a4a76",
+    "proj-app-b": "asmt-81f4472e6bcb46da",
+    "proj-shared": "asmt-1513ca823d674428"
+  },
+  "rollup_total_weight": 4.0
+}

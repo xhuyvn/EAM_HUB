@@ -8,7 +8,7 @@ Enforces:
 - Single active scan per source enforced by PostgreSQL lease + monotonically increasing
   ``fencing_token`` across ``ppm_scan_schedules`` and ``leases``; stale tokens cannot
   commit snapshots in ``PpmCollector.scan_source``.
-- Post-scan assessment request via ``create_assessment`` (verifier is NOT invoked here).
+- Post-scan assessment request routed through ``AssessmentOrchestrator`` (P2a-WP6).
 - Policy defaults: interval 300s (minimum override >= 60s in production/API), debounce 5s,
   feature flag ``PPM_SCHEDULER_ENABLED`` (default false; manual scans still work).
 - Per-source observability persisted and readable via API/service for the HUD:
@@ -44,7 +44,7 @@ from eap.db import (
     sources,
 )
 from eap.observability.logging import log_context, redact_text
-from eap.ppm.assessments import create_assessment
+from eap.ppm.orchestrator import AssessmentOrchestrator
 from eap.run.service import RunService, StaleFencingTokenError
 from eap.task.service import TaskService
 
@@ -856,24 +856,31 @@ class PpmScanScheduler:
                             error=redacted_err,
                         )
 
-                    # Scope #3: request assessment directly per active non-quarantined project scope
+                    # Route snapshot -> assessment transition through AssessmentOrchestrator (P2a-WP6)
                     created_count = 0
                     dedup_count = 0
-                    for p_id in sorted(scan_res.scopes.keys()):
-                        if p_id in scan_res.quarantined_scopes:
-                            continue
-                        psnap_id = scan_res.project_snapshot_ids.get(p_id)
-                        asmt = create_assessment(
-                            db,
-                            tenant_id,
-                            p_id,
-                            trigger="snapshot",
-                            project_snapshot_id=psnap_id,
-                        )
-                        if asmt.deduplicated:
-                            dedup_count += 1
-                        else:
-                            created_count += 1
+                    cfg = get_settings()
+                    if cfg.ppm_orchestrator_enabled:
+                        active_psnaps = [
+                            str(scan_res.project_snapshot_ids[p_id])
+                            for p_id in sorted(scan_res.scopes.keys())
+                            if p_id not in scan_res.quarantined_scopes
+                            and scan_res.project_snapshot_ids.get(p_id) is not None
+                        ]
+                        if active_psnaps:
+                            orchestrator = AssessmentOrchestrator(settings=cfg)
+                            orch_results = orchestrator.consume_outbox_events(
+                                db,
+                                tenant_id=tenant_id,
+                                event_types=("ppm.snapshot.captured",),
+                                project_snapshot_ids=active_psnaps,
+                                execute=True,
+                            )
+                            for res in orch_results:
+                                if res.deduplicated:
+                                    dedup_count += 1
+                                elif res.status == "succeeded":
+                                    created_count += 1
 
                     next_due = finish_now + dt.timedelta(seconds=interval_seconds)
                     self._release_lease_if_owner(
