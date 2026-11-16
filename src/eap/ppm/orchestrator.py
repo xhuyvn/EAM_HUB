@@ -561,43 +561,57 @@ class AssessmentOrchestrator:
                         )
                     ).mappings().first()
                     if curr_asmt is not None and str(curr_asmt["inputs_hash"]) == candidate_hash:
-                        now = _utc_now()
-                        curr_id = str(curr_asmt["id"])
-                        db.execute(
-                            ppm_assessment_tasks.update()
-                            .where(
-                                ppm_assessment_tasks.c.tenant_id == tenant_id,
-                                ppm_assessment_tasks.c.id == task.id,
-                            )
-                            .values(
-                                status="bypassed",
-                                assessment_id=curr_id,
-                                analysis_status=str(curr_asmt["analysis_status"]),
-                                updated_at=now,
-                                completed_at=now,
-                            )
-                        )
-                        self._ensure_run_terminal(db, tenant_id, task.run_id, "succeeded", "unchanged_scope_bypassed", curr_id)
-                        logger.info(
-                            "orchestrator_scope_bypassed project_id=%s trigger_ref=%s assessment_id=%s",
-                            task.project_id,
-                            task.trigger_ref,
-                            curr_id,
-                        )
-                        return OrchestratedAssessmentResult(
-                            orchestrator_task_id=task.id,
+                        return self._bypass_unchanged_task(
+                            db,
                             tenant_id=tenant_id,
-                            project_id=task.project_id,
-                            trigger=task.trigger,
-                            trigger_ref=task.trigger_ref,
-                            basis_seq=task.basis_seq,
-                            task_id=task.task_id,
-                            run_id=task.run_id,
-                            status="bypassed",
-                            deduplicated=True,
-                            assessment_id=curr_id,
-                            analysis_status=str(curr_asmt["analysis_status"]),
+                            task=task,
+                            curr_asmt=curr_asmt,
                         )
+                    if (
+                        curr_asmt is not None
+                        and cfg.ppm_analysis_enabled
+                        and curr_asmt["assessed_revision"] == task.assessed_revision
+                        and curr_asmt["baseline_revision"] == task.baseline_revision
+                    ):
+                        locked_pre = load_locked_analysis_inputs(
+                            db,
+                            tenant_id,
+                            task.project_id,
+                            assessed_revision=task.assessed_revision,
+                            baseline_revision=task.baseline_revision,
+                        )
+                        pre_binding = self._resolve_binding(db, tenant_id)
+                        pre_analysis = run_analysis(
+                            locked_pre,
+                            pre_binding,
+                            provider=self.model_provider,
+                            registry=self.profile_registry,
+                            telemetry_exporter=self.telemetry_exporter,
+                            settings=cfg,
+                        )
+                        _, pre_final_hash, _ = build_assessment_inputs(
+                            db,
+                            tenant_id,
+                            task.project_id,
+                            basis_seq=task.basis_seq,
+                            now=task.locked_now,
+                            evidence_ttl_days=task.evidence_ttl_days,
+                            project_snapshot_id=task.project_snapshot_id,
+                            assessed_revision=task.assessed_revision,
+                            previous_assessment_id=task.previous_assessment_id,
+                            baseline_revision=task.baseline_revision,
+                            dependency_refs=list(row["dependency_refs"] or []),
+                            context=row["context"],
+                            fixture_id=row["fixture_id"],
+                            extra_claims=list(pre_analysis.reducer_claims),
+                        )
+                        if str(curr_asmt["inputs_hash"]) == pre_final_hash:
+                            return self._bypass_unchanged_task(
+                                db,
+                                tenant_id=tenant_id,
+                                task=task,
+                                curr_asmt=curr_asmt,
+                            )
 
             # Optional test hook for deterministic parallel ordering (C34 / C39)
             if before_reduce_hook is not None:
@@ -639,7 +653,47 @@ class AssessmentOrchestrator:
                 analysis_status = a_res.analysis_status
                 extra_claims = list(a_res.reducer_claims)
 
-            # 3. Reducer -> Store -> CAS pointer (inside savepoint so reducer error leaves pointer untouched)
+            # 3. Post-verifier/analysis semantic dedup for trigger='snapshot' (e.g. when extra_claims or verifier ran)
+            if task.trigger == "snapshot" and task.assessed_revision is not None and (verifier_executed or extra_claims):
+                _, final_hash, _ = build_assessment_inputs(
+                    db,
+                    tenant_id,
+                    task.project_id,
+                    basis_seq=task.basis_seq,
+                    now=task.locked_now,
+                    evidence_ttl_days=task.evidence_ttl_days,
+                    project_snapshot_id=task.project_snapshot_id,
+                    assessed_revision=task.assessed_revision,
+                    previous_assessment_id=task.previous_assessment_id,
+                    baseline_revision=task.baseline_revision,
+                    dependency_refs=list(row["dependency_refs"] or []),
+                    context=row["context"],
+                    fixture_id=row["fixture_id"],
+                    extra_claims=extra_claims,
+                )
+                curr_ptr2 = db.execute(
+                    sa.select(project_current_assessment.c.assessment_id).where(
+                        project_current_assessment.c.tenant_id == tenant_id,
+                        project_current_assessment.c.project_id == task.project_id,
+                    )
+                ).mappings().first()
+                if curr_ptr2 is not None:
+                    curr_asmt2 = db.execute(
+                        sa.select(ppm_assessments).where(
+                            ppm_assessments.c.tenant_id == tenant_id,
+                            ppm_assessments.c.id == str(curr_ptr2["assessment_id"]),
+                        )
+                    ).mappings().first()
+                    if curr_asmt2 is not None and str(curr_asmt2["inputs_hash"]) == final_hash:
+                        return self._bypass_unchanged_task(
+                            db,
+                            tenant_id=tenant_id,
+                            task=task,
+                            curr_asmt=curr_asmt2,
+                            verifier_executed=verifier_executed,
+                        )
+
+            # 4. Reducer -> Store -> CAS pointer (inside savepoint so reducer error leaves pointer untouched)
             effective_now = task.locked_now
             if verifier_executed and task.trigger != "evidence_ttl_expired":
                 post_verifier_now = _utc_now()
@@ -778,6 +832,56 @@ class AssessmentOrchestrator:
             )
             cur = "running"
         return cur
+
+    def _bypass_unchanged_task(
+        self,
+        db: Session,
+        *,
+        tenant_id: str,
+        task: AdmittedAssessmentTask,
+        curr_asmt: Mapping[Any, Any],
+        verifier_executed: bool = False,
+    ) -> OrchestratedAssessmentResult:
+        """Mark an unchanged snapshot task as bypassed without creating a new assessment."""
+        now = _utc_now()
+        curr_id = str(curr_asmt["id"])
+        db.execute(
+            ppm_assessment_tasks.update()
+            .where(
+                ppm_assessment_tasks.c.tenant_id == tenant_id,
+                ppm_assessment_tasks.c.id == task.id,
+            )
+            .values(
+                status="bypassed",
+                assessment_id=curr_id,
+                analysis_status=str(curr_asmt["analysis_status"]),
+                verifier_executed=verifier_executed,
+                updated_at=now,
+                completed_at=now,
+            )
+        )
+        self._ensure_run_terminal(db, tenant_id, task.run_id, "succeeded", "unchanged_scope_bypassed", curr_id)
+        logger.info(
+            "orchestrator_scope_bypassed project_id=%s trigger_ref=%s assessment_id=%s",
+            task.project_id,
+            task.trigger_ref,
+            curr_id,
+        )
+        return OrchestratedAssessmentResult(
+            orchestrator_task_id=task.id,
+            tenant_id=tenant_id,
+            project_id=task.project_id,
+            trigger=task.trigger,
+            trigger_ref=task.trigger_ref,
+            basis_seq=task.basis_seq,
+            task_id=task.task_id,
+            run_id=task.run_id,
+            status="bypassed",
+            deduplicated=True,
+            assessment_id=curr_id,
+            analysis_status=str(curr_asmt["analysis_status"]),
+            verifier_executed=verifier_executed,
+        )
 
     @classmethod
     def _ensure_run_terminal(

@@ -1178,6 +1178,11 @@ def _upsert_verifier_evidence(
     if unchanged:
         return
 
+    unchanged_result = (
+        str(existing["outcome"]) == res.outcome
+        and str(existing["output_hash"] or "") == out_hash
+        and existing["reason"] == res.reason
+    )
     conn.execute(
         ppm_evidence.update()
         .where(
@@ -1192,7 +1197,7 @@ def _upsert_verifier_evidence(
             test_id=res.test_id,
             covered_test_ids=[res.test_id],
             outcome=res.outcome,
-            collected_at=now,
+            collected_at=existing["collected_at"] if unchanged_result else now,
             output_hash=out_hash,
             artifact_path=None,
             simulated=False,
