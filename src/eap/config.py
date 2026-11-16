@@ -140,6 +140,9 @@ class Settings(BaseSettings):
     ppm_scan_debounce_seconds: int = Field(default=5, alias="PPM_SCAN_DEBOUNCE_SECONDS")
     ppm_scan_lease_ttl_seconds: int = Field(default=60, alias="PPM_SCAN_LEASE_TTL_SECONDS")
 
+    # PPM Analysis step feature flag / rollback (P2a-WP7; default false)
+    ppm_analysis_enabled: bool = Field(default=False, alias="PPM_ANALYSIS_ENABLED")
+
     # HUD snapshot cursor signing & encryption (P3a-WP1)
     hud_cursor_secret: SecretStr | None = Field(
         default=None,

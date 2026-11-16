@@ -27,6 +27,13 @@ from eap.db import (
     ppm_assessments,
     project_current_assessment,
 )
+from eap.model_gateway import FakeModelProvider, FakeSuccess
+from eap.ppm.analysis import (
+    AnalysisNoteInput,
+    AnalysisUpdateSummaryInput,
+    LockedAnalysisInputs,
+    run_analysis,
+)
 from eap.ppm.assessments import (
     BaselineRevisionConflict,
     approve_baseline,
@@ -367,6 +374,72 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_analyze(args: argparse.Namespace) -> int:
+    settings = get_settings()
+    if settings.eap_collector_allow_real_roots:
+        raise RuntimeError("Fixture CLI 'analyze' requires EAP_COLLECTOR_ALLOW_REAL_ROOTS=false")
+
+    fixture_data = _load_json_or_yaml(Path(args.fixture))
+    if args.binding:
+        binding_data = _load_json_or_yaml(Path(args.binding))
+    else:
+        default_binding_path = Path(__file__).resolve().parents[1] / "agents" / "fixtures" / "mock_binding.json"
+        binding_data = _load_json_or_yaml(default_binding_path)
+
+    notes = tuple(
+        AnalysisNoteInput(
+            note_id=str(n.get("note_id") or f"note-{idx}"),
+            artifact_path=str(n["artifact_path"]),
+            content_hash=str(n.get("content_hash") or f"hash-{idx}"),
+            kind=str(n.get("kind") or "observation"),
+            body=str(n["body"]),
+        )
+        for idx, n in enumerate(fixture_data.get("notes") or [])
+    )
+    updates = tuple(
+        AnalysisUpdateSummaryInput(
+            update_id=str(u.get("update_id") or f"upd-{idx}"),
+            artifact_path=str(u["artifact_path"]),
+            summary=str(u["summary"]),
+            recorded_at=u.get("recorded_at"),
+        )
+        for idx, u in enumerate(fixture_data.get("update_summaries") or [])
+    )
+    inputs = LockedAnalysisInputs(
+        project_id=str(fixture_data.get("project_id") or "proj-fixture"),
+        assessed_revision=fixture_data.get("assessed_revision"),
+        notes=notes,
+        update_summaries=updates,
+        criterion_ids=tuple(str(c) for c in (fixture_data.get("criterion_ids") or [])),
+    )
+
+    if args.fake_response:
+        fake_payload = _load_json_or_yaml(Path(args.fake_response))
+        provider = FakeModelProvider([FakeSuccess(fake_payload)])
+    else:
+        provider = FakeModelProvider()
+
+    result = run_analysis(inputs, binding_data, provider=provider, settings=settings)
+    print(
+        json.dumps(
+            {
+                "analysis_status": result.analysis_status,
+                "inputs_hash": result.inputs_hash,
+                "attempt_count": result.attempt_count,
+                "dropped_fields_count": result.dropped_fields_count,
+                "profile_ref": result.profile_ref,
+                "reason": result.reason,
+                "error_code": result.error_code,
+                "analysis_claims": result.analysis_claims,
+                "reducer_claims": result.reducer_claims,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m eap.ppm.cli", description="EAP PPM manual CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -417,6 +490,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_verify.add_argument("--baseline-revision", type=int, default=None)
     p_verify.add_argument("--timeout", type=float, default=15.0)
     p_verify.set_defaults(func=_cmd_verify)
+
+    p_analyze = sub.add_parser("analyze", help="Run PPM analysis step on a fixture using FakeModelProvider")
+    p_analyze.add_argument("--fixture", required=True, help="Path to JSON/YAML analysis input fixture")
+    p_analyze.add_argument("--binding", default=None, help="Path to binding JSON (defaults to mock_binding.json)")
+    p_analyze.add_argument("--fake-response", default=None, help="Optional JSON/YAML scripted fake model response")
+    p_analyze.set_defaults(func=_cmd_analyze)
 
     return parser
 

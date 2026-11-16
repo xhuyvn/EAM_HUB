@@ -165,6 +165,7 @@ def create_assessment(
     dependency_refs: list[dict[str, Any]] | None = None,
     context: dict[str, Any] | None = None,
     fixture_id: str | None = None,
+    extra_claims: list[dict[str, Any]] | None = None,
 ) -> AssessmentRecord:
     """Create and persist an immutable assessment, advancing the current pointer via CAS.
 
@@ -189,6 +190,7 @@ def create_assessment(
         dependency_refs=dependency_refs,
         context=context,
         fixture_id=fixture_id,
+        extra_claims=extra_claims,
     )
 
     # 2. Deduplicate unchanged inputs against current assessment
