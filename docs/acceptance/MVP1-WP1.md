@@ -42,7 +42,7 @@
 | Lint & Typecheck | `uv run ruff check src tests ppm-v2/reducer migrations`; `uv run mypy src tests ppm-v2/reducer` | **PASS** | `All checks passed!`; `Success: no issues found in 187 source files` |
 | Package / Negative / Reducer / SC-08 | `validate_package.py`, `run_negative_cases.py`, `check_fixtures.py`, `run_reducer_fixtures.py`, `check_translation.py` (in fresh `git clone`) | **PASS** | 16 schemas / 15 fixtures / 46 negatives PASS; 20 negative cases PASS; 23/23 reducer fixtures PASS; SC-08 `38 up-to-date, 0 stale` |
 | HUD Build & Unit Tests | `npm --prefix web/hud run build && npm --prefix web/hud test` | **PASS** | Vite build `443ms`; Vitest `8 passed (8)` |
-| CI Linux `mvp1-deploy-smoke` | `.github/workflows/ci.yml` (`mvp1-deploy-smoke`) | `pending_push` | Job added to CI; run ID will be recorded after pushing `wp/MVP1-WP1` |
+| CI Linux `mvp1-deploy-smoke` | `.github/workflows/ci.yml` (`mvp1-deploy-smoke`) | **PASS** | GitHub Actions run `43974621171` (`2e64884`): `mvp1-deploy-smoke` PASS (1m6s), `validate-and-test` PASS (4m24s), `hud-e2e` PASS (1m2s) |
 
 ## 4. Security & Recovery Checks Executed
 
