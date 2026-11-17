@@ -36,7 +36,10 @@ try {
     function New-RandomHex {
         param([int]$Bytes)
         $buf = New-Object byte[] $Bytes
-        [System.Security.Cryptography.RandomNumberGenerator]::Fill($buf)
+        # RandomNumberGenerator.Fill() exists only on .NET Core 2.1+ (PowerShell 7);
+        # Create().GetBytes() also works on Windows PowerShell 5.1 (.NET Framework).
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        try { $rng.GetBytes($buf) } finally { $rng.Dispose() }
         return ([System.BitConverter]::ToString($buf) -replace '-', '').ToLowerInvariant()
     }
 
